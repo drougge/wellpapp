@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <libpq-fe.h>
 
 #include <sys/types.h>
@@ -15,25 +16,35 @@ void assert_fail(const char *ass, const char *file, const char *func, int line) 
 	exit(1);
 }
 
-typedef struct md5 {
-	uint8_t m[16];
+typedef union md5 {
+	uint8_t      m[16];
+	rbtree_key_t key;
 } md5_t;
 
+#define POST_TAGLIST_PER_NODE 14
 struct tag;
-#define MAX_TAGS_PER_POST 64
+typedef struct post_taglist {
+	struct post_taglist *succ;
+	struct post_taglist *pred;
+	struct tag          *tags[POST_TAGLIST_PER_NODE];
+} post_taglist_t;
 
 typedef struct post {
-	char       *source;
-	time_t     created;
-	md5_t      md5;
-	uint16_t   uid;
-	int16_t    score;
-	uint16_t   width;
-	uint16_t   height;
-	struct tag *tags[MAX_TAGS_PER_POST];
+	post_taglist_t *head;
+	post_taglist_t *tail;
+	post_taglist_t *tailpred;
+	char           *source;
+	time_t         created;
+	md5_t          md5;
+	uint16_t       uid;
+	int16_t        score;
+	uint16_t       width;
+	uint16_t       height;
+	uint16_t       tags;
+	uint16_t       holes;
 } post_t;
 
-#define TAG_POSTLIST_PER_NODE 62
+#define TAG_POSTLIST_PER_NODE 30
 #define MAX_TAGS  409600
 #define MAX_POSTS 204800
 
@@ -47,8 +58,9 @@ typedef struct tag {
 	tag_postlist_t *head;
 	tag_postlist_t *tail;
 	tag_postlist_t *tailpred;
-	uint32_t       holes;
 	char           *name;
+	uint32_t       posts;
+	uint16_t       holes;
 } tag_t;
 
 typedef uint32_t tag_id_t;
@@ -58,12 +70,36 @@ rbtree_head_t *posttree;
 
 static void post_tag_add(post_t *post, tag_t *tag) {
 	tag_postlist_t *pl;
+	post_taglist_t *tl;
 	int i;
 
 	assert(post);
 	assert(tag);
 	pl = tag->head;
 	assert(pl);
+	tl = post->head;
+	assert(tl);
+	tag->posts++;
+	post->tags++;
+	while (tl->succ) {
+		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (!tl->tags[i]) {
+				tl->tags[i] = tag;
+				post->holes--;
+				goto pt_ok;
+			}
+		}
+		tl = tl->succ;
+	}
+	tl = mm_alloc(sizeof(*tl));
+	tl->tags[0]      = tag;
+	post->holes     += POST_TAGLIST_PER_NODE - 1;
+	tl->succ         = post->head;
+	tl->pred         = (post_taglist_t *)&post->head;
+	post->head->pred = tl;
+	post->head       = tl;
+
+pt_ok:
 	while (pl->succ) {
 		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 			if (!pl->posts[i]) {
@@ -78,7 +114,7 @@ static void post_tag_add(post_t *post, tag_t *tag) {
 	pl->posts[0]    = post;
 	tag->holes     += TAG_POSTLIST_PER_NODE - 1;
 	pl->succ        = tag->head;
-	pl->pred        = (tag_postlist_t *)tag->head;
+	pl->pred        = (tag_postlist_t *)&tag->head;
 	tag->head->pred = pl;
 	tag->head       = pl;
 }
@@ -96,6 +132,7 @@ static void post_tag_remove(post_t *post, tag_t *tag) {
 		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 			if (pl->posts[i] == post) {
 				pl->posts[i] = NULL;
+				tag->posts--;
 				tag->holes++;
 				/* @@ if holes > cutoff ... */
 				return;
@@ -150,12 +187,12 @@ static const char *md5_md52str(md5_t md5) {
 
 static rbtree_key_t name2hash(const char *name) {
 	MD5_CTX ctx;
-	unsigned char m[16];
+	md5_t   md5;
 
 	MD5Init(&ctx);
 	MD5Update(&ctx, name, strlen(name));
-	MD5Final(m, &ctx);
-	return *(rbtree_key_t*)m;
+	MD5Final(md5.m, &ctx);
+	return md5.key;
 }
 
 static tag_t *find_tag(const char *name) {
@@ -236,12 +273,15 @@ static int populate_from_db(PGconn *conn) {
 		char   *source;
 
 		post = mm_alloc(sizeof(*post));
-		post->created = time_str2unix(PQgetvalue(res, i, 1));
-		post->uid     = atol(PQgetvalue(res, i, 2));
-		post->score   = atol(PQgetvalue(res, i, 3));
-		post->md5     = md5_str2md5(PQgetvalue(res, i, 5));
-		post->width   = atol(PQgetvalue(res, i, 6));
-		post->height  = atol(PQgetvalue(res, i, 7));
+		post->head     = (post_taglist_t *)&post->tail;
+		post->tail     = NULL;
+		post->tailpred = (post_taglist_t *)post;
+		post->created  = time_str2unix(PQgetvalue(res, i, 1));
+		post->uid      = atol(PQgetvalue(res, i, 2));
+		post->score    = atol(PQgetvalue(res, i, 3));
+		post->md5      = md5_str2md5(PQgetvalue(res, i, 5));
+		post->width    = atol(PQgetvalue(res, i, 6));
+		post->height   = atol(PQgetvalue(res, i, 7));
 		source = PQgetvalue(res, i, 4);
 		if (source && *source) {
 			post->source = mm_strdup(source);
@@ -273,10 +313,10 @@ static int populate_from_db(PGconn *conn) {
 		tag = tags[tag_id];
 		if (!tag) {
 			tag = mm_alloc(sizeof(*tag));
-			tag->head = (tag_postlist_t *)&tag->tail;
-			tag->tail = NULL;
+			tag->head     = (tag_postlist_t *)&tag->tail;
+			tag->tail     = NULL;
 			tag->tailpred = (tag_postlist_t *)tag;
-			tags[tag_id] = tag;
+			tags[tag_id]  = tag;
 		}
 		post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
 	}
@@ -317,7 +357,7 @@ int main(void) {
 	int r = 0;
 
 	printf("initing mm..\n");
-	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, 1)) {
+	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, !access("/tmp/db.datastore/0.db", F_OK))) {
 		printf("populating..\n");
 		conn = PQconnectdb("user=danbooru");
 		// conn = PQconnectdb("user=danbooru password=db host=db");
@@ -328,6 +368,7 @@ int main(void) {
 	printf("testing..\n");
 	test();
 	mm_print();
+	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 err:
 	return r;
 }

@@ -40,7 +40,7 @@ static int mm_open_segment(int nr, int flags) {
 
 	snprintf(fn, sizeof(fn), "%s/%d.db", mm_basedir, nr);
 	fd = open(fn, flags, 0600);
-	assert(fd > 0);
+	assert(fd >= 0);
 	return fd;
 }
 
