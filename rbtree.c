@@ -1,8 +1,5 @@
 /* Oförändrad från den i efs förutom det här uppe. */
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "db.h"
 
 #define efs_rbtree_count(bs, a)        rbtree_count(a)

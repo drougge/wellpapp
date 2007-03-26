@@ -1,5 +1,10 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
@@ -54,3 +59,5 @@ void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 char *mm_strdup(const char *str);
 void mm_print(void);
+
+void client_handle(int s);

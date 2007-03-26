@@ -1,12 +1,8 @@
 #include "db.h"
 
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <string.h>
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */

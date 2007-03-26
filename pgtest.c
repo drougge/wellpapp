@@ -1,15 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <libpq-fe.h>
-
-#include <sys/types.h>
-#include <md5.h>
-
 #include "db.h"
+
+#include <time.h>
+#include <libpq-fe.h>
+#include <md5.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 void assert_fail(const char *ass, const char *file, const char *func, int line) {
 	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n", ass, func, file, line);
@@ -352,6 +347,39 @@ err:
 	return r;
 }
 
+static void serve(void) {
+	int s, c, r, one;
+	struct sockaddr_in addr;
+
+	s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	assert(s >= 0);
+	one = 1;
+	r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+	assert(!r);
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_len    = sizeof(addr);
+	addr.sin_family = AF_INET;
+	addr.sin_port   = htons(2225);
+	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
+	assert(!r);
+	r = listen(s, 5);
+	assert(!r);
+	while (1) {
+		c = accept(s, NULL, NULL);
+		if (c < 0) {
+			perror("accept");
+		} else {
+			pid_t pid;
+			pid = fork();
+			if (pid == -1) {
+				perror("fork");
+			}
+			if (!pid) client_handle(c);
+			close(c);
+		}
+	}
+}
+
 int main(void) {
 	PGconn *conn;
 	int r = 0;
@@ -369,6 +397,7 @@ int main(void) {
 	test();
 	mm_print();
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
+	serve();
 err:
 	return r;
 }
