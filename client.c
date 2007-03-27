@@ -111,6 +111,14 @@ static int get_line(char *buf, int size) {
 	return -1; /* NOTREACHED */
 }
 
+static int sort_search(const void *_t1, const void *_t2) {
+	const tag_t *t1 = *(const tag_t **)_t1;
+	const tag_t *t2 = *(const tag_t **)_t2;
+	if (t1->of_posts < t2->of_posts) return -1;
+	if (t1->of_posts > t2->of_posts) return 1;
+	return 0;
+}
+
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
 	while(*cmd) {
@@ -141,6 +149,9 @@ static int build_search(char *cmd, search_t *search) {
 		}
 		cmd += len;
 	}
+	if (!search->of_tags) return error("E no tags specified");
+	/* Searching is faster if ordered by post-count */
+	qsort(search->tags, search->of_tags, sizeof(tag_t *), sort_search);
 	return 0;
 }
 
@@ -249,6 +260,10 @@ void client_handle(int _s) {
 			do_search(&search);
 		} else if (*buf == 'N') {
 			c_printf("RO\n");
+		} else if (*buf == 'Q') {
+			c_printf("Q bye bye\n");
+			close(s);
+			exit(0);
 		} else {
 			close_error(E_COMMAND);
 		}

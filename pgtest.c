@@ -270,9 +270,9 @@ static void serve(void) {
 			perror("accept");
 		} else {
 			pid_t pid;
-			pid = fork();
+			pid = rfork(RFFDG | RFPROC | RFNOWAIT);
 			if (pid == -1) {
-				perror("fork");
+				perror("rfork");
 			}
 			if (!pid) client_handle(c);
 			close(c);
