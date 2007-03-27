@@ -47,6 +47,59 @@ typedef struct rbtree_head {
 	int                        allocation_value;
 } rbtree_head_t;
 
+typedef union md5 {
+	uint8_t      m[16];
+	rbtree_key_t key;
+} md5_t;
+
+#define POST_TAGLIST_PER_NODE 14
+struct tag;
+typedef struct post_taglist {
+	struct post_taglist *succ;
+	struct post_taglist *pred;
+	struct tag          *tags[POST_TAGLIST_PER_NODE];
+} post_taglist_t;
+
+typedef struct post {
+	post_taglist_t *head;
+	post_taglist_t *tail;
+	post_taglist_t *tailpred;
+	char           *source;
+	time_t         created;
+	md5_t          md5;
+	uint16_t       uid;
+	int16_t        score;
+	uint16_t       width;
+	uint16_t       height;
+	uint16_t       tags;
+	uint16_t       holes;
+} post_t;
+
+#define TAG_POSTLIST_PER_NODE 30
+#define MAX_TAGS  409600
+#define MAX_POSTS 204800
+
+typedef struct tag_postlist {
+	struct tag_postlist *succ;
+	struct tag_postlist *pred;
+	post_t *posts[TAG_POSTLIST_PER_NODE];
+} tag_postlist_t;
+
+typedef struct tag {
+	tag_postlist_t *head;
+	tag_postlist_t *tail;
+	tag_postlist_t *tailpred;
+	char           *name;
+	uint32_t       posts;
+	uint16_t       holes;
+} tag_t;
+
+typedef uint32_t tag_id_t;
+
+tag_t *find_tag(const char *name);
+int post_has_tag(post_t *post, tag_t *tag);
+const char *md5_md52str(md5_t md5);
+
 int rbtree_insert(rbtree_head_t *head, rbtree_value_t value, rbtree_key_t key);
 int rbtree_delete(rbtree_head_t *head, rbtree_key_t key);
 int rbtree_find(rbtree_head_t *head, rbtree_value_t *r_value, rbtree_key_t key);
