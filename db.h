@@ -55,15 +55,11 @@ typedef union md5 {
 #define POST_TAGLIST_PER_NODE 14
 struct tag;
 typedef struct post_taglist {
-	struct post_taglist *succ;
-	struct post_taglist *pred;
 	struct tag          *tags[POST_TAGLIST_PER_NODE];
+	struct post_taglist *next;
 } post_taglist_t;
 
 typedef struct post {
-	post_taglist_t *head;
-	post_taglist_t *tail;
-	post_taglist_t *tailpred;
 	char           *source;
 	time_t         created;
 	md5_t          md5;
@@ -71,27 +67,22 @@ typedef struct post {
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
-	uint16_t       tags;
-	uint16_t       holes;
+	uint16_t       of_tags;
+	uint16_t       of_holes;
+	post_taglist_t tags;
 } post_t;
 
 #define TAG_POSTLIST_PER_NODE 30
-#define MAX_TAGS  409600
-#define MAX_POSTS 204800
-
 typedef struct tag_postlist {
-	struct tag_postlist *succ;
-	struct tag_postlist *pred;
 	post_t *posts[TAG_POSTLIST_PER_NODE];
+	struct tag_postlist *next;
 } tag_postlist_t;
 
 typedef struct tag {
-	tag_postlist_t *head;
-	tag_postlist_t *tail;
-	tag_postlist_t *tailpred;
 	char           *name;
-	uint32_t       posts;
-	uint16_t       holes;
+	uint32_t       of_posts;
+	uint16_t       of_holes;
+	tag_postlist_t posts;
 } tag_t;
 
 typedef uint32_t tag_id_t;

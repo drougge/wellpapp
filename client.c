@@ -168,16 +168,15 @@ static result_t intersect(result_t old_result, tag_t *tag) {
 		}
 	} else {
 		tag_postlist_t *pl;
-		pl = tag->head;
-		assert(pl);
-		while (pl->succ) {
+		pl = &tag->posts;
+		while (pl) {
 			uint32_t i;
 			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 				if (pl->posts[i]) {
 					add_post_to_result(pl->posts[i], &new_result);
 				}
 			}
-			pl = pl->succ;
+			pl = pl->next;
 		}
 	}
 	return new_result;

@@ -11,84 +11,56 @@ void assert_fail(const char *ass, const char *file, const char *func, int line) 
 	exit(1);
 }
 
+#define MAX_TAGS  409600
+#define MAX_POSTS 204800
+
 rbtree_head_t *tagtree;
 rbtree_head_t *posttree;
 
 static void post_tag_add(post_t *post, tag_t *tag) {
-	tag_postlist_t *pl;
-	post_taglist_t *tl;
+	tag_postlist_t *pl, *ppl = NULL;
+	post_taglist_t *tl, *ptl = NULL;
 	int i;
 
 	assert(post);
 	assert(tag);
-	pl = tag->head;
-	assert(pl);
-	tl = post->head;
-	assert(tl);
-	tag->posts++;
-	post->tags++;
-	while (tl->succ) {
+	pl = &tag->posts;
+	tl = &post->tags;
+	tag->of_posts++;
+	post->of_tags++;
+	while (tl) {
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
-				post->holes--;
+				post->of_holes--;
 				goto pt_ok;
 			}
 		}
-		tl = tl->succ;
+		ptl = tl;
+		tl  = tl->next;
 	}
 	tl = mm_alloc(sizeof(*tl));
-	tl->tags[0]      = tag;
-	post->holes     += POST_TAGLIST_PER_NODE - 1;
-	tl->succ         = post->head;
-	tl->pred         = (post_taglist_t *)&post->head;
-	post->head->pred = tl;
-	post->head       = tl;
+	tl->tags[0]     = tag;
+	post->of_holes += POST_TAGLIST_PER_NODE - 1;
+	ptl->next       = tl;
 
 pt_ok:
-	while (pl->succ) {
+	while (pl) {
 		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 			if (!pl->posts[i]) {
 				pl->posts[i] = post;
-				tag->holes--;
+				tag->of_holes--;
 				return;
 			}
 		}
-		pl = pl->succ;
+		ppl = pl;
+		pl  = pl->next;
 	}
 	pl = mm_alloc(sizeof(*pl));
-	pl->posts[0]    = post;
-	tag->holes     += TAG_POSTLIST_PER_NODE - 1;
-	pl->succ        = tag->head;
-	pl->pred        = (tag_postlist_t *)&tag->head;
-	tag->head->pred = pl;
-	tag->head       = pl;
+	pl->posts[0]   = post;
+	tag->of_holes += TAG_POSTLIST_PER_NODE - 1;
+	ppl->next      = pl;
 }
-
-#if 0
-static void post_tag_remove(post_t *post, tag_t *tag) {
-	tag_postlist_t *pl;
-	int i;
-
-	assert(post);
-	assert(tag);
-	pl = tag->head;
-	assert(pl);
-	while (pl->succ) {
-		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-			if (pl->posts[i] == post) {
-				pl->posts[i] = NULL;
-				tag->posts--;
-				tag->holes++;
-				/* @@ if holes > cutoff ... */
-				return;
-			}
-		}
-		pl = pl->succ;
-	}
-	/* @@ warn/error? */
-}
-#endif
 
 static time_t time_str2unix(const char *str) {
 	struct tm time;
@@ -150,56 +122,27 @@ tag_t *find_tag(const char *name) {
 int post_has_tag(post_t *post, tag_t *tag) {
 	assert(post);
 	assert(tag);
-	if (post->tags < tag->posts) {
-		post_taglist_t *tl = post->head;
-		assert(tl);
-		while (tl->succ) {
+	if (post->of_tags < tag->of_posts) {
+		post_taglist_t *tl = &post->tags;
+		while (tl) {
 			int i;
 			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 				if (tl->tags[i] == tag) return 1;
 			}
-			tl = tl->succ;
+			tl = tl->next;
 		}
 	} else {
-		tag_postlist_t *pl = tag->head;
-		assert(pl);
-		while (pl->succ) {
+		tag_postlist_t *pl = &tag->posts;
+		while (pl) {
 			int i;
 			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 				if (pl->posts[i] == post) return 1;
 			}
-			pl = pl->succ;
+			pl = pl->next;
 		}
 	}
 	return 0;
 }
-
-#if 0
-static void test(void) {
-	tag_t          *tag;
-	tag_t          *filter_tag;
-	tag_postlist_t *pl;
-	int i;
-
-	tag = find_tag("monochrome"); /* 4726 posts */
-	assert(tag);
-	filter_tag = find_tag("original"); /* 5196 posts */
-	assert(filter_tag);
-	pl = tag->head;
-	assert(pl);
-	/* Should give 244 results */
-	while (pl->succ) {
-		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-			if (pl->posts[i]) {
-				if (post_has_tag(pl->posts[i], filter_tag)) {
-					printf("%s\n", md5_md52str(pl->posts[i]->md5));
-				}
-			}
-		}
-		pl = pl->succ;
-	}
-}
-#endif
 
 static void add_tag(const char *name, tag_t *tag) {
 	rbtree_key_t hash = name2hash(name);
@@ -231,9 +174,6 @@ static int populate_from_db(PGconn *conn) {
 		char   *source;
 
 		post = mm_alloc(sizeof(*post));
-		post->head     = (post_taglist_t *)&post->tail;
-		post->tail     = NULL;
-		post->tailpred = (post_taglist_t *)post;
 		post->created  = time_str2unix(PQgetvalue(res, i, 1));
 		post->uid      = atol(PQgetvalue(res, i, 2));
 		post->score    = atol(PQgetvalue(res, i, 3));
@@ -271,9 +211,6 @@ static int populate_from_db(PGconn *conn) {
 		tag = tags[tag_id];
 		if (!tag) {
 			tag = mm_alloc(sizeof(*tag));
-			tag->head     = (tag_postlist_t *)&tag->tail;
-			tag->tail     = NULL;
-			tag->tailpred = (tag_postlist_t *)tag;
 			tags[tag_id]  = tag;
 		}
 		post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
@@ -357,8 +294,6 @@ int main(void) {
 		err(populate_from_db(conn), 3);
 	}
 	/*
-	printf("testing..\n");
-	test();
 	mm_print();
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
