@@ -236,6 +236,7 @@ static void do_search(search_t *search) {
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		result = intersect(result, search->tags[i]);
+		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
 		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
@@ -243,6 +244,7 @@ static void do_search(search_t *search) {
 			c_printf("RP%s\n", md5_md52str(result.posts[i]->md5));
 		}
 	}
+done:
 	c_printf("RO\n");
 }
 
