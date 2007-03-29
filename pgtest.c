@@ -297,6 +297,8 @@ int main(void) {
 	mm_print();
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
+	printf("dumping..\n");
+	dump_log("/tmp/db.log");
 	printf("serving..\n");
 	serve();
 err:

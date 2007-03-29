@@ -46,6 +46,16 @@ static int allocmem(void *res, int z) {
 
 #define efs_freemem(dummy1, ptr, dummy2) mm_free(ptr)
 
+void rbtree_iterate_i(rbtree_node_t *node, rbtree_callback_t callback) {
+	callback(node->key, node->value);
+	if (node->child[0]) rbtree_iterate_i(node->child[0], callback);
+	if (node->child[1]) rbtree_iterate_i(node->child[1], callback);
+}
+
+void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback) {
+	rbtree_iterate_i(head->root, callback);
+}
+
 /* --###-- slut på det ändrade --###-- */
 
 #define efs_rbtree_thischild(p, c) ((p)->child[(p)->child[0] != (c)])

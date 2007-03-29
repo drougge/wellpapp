@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
@@ -91,6 +92,8 @@ tag_t *find_tag(const char *name);
 int post_has_tag(post_t *post, tag_t *tag);
 const char *md5_md52str(md5_t md5);
 
+typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
+void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);
 int rbtree_insert(rbtree_head_t *head, rbtree_value_t value, rbtree_key_t key);
 int rbtree_delete(rbtree_head_t *head, rbtree_key_t key);
 int rbtree_find(rbtree_head_t *head, rbtree_value_t *r_value, rbtree_key_t key);
@@ -105,3 +108,5 @@ char *mm_strdup(const char *str);
 void mm_print(void);
 
 void client_handle(int s);
+
+int dump_log(const char *filename);
