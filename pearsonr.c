@@ -4,9 +4,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "config.h"
+
 #define RES 4
-//#define FN  "/db/danbooru/id.8x8"
-#define FN  "/db/danbooru/id.4x4"
+//#define FN  (PREFIX "id.8x8")
+#define FN  (PREFIX "id.4x4")
 
 static float pearsonr(uint8_t *x, uint8_t *y, int len) {
 	float mx = 0.0f, my = 0.0f;
@@ -109,20 +111,26 @@ int main(int argc, char **argv) {
 	unsigned long id;
 	float p;
 
-	if (argc != 2 || strlen(argv[1]) != 32) return 1;
-	cmp_img = argv[1];
 	fh = fopen(FN, "r");
 	if (!fh) return 1;
-	while (fgets(buf, sizeof(buf), fh)) {
-		if (!memcmp(buf, cmp_img, 32)) {
-			memcpy(cmp_id.md5, buf, 32);
-			deser(cmp_id.a, buf + 33);
-			cmp_img_ok = 1;
-			break;
+	if (argc == 3 && !strcmp(argv[1], "-id") && strlen(argv[2]) == 32) {
+		memcpy(cmp_id.md5, "00000000000000000000000000000000", 32);
+		deser(cmp_id.a, argv[2]);
+	} else if (argc == 2 && strlen(argv[1]) == 32) {
+		cmp_img = argv[1];
+		while (fgets(buf, sizeof(buf), fh)) {
+			if (!memcmp(buf, cmp_img, 32)) {
+				memcpy(cmp_id.md5, buf, 32);
+				deser(cmp_id.a, buf + 33);
+				cmp_img_ok = 1;
+				break;
+			}
 		}
+		if (!cmp_img_ok) return 1;
+		if (fseek(fh, 0, SEEK_SET)) return 1;
+	} else {
+		return 1;
 	}
-	if (!cmp_img_ok) return 1;
-	if (fseek(fh, 0, SEEK_SET)) return 1;
 	id = 0;
 	of_ids = 100;
 	ids = malloc(sizeof(id_t) * of_ids);
