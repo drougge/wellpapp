@@ -8,4 +8,4 @@ pearsonr: pearsonr.c
 	$(CC) -o pearsonr pearsonr.c -lm
 
 clean:
-	rm -f pgtest *.o
+	rm -f pgtest pearsonr *.o
