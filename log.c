@@ -88,7 +88,7 @@ extern rbtree_head_t *tagtree;
 extern rbtree_head_t *posttree;
 
 int dump_log(const char *filename) {
-	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL);
+	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd < 0) return 1;
 	e = 0;
 	rbtree_iterate(tagtree, tag_iter);
