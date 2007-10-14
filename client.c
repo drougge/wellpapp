@@ -35,7 +35,9 @@ static const char *orders[] = {"date", "score", NULL};
 
 typedef struct search {
 	tag_t   *tags[PROT_TAGS_PER_SEARCH];
+	tag_t   *excluded_tags[PROT_TAGS_PER_SEARCH];
 	int     of_tags;
+	int     of_excluded_tags;
 	order_t orders[PROT_ORDERS_PER_SEARCH];
 	int     of_orders;
 } search_t;
@@ -120,6 +122,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 }
 
 static int build_search(char *cmd, search_t *search) {
+	tag_t *tag;
 	memset(search, 0, sizeof(*search));
 	while(*cmd) {
 		int len = 0;
@@ -131,13 +134,21 @@ static int build_search(char *cmd, search_t *search) {
 			len++;
 		}
 		switch(*cmd) {
-			case 'T':
-				if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
-				search->tags[search->of_tags] = find_tag(args);
-				if (!search->tags[search->of_tags]) return error(cmd);
-				search->of_tags++;
+			case 'T': // Tag
+			case 't': // Removed tag
+				tag = find_tag(args);
+				if (!tag) return error(cmd);
+				if (*cmd == 'T') {
+					if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+					search->tags[search->of_tags] = tag;
+					search->of_tags++;
+				} else {
+					if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+					search->excluded_tags[search->of_excluded_tags] = tag;
+					search->of_excluded_tags++;
+				}
 				break;
-			case 'O':
+			case 'O': // Ordering
 				if (search->of_orders == PROT_ORDERS_PER_SEARCH) close_error(E_OVERFLOW);
 				search->orders[search->of_orders] = str2id(args, orders);
 				if (!search->orders[search->of_orders]) return error(cmd);
@@ -149,7 +160,7 @@ static int build_search(char *cmd, search_t *search) {
 		}
 		cmd += len;
 	}
-	if (!search->of_tags) return error("E no tags specified");
+	if (!search->of_tags) return error("E Specify at least one included tag");
 	/* Searching is faster if ordered by post-count */
 	qsort(search->tags, search->of_tags, sizeof(tag_t *), sort_search);
 	return 0;
@@ -164,6 +175,20 @@ static void add_post_to_result(post_t *post, result_t *result) {
 	}
 	result->posts[result->of_posts] = post;
 	result->of_posts++;
+}
+
+static result_t remove_tag(result_t old_result, tag_t *tag) {
+	result_t new_result;
+	uint32_t i;
+
+	memset(&new_result, 0, sizeof(new_result));
+	for (i = 0; i < old_result.of_posts; i++) {
+		post_t *post = old_result.posts[i];
+		if (!post_has_tag(post, tag)) {
+			add_post_to_result(post, &new_result);
+		}
+	}
+	return new_result;
 }
 
 static result_t intersect(result_t old_result, tag_t *tag) {
@@ -236,6 +261,10 @@ static void do_search(search_t *search) {
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		result = intersect(result, search->tags[i]);
+		if (!result.of_posts) goto done;
+	}
+	for (i = 0; i < search->of_excluded_tags; i++) {
+		result = remove_tag(result, search->excluded_tags[i]);
 		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
