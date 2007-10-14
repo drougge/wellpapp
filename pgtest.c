@@ -355,6 +355,31 @@ static int populate_from_db(PGconn *conn) {
 	PQclear(res);
 	res = NULL;
 	printf("whee..\n");
+
+	res = PQexec(conn, "SELECT a.name, t.name FROM tag_aliases a, tags t WHERE a.alias_id = t.id");
+	err(!res, 2);
+	err(PQresultStatus(res) != PGRES_TUPLES_OK, 3);
+	rows = PQntuples(res);
+	printf("tag_aliases: %d\n", rows);
+	for (i = 0; i < rows; i++) {
+		rbtree_key_t hash;
+		tag_t        *tag;
+		const char   *name;
+
+		name = PQgetvalue(res, i, 0);
+		tag  = find_tag(PQgetvalue(res, i, 1));
+		if (tag) {
+			hash = name2hash(name);
+			if (rbtree_insert(tagtree, tag, hash)) {
+				printf("WARN: Failed to insert tag-alias '%s'\n", name);
+			}
+		} else {
+			printf("WARN: tag-alias '%s' has no tag\n", name);
+		}
+	}
+	PQclear(res);
+	res = NULL;
+	printf("whee..\n");
 err:
 	if (res  ) PQclear(res);
 	if (tags ) free(tags);
