@@ -134,7 +134,7 @@ static int build_search(char *cmd, search_t *search) {
 			case 'T':
 				if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
 				search->tags[search->of_tags] = find_tag(args);
-				if (!search->tags[search->of_tags]) break;
+				if (!search->tags[search->of_tags]) return error(cmd);
 				search->of_tags++;
 				break;
 			case 'O':
@@ -258,8 +258,7 @@ void client_handle(int _s) {
 		if (*buf == 'S') {
 			search_t search;
 			int r = build_search(buf + 1, &search);
-			assert(!r); /* @@ */
-			do_search(&search);
+			if (!r) do_search(&search);
 		} else if (*buf == 'N') {
 			c_printf("RO\n");
 		} else if (*buf == 'Q') {
