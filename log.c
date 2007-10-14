@@ -9,7 +9,7 @@ void d_log_start(int fd, void *user) {
 	char buf[80];
 	int len, r;
 
-	len = snprintf(buf, sizeof(buf), "T%016llx\n", trans_id);
+	len = snprintf(buf, sizeof(buf), "S%016llx\n", trans_id);
 	r = write(fd, buf, len);
 	assert(r == len);
 }
@@ -18,7 +18,7 @@ void d_log_end(int fd, void *user) {
 	char buf[80];
 	int len, r;
 
-	len = snprintf(buf, sizeof(buf), "t%016llx\n", trans_id);
+	len = snprintf(buf, sizeof(buf), "E%016llx\n", trans_id);
 	r = write(fd, buf, len);
 	assert(r == len);
 	trans_id++;
@@ -33,7 +33,7 @@ void d_log(int fd, void *user, const char *data, ...) {
 	vasprintf(&buf1, data, ap);
 	va_end(ap);
 	assert(buf1);
-	len = asprintf(&buf2, "%s\n", buf1);
+	len = asprintf(&buf2, "D%016llx %s\n", trans_id, buf1);
 	assert(buf2);
 	free(buf1);
 	r = write(fd, buf2, len);
@@ -43,21 +43,16 @@ void d_log(int fd, void *user, const char *data, ...) {
 }
 
 void d_log1(int fd, void *user, const char *data, ...) {
-	char *buf1, *buf2;
-	int len1, len2, r;
+	char *buf;
 	va_list ap;
 
 	va_start(ap, data);
-	len1 = vasprintf(&buf1, data, ap);
+	vasprintf(&buf, data, ap);
 	va_end(ap);
-	assert(buf1);
-	len2 = asprintf(&buf2, "T%016llx\n%s\nt%016llx\n", trans_id, buf1, trans_id);
-	assert(buf2);
-	trans_id++;
-	r = write(fd, buf2, len2);
-	free(buf2);
-	free(buf1);
-	assert(r == len2);
+	assert(buf);
+	d_log_start(fd, user);
+	d_log(fd, user, "%s", buf);
+	d_log_end(fd, user);
 }
 
 void tag_iter(rbtree_key_t key, rbtree_value_t value) {

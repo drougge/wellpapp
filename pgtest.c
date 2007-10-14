@@ -152,6 +152,121 @@ static void add_tag(const char *name, tag_t *tag) {
 	}
 }
 
+static int read_log_line(FILE *fh, char *buf, int len) {
+	if (!fgets(buf, len, fh)) {
+		assert(feof(fh));
+		return 0;
+	}
+	len = strlen(buf) - 1;
+	assert(len > 16 && buf[len] == '\n');
+	buf[len] = 0;
+	return len;
+}
+
+static void populate_from_log_line(const char *line) {
+	if (*line == 'C') {
+		if (line[1] == 'T') {
+			tag_t *tag;
+			tag = mm_alloc(sizeof(*tag));
+			add_tag(line + 2, tag);
+		} else {
+			char   m[33];
+			post_t *post;
+			char   *line_;
+
+			assert(line[1] == 'P');
+			post = mm_alloc(sizeof(*post));
+			line += 2;
+			assert(strlen(line) > 34); /* @ A bit more, really. */
+			memcpy(m, line, 32);
+			m[32] = 0;
+			post->md5 = md5_str2md5(m);
+			line += 33;
+			post->width   = strtol(line, &line_, 0);
+			post->height  = strtol(line_, &line_, 0);
+			post->created = strtoll(line_, &line_, 0);
+			post->uid     = 0; // @@
+			post->score   = 0;
+			post->source  = NULL;
+			if (rbtree_insert(posttree, post, post->md5.key)) {
+				assert(0);
+			}
+		}
+	} else if (*line == 'P') {
+		md5_t  md5;
+		char   m[33];
+		tag_t  *tag;
+		post_t *post;
+
+		line++;
+		memcpy(m, line, 32);
+		m[32] = 0;
+		md5 = md5_str2md5(m);
+		rbtree_find(posttree, (void *)&post, md5.key);
+		assert(post);
+		line += 33;
+		if (!memcmp(line, "tag ", 4)) {
+			line += 4;
+			tag = find_tag(line);
+if (!tag) printf("no tag '%s' %p '%s'\n",line,(void *)line,line-4);
+			assert(tag);
+			post_tag_add(post, tag);
+		} else if (!memcmp(line, "source ", 7)) {
+			line += 7;
+			post->source = mm_strdup(line);
+		} else {
+			printf("P? %s\n", line);
+		}
+	} else {
+		printf("? %s\n", line);
+	}
+}
+
+static void populate_from_log(const char *filename) {
+	uint64_t trans_id = 0;
+	FILE     *fh;
+	char     cmp[18];
+	char     buf[4096];
+	int      len;
+
+	fh = fopen(filename, "r");
+	assert(fh);
+	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
+		if (trans_id) {
+			if (!memcmp(cmp + 1, buf + 1, 16)) {
+				if (*buf == 'E') {
+					trans_id = 0;
+				} else {
+					assert(*buf == 'D');
+					populate_from_log_line(buf + 18);
+				}
+			}
+		} else if (*buf == 'S') {
+			long pos = ftell(fh);
+			int r;
+
+			assert(pos > 0);
+			assert(len == 17);
+			memcpy(cmp, buf, 18);
+			*cmp = 'E';
+			while (42) {
+				r = read_log_line(fh, buf, sizeof(buf));
+				if (!r) {
+					printf("Skipping incomplete transaction %s\n", cmp + 1);
+					break;
+				}
+				if (!strcmp(buf, cmp)) {
+					trans_id = strtoll(cmp + 1, NULL, 16);
+					*cmp = 'D';
+					break;
+				}
+			}
+			r = fseek(fh, pos, SEEK_SET);
+			assert(!r);
+		}
+	}
+}
+
 static int populate_from_db(PGconn *conn) {
 	PGresult *res = NULL;
 	int r = 0;
@@ -280,25 +395,33 @@ static void serve(void) {
 	}
 }
 
-int main(void) {
-	PGconn *conn;
+int main(int argc, char **argv) {
 	int r = 0;
+	int dump = 0;
 
+	assert(argc == 2);
 	printf("initing mm..\n");
 	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, !access("/tmp/db.datastore/0.db", F_OK))) {
-		printf("populating..\n");
-		conn = PQconnectdb("user=danbooru");
-		// conn = PQconnectdb("user=danbooru password=db host=db");
-		err(!conn, 2);
-		err(PQstatus(conn) != CONNECTION_OK, 2);
-		err(populate_from_db(conn), 3);
+		printf("populating from %s..\n", argv[1]);
+		if (!strcmp(argv[1], "db")) {
+			PGconn *conn = PQconnectdb("user=danbooru");
+			// conn = PQconnectdb("user=danbooru password=db host=db");
+			err(!conn, 2);
+			err(PQstatus(conn) != CONNECTION_OK, 2);
+			err(populate_from_db(conn), 3);
+			dump = 1;
+		} else {
+			populate_from_log(argv[1]);
+		}
 	}
-	/*
 	mm_print();
+	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
-	printf("dumping..\n");
-	dump_log("/tmp/db.log");
+	if (dump) {
+		printf("dumping..\n");
+		dump_log("/tmp/db.log");
+	}
 	printf("serving..\n");
 	serve();
 err:
