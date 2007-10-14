@@ -33,6 +33,13 @@ typedef enum {
 
 static const char *orders[] = {"date", "score", NULL};
 
+static const char *flags[] = {"tagname", "tagid", NULL};
+typedef enum {
+	FLAG_RETURN_TAGNAMES,
+	FLAG_RETURN_TAGIDS,
+} flag_t;
+#define FLAG(n) (1 << (n))
+
 typedef struct search {
 	tag_t   *tags[PROT_TAGS_PER_SEARCH];
 	tag_t   *excluded_tags[PROT_TAGS_PER_SEARCH];
@@ -40,6 +47,7 @@ typedef struct search {
 	int     of_excluded_tags;
 	order_t orders[PROT_ORDERS_PER_SEARCH];
 	int     of_orders;
+	int     flags;
 } search_t;
 
 typedef struct result {
@@ -123,6 +131,8 @@ static int sort_search(const void *_t1, const void *_t2) {
 
 static int build_search(char *cmd, search_t *search) {
 	tag_t *tag;
+	int   i;
+
 	memset(search, 0, sizeof(*search));
 	while(*cmd) {
 		int len = 0;
@@ -153,6 +163,11 @@ static int build_search(char *cmd, search_t *search) {
 				search->orders[search->of_orders] = str2id(args, orders);
 				if (!search->orders[search->of_orders]) return error(cmd);
 				search->of_orders++;
+				break;
+			case 'F': // Flag (option)
+				i = str2id(args, flags);
+				if (!i) return error(cmd);
+				search->flags |= FLAG(i - 1);
 				break;
 			default:
 				close_error(E_SYNTAX);
@@ -270,7 +285,25 @@ static void do_search(search_t *search) {
 	if (result.of_posts) {
 		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
 		for (i = 0; i < result.of_posts; i++) {
-			c_printf("RP%s\n", md5_md52str(result.posts[i]->md5));
+			c_printf("RP%s", md5_md52str(result.posts[i]->md5));
+			if (search->flags) {
+				post_taglist_t *tags = &result.posts[i]->tags;
+				while (tags) {
+					int j;
+					for (j = 0; j < POST_TAGLIST_PER_NODE; j++) {
+						if (tags->tags[j]) {
+							if (search->flags & FLAG(FLAG_RETURN_TAGNAMES)) {
+								c_printf(" T%s", tags->tags[j]->name);
+							}
+							if (search->flags & FLAG(FLAG_RETURN_TAGIDS)) {
+								c_printf(" t%s", tags->tags[j]->name);
+							}
+						}
+					}
+					tags = tags->next;
+				}
+			}
+			c_printf("\n");
 		}
 	}
 done:
