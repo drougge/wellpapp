@@ -68,6 +68,7 @@ typedef struct post {
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
+	uint16_t       filetype;
 	uint16_t       of_tags;
 	uint16_t       of_holes;
 	post_taglist_t tags;
@@ -87,6 +88,15 @@ typedef struct tag {
 } tag_t;
 
 typedef uint32_t tag_id_t;
+
+/* Keep synced to extensions[] in client.c */
+typedef enum {
+	FILETYPE_JPEG,
+	FILETYPE_GIF,
+	FILETYPE_PNG,
+	FILETYPE_BMP,
+	FILETYPE_FLASH,
+} filetype_t;
 
 tag_t *find_tag(const char *name);
 int post_has_tag(post_t *post, tag_t *tag);

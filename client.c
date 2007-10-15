@@ -25,6 +25,14 @@ static char *errors[] = {
 	"out of memory",
 };
 
+static const char *extensions[] = {
+	"jpeg",
+	"gif",
+	"png",
+	"bmp",
+	"swf",
+};
+
 typedef enum {
 	ORDER_NONE,
 	ORDER_DATE,
@@ -33,10 +41,11 @@ typedef enum {
 
 static const char *orders[] = {"date", "score", NULL};
 
-static const char *flags[] = {"tagname", "tagid", NULL};
+static const char *flags[] = {"tagname", "tagid", "ext", NULL};
 typedef enum {
 	FLAG_RETURN_TAGNAMES,
 	FLAG_RETURN_TAGIDS,
+	FLAG_RETURN_EXTENSION,
 } flag_t;
 #define FLAG(n) (1 << (n))
 
@@ -166,7 +175,7 @@ static int build_search(char *cmd, search_t *search) {
 				break;
 			case 'F': // Flag (option)
 				i = str2id(args, flags);
-				if (!i) return error(cmd);
+				if (i < 1) return error(cmd);
 				search->flags |= FLAG(i - 1);
 				break;
 			default:
@@ -286,7 +295,7 @@ static void do_search(search_t *search) {
 		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
 		for (i = 0; i < result.of_posts; i++) {
 			c_printf("RP%s", md5_md52str(result.posts[i]->md5));
-			if (search->flags) {
+			if (search->flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
 				post_taglist_t *tags = &result.posts[i]->tags;
 				while (tags) {
 					int j;
@@ -302,6 +311,9 @@ static void do_search(search_t *search) {
 					}
 					tags = tags->next;
 				}
+			}
+			if (search->flags & FLAG(FLAG_RETURN_EXTENSION)) {
+				c_printf(" E%s", extensions[result.posts[i]->filetype]);
 			}
 			c_printf("\n");
 		}

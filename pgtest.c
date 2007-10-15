@@ -267,6 +267,32 @@ static void populate_from_log(const char *filename) {
 	}
 }
 
+typedef struct {
+	const char *ext;
+	int        filetype;
+} ext2ft_t;
+static int ext2filetype(const char *ext) {
+	int i;
+	const ext2ft_t map[] = {
+		{"GIF", FILETYPE_GIF},
+		{"JPG", FILETYPE_JPEG},
+		{"PNG", FILETYPE_PNG},
+		{"Png", FILETYPE_PNG},
+		{"bmp", FILETYPE_BMP},
+		{"gif", FILETYPE_GIF},
+		{"jpeg", FILETYPE_JPEG},
+		{"jpg", FILETYPE_JPEG},
+		{"png", FILETYPE_PNG},
+		{"swf", FILETYPE_FLASH},
+		{NULL, 0}
+	};
+//  1 avi html mp3 mp4 mpg pdf php?attachmentid=280808&d=1155260176 php?fn=147089 rar svg wmv zip
+	for (i = 0; map[i].ext; i++) {
+		if (!strcmp(map[i].ext, ext)) return map[i].filetype;
+	}
+	return -1;
+}
+
 static int populate_from_db(PGconn *conn) {
 	PGresult *res = NULL;
 	int r = 0;
@@ -278,7 +304,7 @@ static int populate_from_db(PGconn *conn) {
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));
 	// res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, rating, width, height, file_ext FROM posts");
-	res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, width, height FROM posts");
+	res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, width, height, file_ext FROM posts");
 	err(!res, 2);
 	err(PQresultStatus(res) != PGRES_TUPLES_OK, 3);
 	rows = PQntuples(res);
@@ -287,7 +313,10 @@ static int populate_from_db(PGconn *conn) {
 	for (i = 0; i < rows; i++) {
 		post_t *post;
 		char   *source;
+		int    filetype;
 
+		filetype = ext2filetype(PQgetvalue(res, i, 8));
+		if (filetype < 0) continue; // @@
 		post = mm_alloc(sizeof(*post));
 		post->created  = time_str2unix(PQgetvalue(res, i, 1));
 		post->uid      = atol(PQgetvalue(res, i, 2));
@@ -295,6 +324,7 @@ static int populate_from_db(PGconn *conn) {
 		post->md5      = md5_str2md5(PQgetvalue(res, i, 5));
 		post->width    = atol(PQgetvalue(res, i, 6));
 		post->height   = atol(PQgetvalue(res, i, 7));
+		post->filetype = filetype;
 		source = PQgetvalue(res, i, 4);
 		if (source && *source) {
 			post->source = mm_strdup(source);
@@ -328,6 +358,9 @@ static int populate_from_db(PGconn *conn) {
 			tag = mm_alloc(sizeof(*tag));
 			tags[tag_id]  = tag;
 		}
+if (!posts[atol(PQgetvalue(res, i, 0))]) {
+printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
+} else
 		post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
 	}
 	PQclear(res);
@@ -434,7 +467,7 @@ int main(int argc, char **argv) {
 			err(!conn, 2);
 			err(PQstatus(conn) != CONNECTION_OK, 2);
 			err(populate_from_db(conn), 3);
-			dump = 1;
+//			dump = 1;
 		} else {
 			populate_from_log(argv[1]);
 		}
