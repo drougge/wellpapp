@@ -9,6 +9,16 @@ static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
 extern const guid_t server_guid;
 extern uint32_t     *tag_guid_last;
 
+static void guid_checksum(const guid_t guid, const char *what, unsigned char *res) {
+	unsigned char digest[16];
+	MD5_CTX ctx;
+	MD5Init(&ctx);
+	MD5Update(&ctx, what, strlen(what));
+	MD5Update(&ctx, guid.data, sizeof(guid.data));
+	MD5Final(digest, &ctx);
+	memcpy(res, digest, 4);
+}
+
 guid_t guid_gen_tag_guid(void) {
 	guid_t guid;
 	guid = server_guid;
@@ -19,6 +29,7 @@ guid_t guid_gen_tag_guid(void) {
 	}
 	guid.data_u32[1] = htonl(tag_guid_last[0]);
 	guid.data_u32[2] = htonl(tag_guid_last[1]);
+	guid_checksum(guid, "TAG", guid.check);
 	return guid;
 }
 
@@ -97,13 +108,9 @@ int guid_str2guid(guid_t *res_guid, const char *str) {
 }
 
 static int guid_is_valid_something(const guid_t guid, const char *what) {
-	MD5_CTX ctx;
-	unsigned char digest[16];
-	MD5Init(&ctx);
-	MD5Update(&ctx, what, strlen(what));
-	MD5Update(&ctx, guid.data, sizeof(guid.data));
-	MD5Final(digest, &ctx);
-	return !memcmp(digest, guid.check, sizeof(guid.check));
+	unsigned char csum[4];
+	guid_checksum(guid, what, csum);
+	return !memcmp(csum, guid.check, sizeof(guid.check));
 }
 
 int guid_is_valid_server_guid(const guid_t guid) {
