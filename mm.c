@@ -130,8 +130,7 @@ int mm_init(const char *filename, int use_existing) {
 	}
 }
 
-static int unaligned = 0;
-void *mm_alloc(unsigned int size) {
+static void *mm_alloc_(unsigned int size, int unaligned) {
 	if (size % MM_ALIGN) {
 		assert(unaligned);
 		if (mm_head->top - size < mm_head->bottom) {
@@ -156,6 +155,10 @@ void *mm_alloc(unsigned int size) {
 	}
 }
 
+void *mm_alloc(unsigned int size) {
+	return mm_alloc_(size, 0);
+}
+
 void mm_free(void *mem) {
 	assert(0);
 /*
@@ -173,9 +176,7 @@ char *mm_strdup(const char *str) {
 	char *new;
 	int len = strlen(str);
 
-	unaligned = 1;
-	new = mm_alloc(len + 1);
-	unaligned = 0;
+	new = mm_alloc_(len + 1, 1);
 	strcpy(new, str);
 	return new;
 }
