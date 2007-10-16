@@ -103,6 +103,14 @@ typedef enum {
 	FILETYPE_FLASH,
 } filetype_t;
 
+typedef struct guid {
+	unsigned char check[4];
+	union {
+		unsigned char data[12];
+		uint32_t      data_u32[3];
+	};
+} guid_t;
+
 tag_t *find_tag(const char *name);
 int post_has_tag(post_t *post, tag_t *tag);
 const char *md5_md52str(md5_t md5);
@@ -125,3 +133,8 @@ void mm_print(void);
 void client_handle(int s);
 
 int dump_log(const char *filename);
+
+const char *guid_guid2str(guid_t guid);
+int guid_str2guid(guid_t *res_guid, const char *str);
+int guid_is_valid_server_guid(const guid_t guid);
+int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
