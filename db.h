@@ -81,11 +81,16 @@ typedef struct tag_postlist {
 } tag_postlist_t;
 
 typedef struct tag {
-	char           *name;
+	const char     *name;
 	uint32_t       of_posts;
 	uint16_t       of_holes;
 	tag_postlist_t posts;
 } tag_t;
+
+typedef struct tagalias {
+	const char *name;
+	tag_t      *tag;
+} tagalias_t;
 
 typedef uint32_t tag_id_t;
 
@@ -111,7 +116,7 @@ int rbtree_init(rbtree_head_t *head, rbtree_allocation_policy_t allocation_polic
 void rbtree_free(rbtree_head_t *head);
 int rbtree_count(rbtree_head_t *head);
 
-int  mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagtree, int use_existing);
+int  mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagtree, rbtree_head_t **tagaliastree, int use_existing);
 void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 char *mm_strdup(const char *str);

@@ -15,6 +15,7 @@ void assert_fail(const char *ass, const char *file, const char *func, int line) 
 #define MAX_POSTS 204800
 
 rbtree_head_t *tagtree;
+rbtree_head_t *tagaliastree;
 rbtree_head_t *posttree;
 
 static void post_tag_add(post_t *post, tag_t *tag) {
@@ -114,8 +115,14 @@ static rbtree_key_t name2hash(const char *name) {
 }
 
 tag_t *find_tag(const char *name) {
-	void *tag = NULL;
-	rbtree_find(tagtree, &tag, name2hash(name));
+	rbtree_key_t hash = name2hash(name);
+	void         *tag = NULL;
+
+	rbtree_find(tagtree, &tag, hash);
+	if (!tag) {
+		rbtree_find(tagaliastree, &tag, hash);
+		if (tag) tag = ((tagalias_t *)tag)->tag;
+	}
 	return (tag_t *)tag;
 }
 
@@ -148,6 +155,17 @@ static void add_tag(const char *name, tag_t *tag) {
 	rbtree_key_t hash = name2hash(name);
 	tag->name = mm_strdup(name);
 	if (rbtree_insert(tagtree, tag, hash)) {
+		assert(0);
+	}
+}
+
+static void add_tagalias(const char *name, tag_t *tag) {
+	rbtree_key_t hash = name2hash(name);
+	tagalias_t   *alias;
+	alias = mm_alloc(sizeof(*alias));
+	alias->name = mm_strdup(name);
+	alias->tag  = tag;
+	if (rbtree_insert(tagaliastree, alias, hash)) {
 		assert(0);
 	}
 }
@@ -395,17 +413,13 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 	rows = PQntuples(res);
 	printf("tag_aliases: %d\n", rows);
 	for (i = 0; i < rows; i++) {
-		rbtree_key_t hash;
 		tag_t        *tag;
 		const char   *name;
 
 		name = PQgetvalue(res, i, 0);
 		tag  = find_tag(PQgetvalue(res, i, 1));
 		if (tag) {
-			hash = name2hash(name);
-			if (rbtree_insert(tagtree, tag, hash)) {
-				printf("WARN: Failed to insert tag-alias '%s'\n", name);
-			}
+			add_tagalias(name, tag);
 		} else {
 			printf("WARN: tag-alias '%s' has no tag\n", name);
 		}
@@ -459,7 +473,7 @@ int main(int argc, char **argv) {
 
 	assert(argc == 2);
 	printf("initing mm..\n");
-	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, !access("/tmp/db.datastore/0.db", F_OK))) {
+	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, &tagaliastree, !access("/tmp/db.datastore/0.db", F_OK))) {
 		printf("populating from %s..\n", argv[1]);
 		if (!strcmp(argv[1], "db")) {
 			PGconn *conn = PQconnectdb("user=danbooru");
