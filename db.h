@@ -131,6 +131,8 @@ void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 char *mm_strdup(const char *str);
 void mm_print(void);
+void mm_lock(void);
+void mm_unlock(void);
 
 void client_handle(int s);
 

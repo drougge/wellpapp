@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */
@@ -32,7 +33,7 @@ static const char *mm_basedir;
 uint32_t *tag_guid_last;
 
 static int mm_open_segment(int nr, int flags) {
-	char fn[80];
+	char fn[1024];
 	int  fd;
 
 	snprintf(fn, sizeof(fn), "%s/%d.db", mm_basedir, nr);
@@ -82,6 +83,8 @@ extern rbtree_head_t *tagtree;
 extern rbtree_head_t *tagaliastree;
 extern rbtree_head_t *tagguidtree;
 
+static int lock_fd;
+
 int mm_init(const char *filename, int use_existing) {
 	mm_basedir = strdup(filename);
 	assert(mm_basedir);
@@ -96,6 +99,8 @@ int mm_init(const char *filename, int use_existing) {
 		int fd, i;
 
 		fd = mm_open_segment(0, O_RDWR);
+		lock_fd = dup(fd);
+		assert(lock_fd != -1);
 		read(fd, &head, sizeof(head));
 		assert(head.magic0 == MM_MAGIC0);
 		assert(head.magic1 == MM_MAGIC1);
@@ -126,6 +131,7 @@ int mm_init(const char *filename, int use_existing) {
 		r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		assert(!r);
+		lock_fd = mm_open_segment(0, O_RDWR);
 		return 1;
 	}
 }
@@ -184,4 +190,14 @@ char *mm_strdup(const char *str) {
 void mm_print(void) {
 	printf("%d of %d bytes used, %d free. %d segments.\n", mm_head->used, mm_head->size, mm_head->free, mm_head->of_segments);
 	printf("%d bytes small, %d bytes aligned.\n", (int)(mm_head->addr + mm_head->size - mm_head->top), (int)(mm_head->bottom - mm_head->addr));
+}
+
+void mm_lock(void) {
+	int r = flock(lock_fd, LOCK_EX);
+	assert(!r);
+}
+
+void mm_unlock(void) {
+	int r = flock(lock_fd, LOCK_UN);
+	assert(!r);
 }
