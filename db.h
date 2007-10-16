@@ -112,7 +112,8 @@ typedef enum {
 	FILETYPE_FLASH,
 } filetype_t;
 
-tag_t *find_tag(const char *name);
+tag_t *tag_find_name(const char *name);
+tag_t *tag_find_guid(const guid_t guid);
 int post_has_tag(post_t *post, tag_t *tag);
 const char *md5_md52str(md5_t md5);
 
@@ -125,7 +126,7 @@ int rbtree_init(rbtree_head_t *head, rbtree_allocation_policy_t allocation_polic
 void rbtree_free(rbtree_head_t *head);
 int rbtree_count(rbtree_head_t *head);
 
-int  mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagtree, rbtree_head_t **tagaliastree, int use_existing);
+int  mm_init(const char *filename, int use_existing);
 void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 char *mm_strdup(const char *str);

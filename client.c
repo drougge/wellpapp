@@ -155,7 +155,15 @@ static int build_search(char *cmd, search_t *search) {
 		switch(*cmd) {
 			case 'T': // Tag
 			case 't': // Removed tag
-				tag = find_tag(args);
+				if (*args == 'G') {
+					guid_t guid;
+					if (guid_str2guid(&guid, args + 1)) return error(cmd);
+					tag = tag_find_guid(guid);
+				} else if (*args == 'N') {
+					tag = tag_find_name(args + 1);
+				} else {
+					return error(cmd);
+				}
 				if (!tag) return error(cmd);
 				if (*cmd == 'T') {
 					if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);

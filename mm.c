@@ -77,14 +77,20 @@ static void mm_new_segment(void) {
 	}
 }
 
-int mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagtree, rbtree_head_t **tagaliastree, int use_existing) {
+extern rbtree_head_t *posttree;
+extern rbtree_head_t *tagtree;
+extern rbtree_head_t *tagaliastree;
+extern rbtree_head_t *tagguidtree;
+
+int mm_init(const char *filename, int use_existing) {
 	mm_basedir = strdup(filename);
 	assert(mm_basedir);
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
-	*posttree = (rbtree_head_t *)(MM_BASE_ADDR + sizeof(*mm_head));
-	*tagtree  = *posttree + 1;
-	*tagaliastree = *tagtree + 1;
-	tag_guid_last = (uint32_t *)(*tagaliastree + 1);
+	tag_guid_last = (uint32_t *)(MM_BASE_ADDR + sizeof(*mm_head));
+	posttree = (rbtree_head_t *)(tag_guid_last + 2);
+	tagtree  = posttree + 1;
+	tagaliastree = tagtree + 1;
+	tagguidtree = tagaliastree + 1;
 	if (use_existing) {
 		mm_head_t head;
 		int fd, i;
@@ -108,18 +114,17 @@ int mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagt
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;
 		mm_head->size     = MM_SEGMENT_SIZE;
-		/* mm_head, (posttree, tagtree, tagaliastree), tag_guid_last[2] */
-		mm_head->used     = sizeof(*mm_head) + (sizeof(rbtree_head_t) * 3) + 8;
+		/* mm_head, tag_guid_last[2] (posttree, tagtree, tagaliastree, tagguidtree) */
+		mm_head->used     = sizeof(*mm_head) + 8 + (sizeof(rbtree_head_t) * 4);
 		mm_head->free     = mm_head->size - mm_head->used;
 		mm_head->bottom   = mm_head->addr + mm_head->used;
 		mm_head->top      = mm_head->addr + mm_head->size;
 		mm_head->segment_size = MM_SEGMENT_SIZE;
 		mm_head->of_segments  = 1;
-		r = rbtree_init(*posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		assert(!r);
-		r = rbtree_init(*tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		assert(!r);
-		r = rbtree_init(*tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+		r  = rbtree_init(posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+		r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+		r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+		r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		assert(!r);
 		return 1;
 	}
