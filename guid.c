@@ -13,7 +13,10 @@ guid_t guid_gen_tag_guid(void) {
 	guid_t guid;
 	guid = server_guid;
 	tag_guid_last[1]++;
-	if (tag_guid_last[1] == 0) tag_guid_last[0]++;
+	if (tag_guid_last[1] == 0) {
+		tag_guid_last[0]++;
+		assert(tag_guid_last[0]);
+	}
 	guid.data_u32[1] = htonl(tag_guid_last[0]);
 	guid.data_u32[2] = htonl(tag_guid_last[1]);
 	return guid;

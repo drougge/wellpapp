@@ -53,6 +53,14 @@ typedef union md5 {
 	rbtree_key_t key;
 } md5_t;
 
+typedef struct guid {
+	unsigned char check[4];
+	union {
+		unsigned char data[12];
+		uint32_t      data_u32[3];
+	};
+} guid_t;
+
 #define POST_TAGLIST_PER_NODE 14
 struct tag;
 typedef struct post_taglist {
@@ -82,6 +90,7 @@ typedef struct tag_postlist {
 
 typedef struct tag {
 	const char     *name;
+	guid_t         guid;
 	uint32_t       of_posts;
 	uint16_t       of_holes;
 	tag_postlist_t posts;
@@ -102,14 +111,6 @@ typedef enum {
 	FILETYPE_BMP,
 	FILETYPE_FLASH,
 } filetype_t;
-
-typedef struct guid {
-	unsigned char check[4];
-	union {
-		unsigned char data[12];
-		uint32_t      data_u32[3];
-	};
-} guid_t;
 
 tag_t *find_tag(const char *name);
 int post_has_tag(post_t *post, tag_t *tag);
@@ -134,6 +135,7 @@ void client_handle(int s);
 
 int dump_log(const char *filename);
 
+guid_t guid_gen_tag_guid(void);
 const char *guid_guid2str(guid_t guid);
 int guid_str2guid(guid_t *res_guid, const char *str);
 int guid_is_valid_server_guid(const guid_t guid);

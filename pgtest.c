@@ -376,6 +376,7 @@ static int populate_from_db(PGconn *conn) {
 		tag = tags[tag_id];
 		if (!tag) {
 			tag = mm_alloc(sizeof(*tag));
+			tag->guid = guid_gen_tag_guid();
 			tags[tag_id]  = tag;
 		}
 if (!posts[atol(PQgetvalue(res, i, 0))]) {
