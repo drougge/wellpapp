@@ -51,19 +51,12 @@ static void guid_int2str(uint32_t val, char *str) {
 }
 
 const char *guid_guid2str(guid_t guid) {
-	unsigned const char *gc = guid.check;
-	uint32_t            val;
-	static char         buf[7*4];
-	char                *strp = buf;
-	int                 i, j;
+	static char buf[7*4];
+	char        *strp = buf;
+	int         i;
 
 	for (i = 0; i < 4; i++) {
-		val = 0;
-		for (j = 3; j >= 0; j--) {
-			val = (val << 8) | gc[j];
-		}
-		gc += 4;
-		guid_int2str(val, strp);
+		guid_int2str(ntohl(((uint32_t *)&guid)[i]), strp);
 		strp[6] = '-';
 		strp += 7;
 	}
