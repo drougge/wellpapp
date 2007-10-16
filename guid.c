@@ -6,12 +6,12 @@
 static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
 #define GUID_BASE 41
 
-const guid_t *server_guid;
-uint32_t     *tag_guid_last;
+extern const guid_t server_guid;
+extern uint32_t     *tag_guid_last;
 
 guid_t guid_gen_tag_guid(void) {
 	guid_t guid;
-	guid = *server_guid;
+	guid = server_guid;
 	tag_guid_last[1]++;
 	if (tag_guid_last[1] == 0) tag_guid_last[0]++;
 	guid.data_u32[1] = htonl(tag_guid_last[0]);
@@ -110,5 +110,5 @@ int guid_is_valid_server_guid(const guid_t guid) {
 
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local) {
 	if (!guid_is_valid_something(guid, "TAG")) return 0;
-	return !must_be_local || guid.data_u32[0] == server_guid->data_u32[0];
+	return !must_be_local || guid.data_u32[0] == server_guid.data_u32[0];
 }

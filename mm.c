@@ -29,6 +29,8 @@ typedef struct mm_head {
 static mm_head_t *mm_head;
 static const char *mm_basedir;
 
+uint32_t *tag_guid_last;
+
 static int mm_open_segment(int nr, int flags) {
 	char fn[80];
 	int  fd;
@@ -82,6 +84,7 @@ int mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagt
 	*posttree = (rbtree_head_t *)(MM_BASE_ADDR + sizeof(*mm_head));
 	*tagtree  = *posttree + 1;
 	*tagaliastree = *tagtree + 1;
+	tag_guid_last = (uint32_t *)(*tagaliastree + 1);
 	if (use_existing) {
 		mm_head_t head;
 		int fd, i;
@@ -105,7 +108,8 @@ int mm_init(const char *filename, rbtree_head_t **posttree, rbtree_head_t **tagt
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;
 		mm_head->size     = MM_SEGMENT_SIZE;
-		mm_head->used     = sizeof(*mm_head) + (sizeof(rbtree_head_t) * 3);
+		/* mm_head, (posttree, tagtree, tagaliastree), tag_guid_last[2] */
+		mm_head->used     = sizeof(*mm_head) + (sizeof(rbtree_head_t) * 3) + 8;
 		mm_head->free     = mm_head->size - mm_head->used;
 		mm_head->bottom   = mm_head->addr + mm_head->used;
 		mm_head->top      = mm_head->addr + mm_head->size;

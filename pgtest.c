@@ -18,6 +18,8 @@ rbtree_head_t *tagtree;
 rbtree_head_t *tagaliastree;
 rbtree_head_t *posttree;
 
+guid_t server_guid;
+
 static void post_tag_add(post_t *post, tag_t *tag) {
 	tag_postlist_t *pl, *ppl = NULL;
 	post_taglist_t *tl, *ptl = NULL;
@@ -472,6 +474,8 @@ int main(int argc, char **argv) {
 	int dump = 0;
 
 	assert(argc == 2);
+	r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa");
+	assert(!r);
 	printf("initing mm..\n");
 	if (mm_init("/tmp/db.datastore", &posttree, &tagtree, &tagaliastree, !access("/tmp/db.datastore/0.db", F_OK))) {
 		printf("populating from %s..\n", argv[1]);
