@@ -171,9 +171,11 @@ int post_has_tag(post_t *post, tag_t *tag) {
 }
 
 static void add_tag(const char *name, tag_t *tag) {
-	rbtree_key_t hash = name2hash(name);
 	tag->name = mm_strdup(name);
-	if (rbtree_insert(tagtree, tag, hash)) {
+	if (rbtree_insert(tagtree, tag, name2hash(name))) {
+		assert(0);
+	}
+	if (rbtree_insert(tagguidtree, tag, guid2hash(tag->guid))) {
 		assert(0);
 	}
 }
