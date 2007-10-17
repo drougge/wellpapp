@@ -313,7 +313,7 @@ static void do_search(search_t *search) {
 								c_printf(" T%s", tags->tags[j]->name);
 							}
 							if (search->flags & FLAG(FLAG_RETURN_TAGIDS)) {
-								c_printf(" t%s", guid_guid2str(tags->tags[j]->guid));
+								c_printf(" G%s", guid_guid2str(tags->tags[j]->guid));
 							}
 						}
 					}
