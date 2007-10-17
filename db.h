@@ -136,6 +136,7 @@ typedef enum {
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
 int post_has_tag(post_t *post, tag_t *tag);
+int post_find_md5str(post_t **res_post, const char *md5str);
 const char *md5_md52str(md5_t md5);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);

@@ -138,60 +138,73 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search(char *cmd, search_t *search) {
-	tag_t *tag;
-	int   i;
+typedef int (*cmd_func_t)(const char *cmd, void *data);
 
-	memset(search, 0, sizeof(*search));
-	while(*cmd) {
-		int len = 0;
-		char *args = cmd + 1;
-
+static int cmd_loop(char *cmd, void *data, cmd_func_t func) {
+	while (*cmd) {
+		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
 		if (cmd[len]) {
 			cmd[len] = 0;
 			len++;
 		}
-		switch(*cmd) {
-			case 'T': // Tag
-			case 't': // Removed tag
-				if (*args == 'G') {
-					guid_t guid;
-					if (guid_str2guid(&guid, args + 1)) return error(cmd);
-					tag = tag_find_guid(guid);
-				} else if (*args == 'N') {
-					tag = tag_find_name(args + 1);
-				} else {
-					return error(cmd);
-				}
-				if (!tag) return error(cmd);
-				if (*cmd == 'T') {
-					if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
-					search->tags[search->of_tags] = tag;
-					search->of_tags++;
-				} else {
-					if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
-					search->excluded_tags[search->of_excluded_tags] = tag;
-					search->of_excluded_tags++;
-				}
-				break;
-			case 'O': // Ordering
-				if (search->of_orders == PROT_ORDERS_PER_SEARCH) close_error(E_OVERFLOW);
-				search->orders[search->of_orders] = str2id(args, orders);
-				if (!search->orders[search->of_orders]) return error(cmd);
-				search->of_orders++;
-				break;
-			case 'F': // Flag (option)
-				i = str2id(args, flags);
-				if (i < 1) return error(cmd);
-				search->flags |= FLAG(i - 1);
-				break;
-			default:
-				close_error(E_SYNTAX);
-				break; /* NOTREACHED */
-		}
+		if (func(cmd, data)) return 1;
 		cmd += len;
 	}
+	return 0;
+}
+
+static int build_search_cmd(const char *cmd, void *search_) {
+	tag_t      *tag;
+	search_t   *search = search_;
+	const char *args = cmd + 1;
+	int        i;
+
+	switch(*cmd) {
+		case 'T': // Tag
+		case 't': // Removed tag
+			if (*args == 'G') {
+				guid_t guid;
+				if (guid_str2guid(&guid, args + 1)) return error(cmd);
+				tag = tag_find_guid(guid);
+			} else if (*args == 'N') {
+				tag = tag_find_name(args + 1);
+			} else {
+				return error(cmd);
+			}
+			if (!tag) return error(cmd);
+			if (*cmd == 'T') {
+				if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+				search->tags[search->of_tags] = tag;
+				search->of_tags++;
+			} else {
+				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+				search->excluded_tags[search->of_excluded_tags] = tag;
+				search->of_excluded_tags++;
+			}
+			break;
+		case 'O': // Ordering
+			if (search->of_orders == PROT_ORDERS_PER_SEARCH) close_error(E_OVERFLOW);
+			search->orders[search->of_orders] = str2id(args, orders);
+			if (!search->orders[search->of_orders]) return error(cmd);
+			search->of_orders++;
+			break;
+		case 'F': // Flag (option)
+			i = str2id(args, flags);
+			if (i < 1) return error(cmd);
+			search->flags |= FLAG(i - 1);
+			break;
+		default:
+			close_error(E_SYNTAX);
+			return 1; /* NOTREACHED */
+			break;
+	}
+	return 0;
+}
+
+static int build_search(char *cmd, search_t *search) {
+	memset(search, 0, sizeof(*search));
+	if (cmd_loop(cmd, search, build_search_cmd)) return 1;
 	if (!search->of_tags) return error("E Specify at least one included tag");
 	/* Searching is faster if ordered by post-count */
 	qsort(search->tags, search->of_tags, sizeof(tag_t *), sort_search);
@@ -361,6 +374,42 @@ static void tag_search(const char *spec) {
 	c_printf("RO\n");
 }
 
+static int tag_post_cmd(const char *cmd, void *post_) {
+	post_t     **post = post_;
+	const char *args = cmd + 1;
+
+	switch (*cmd) {
+		case 'P': // Which post
+			if (*post) {
+				return error(cmd);
+			} else {
+				post_find_md5str(post, args);
+				if (!*post) return error(cmd);
+			}
+			break;
+		case 'T': // Add tag
+			if (!*post) return error(cmd);
+			return error(cmd); // @@TODO: Implement adding
+			break;
+		case 't': // Remove tag
+			if (!*post) return error(cmd);
+			return error(cmd); // @@TODO: Implement removal
+			break;
+		default:
+			return error(cmd);
+			break;
+	}
+	return 0;
+}
+
+static void tag_post(char *cmd) {
+	post_t *post = NULL;
+
+	if (!cmd_loop(cmd, &post, tag_post_cmd)) {
+		c_printf("RO\n");
+	}
+}
+
 void client_handle(int _s) {
 	char buf[PROT_MAXLEN];
 	int len;
@@ -368,24 +417,36 @@ void client_handle(int _s) {
 	s = _s;
 	while (42) {
 		len = get_line(buf, sizeof(buf));
-		if (*buf == 'S') {
-			if (buf[1] == 'P') {
-				search_t search;
-				int r = build_search(buf + 2, &search);
-				if (!r) do_search(&search);
-			} else if (buf[1] == 'T') {
-				tag_search(buf + 2);
-			} else {
+		switch (*buf) {
+			case 'S': // 'S'earch
+				if (buf[1] == 'P') {
+					search_t search;
+					int r = build_search(buf + 2, &search);
+					if (!r) do_search(&search);
+				} else if (buf[1] == 'T') {
+					tag_search(buf + 2);
+				} else {
+					close_error(E_COMMAND);
+				}
+				break;
+			case 'P': // Add 'P'ost
+				close_error(E_COMMAND); // @@
+			case 'T': // 'T'ag post
+				tag_post(buf + 1);
+				break;
+			case 'A': // 'A'dd tag
+				close_error(E_COMMAND); // @@
+			case 'N': // 'N'OP
+				c_printf("RO\n");
+				break;
+			case 'Q': // 'Q'uit
+				c_printf("Q bye bye\n");
+				close(s);
+				exit(0);
+				break;
+			default:
 				close_error(E_COMMAND);
-			}
-		} else if (*buf == 'N') {
-			c_printf("RO\n");
-		} else if (*buf == 'Q') {
-			c_printf("Q bye bye\n");
-			close(s);
-			exit(0);
-		} else {
-			close_error(E_COMMAND);
+				break;
 		}
 	}
 }

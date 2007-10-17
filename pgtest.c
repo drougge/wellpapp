@@ -191,6 +191,14 @@ static void add_tagalias(const char *name, tag_t *tag) {
 	}
 }
 
+int post_find_md5str(post_t **res_post, const char *md5str) {
+	md5_t md5;
+	*res_post = NULL;
+	if (strlen(md5str) != 32) return 1;
+	md5 = md5_str2md5(md5str);
+	return rbtree_find(posttree, (void *)res_post, md5.key);
+}
+
 static int read_log_line(FILE *fh, char *buf, int len) {
 	if (!fgets(buf, len, fh)) {
 		assert(feof(fh));
