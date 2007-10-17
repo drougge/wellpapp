@@ -338,7 +338,7 @@ static void do_search(search_t *search) {
 		}
 	}
 done:
-	c_printf("RO\n");
+	c_printf("OK\n");
 }
 
 static const char *tagtype_names[] = {
@@ -369,7 +369,7 @@ static void tag_search(const char *spec) {
 		c_printf("T%s ", tagtype_names[tag->type]);
 		c_printf("P%u\n", tag->of_posts);
 	}
-	c_printf("RO\n");
+	c_printf("OK\n");
 }
 
 static int tag_post_cmd(const char *cmd, void *post_) {
@@ -408,7 +408,7 @@ static void tag_post(char *cmd) {
 	post_t *post = NULL;
 
 	if (!cmd_loop(cmd, &post, tag_post_cmd)) {
-		c_printf("RO\n");
+		c_printf("OK\n");
 	}
 }
 
@@ -439,7 +439,7 @@ void client_handle(int _s) {
 			case 'A': // 'A'dd tag
 				close_error(E_COMMAND); // @@
 			case 'N': // 'N'OP
-				c_printf("RO\n");
+				c_printf("OK\n");
 				break;
 			case 'Q': // 'Q'uit
 				c_printf("Q bye bye\n");
