@@ -79,22 +79,32 @@ static int str2id(const char *str, const char **ids) {
 	return 0;
 }
 
+static int  c_buf_used = 0;
+static char c_buf[PROT_MAXLEN];
+#define BUF_MIN_FREE 1024
+
+static void c_flush(void) {
+	if (c_buf_used) {
+		int w = write(s, c_buf, c_buf_used);
+		assert(w == c_buf_used);
+		c_buf_used = 0;
+	}
+}
+
 static void c_printf(const char *fmt, ...) {
-	va_list     ap;
-	static char buf[PROT_MAXLEN];
-	static int  buf_used = 0;
-	int         len;
+	va_list ap;
+	int     len;
 
 	va_start(ap, fmt);
-	len = vsnprintf(buf + buf_used, sizeof(buf) - buf_used, fmt, ap);
-	va_end(ap);
-	assert(len < sizeof(buf) - buf_used);
-	buf_used += len;
-	if (buf[buf_used - 1] == '\n') {
-		int w = write(s, buf, buf_used);
-		assert(w == buf_used);
-		buf_used = 0;
+	len = vsnprintf(c_buf + c_buf_used, sizeof(c_buf) - c_buf_used, fmt, ap);
+	if (len >= sizeof(c_buf) - c_buf_used) { // Overflow
+		c_flush();
+		len = vsnprintf(c_buf, sizeof(c_buf), fmt, ap);
+		assert(len < sizeof(c_buf));
 	}
+	va_end(ap);
+	c_buf_used += len;
+	if (c_buf_used + BUF_MIN_FREE > sizeof(c_buf)) c_flush();
 }
 
 static int error(const char *what) {
@@ -104,6 +114,7 @@ static int error(const char *what) {
 
 static void close_error(error_t e) {
 	c_printf("E%d %s\n", e, errors[e]);
+	c_flush();
 	close(s);
 	exit(1);
 }
@@ -424,6 +435,7 @@ void client_handle(int _s) {
 
 	s = _s;
 	while (42) {
+		c_flush();
 		len = get_line(buf, sizeof(buf));
 		switch (*buf) {
 			case 'S': // 'S'earch
@@ -449,6 +461,7 @@ void client_handle(int _s) {
 				break;
 			case 'Q': // 'Q'uit
 				c_printf("Q bye bye\n");
+				c_flush();
 				close(s);
 				exit(0);
 				break;
