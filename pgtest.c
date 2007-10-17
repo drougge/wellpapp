@@ -332,6 +332,23 @@ static int ext2filetype(const char *ext) {
 	return -1;
 }
 
+static rating_t danboorurating2rating(const char *dr) {
+	switch(*dr) {
+		case 's': return RATING_SAFE;
+		case 'q': return RATING_QUESTIONABLE;
+		case 'e': return RATING_EXPLICIT;
+		default : return RATING_UNSPECIFIED;
+	}
+}
+
+static tagtype_t danboorutype2type[] = {
+	TAGTYPE_UNSPECIFIED, // "general"
+	TAGTYPE_ARTIST,
+	TAGTYPE_AMBIGUOUS,
+	TAGTYPE_COPYRIGTH,
+	TAGTYPE_CHARACTER,
+};
+
 static int populate_from_db(PGconn *conn) {
 	PGresult *res = NULL;
 	int r = 0;
@@ -342,8 +359,7 @@ static int populate_from_db(PGconn *conn) {
 
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));
-	// res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, rating, width, height, file_ext FROM posts");
-	res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, width, height, file_ext FROM posts");
+	res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, width, height, file_ext, rating FROM posts");
 	err(!res, 2);
 	err(PQresultStatus(res) != PGRES_TUPLES_OK, 3);
 	rows = PQntuples(res);
@@ -363,6 +379,7 @@ static int populate_from_db(PGconn *conn) {
 		post->md5      = md5_str2md5(PQgetvalue(res, i, 5));
 		post->width    = atol(PQgetvalue(res, i, 6));
 		post->height   = atol(PQgetvalue(res, i, 7));
+		post->rating   = danboorurating2rating(PQgetvalue(res, i, 9));
 		post->filetype = filetype;
 		source = PQgetvalue(res, i, 4);
 		if (source && *source) {
@@ -422,6 +439,7 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 		assert(tag_id < MAX_TAGS);
 		tag = tags[tag_id];
 		if (tag) {
+			tag->type = danboorutype2type[atol(PQgetvalue(res, i, 2))];
 			add_tag(PQgetvalue(res, i, 1), tag);
 		}
 	}

@@ -68,15 +68,23 @@ typedef struct post_taglist {
 	struct post_taglist *next;
 } post_taglist_t;
 
+typedef enum {
+	RATING_UNSPECIFIED,
+	RATING_SAFE,
+	RATING_QUESTIONABLE,
+	RATING_EXPLICIT,
+} rating_t;
+
 typedef struct post {
+	md5_t          md5;
 	char           *source;
 	time_t         created;
-	md5_t          md5;
-	uint16_t       uid;
+	uint16_t       uid; // Danbooru post-ID. Probably shouldn't be here.
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
 	uint16_t       filetype;
+	uint16_t       rating;
 	uint16_t       of_tags;
 	uint16_t       of_holes;
 	post_taglist_t tags;
@@ -88,11 +96,22 @@ typedef struct tag_postlist {
 	struct tag_postlist *next;
 } tag_postlist_t;
 
+typedef enum {
+	TAGTYPE_UNSPECIFIED, // Not specified (not known)
+	TAGTYPE_INIMAGE,     // Something visible in the image ("thighhighs", ...)
+	TAGTYPE_ARTIST,      // Someone who worked on the image.
+	TAGTYPE_CHARACTER,   // A person in the image ("fate_testarossa", ...)
+	TAGTYPE_COPYRIGTH,   // Where it's from. Name of anime, book, ...
+	TAGTYPE_META,        // Things like "tagme", "what", ...
+	TAGTYPE_AMBIGUOUS,   // A tag that needs to split in several tags.
+} tagtype_t;
+
 typedef struct tag {
 	const char     *name;
 	guid_t         guid;
-	uint32_t       of_posts;
+	uint16_t       type;
 	uint16_t       of_holes;
+	uint32_t       of_posts;
 	tag_postlist_t posts;
 } tag_t;
 
