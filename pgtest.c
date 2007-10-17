@@ -21,7 +21,8 @@ rbtree_head_t *posttree;
 
 guid_t server_guid;
 
-static void post_tag_add(post_t *post, tag_t *tag) {
+// @@TODO: Check that tag isn't already set. Locking.
+int post_tag_add(post_t *post, tag_t *tag) {
 	tag_postlist_t *pl, *ppl = NULL;
 	post_taglist_t *tl, *ptl = NULL;
 	int i;
@@ -54,7 +55,7 @@ pt_ok:
 			if (!pl->posts[i]) {
 				pl->posts[i] = post;
 				tag->of_holes--;
-				return;
+				return 0;
 			}
 		}
 		ppl = pl;
@@ -64,6 +65,7 @@ pt_ok:
 	pl->posts[0]   = post;
 	tag->of_holes += TAG_POSTLIST_PER_NODE - 1;
 	ppl->next      = pl;
+	return 0;
 }
 
 static time_t time_str2unix(const char *str) {
@@ -131,6 +133,12 @@ tag_t *tag_find_guid(const guid_t guid) {
 
 	rbtree_find(tagguidtree, &tag, hash);
 	return (tag_t *)tag;
+}
+
+tag_t *tag_find_guidstr(const char *guidstr) {
+	guid_t guid;
+	if (guid_str2guid(&guid, guidstr)) return NULL;
+	return tag_find_guid(guid);
 }
 
 tag_t *tag_find_name(const char *name) {
@@ -257,7 +265,8 @@ static void populate_from_log_line(const char *line) {
 			tag = tag_find_name(line);
 if (!tag) printf("no tag '%s' %p '%s'\n",line,(void *)line,line-4);
 			assert(tag);
-			post_tag_add(post, tag);
+			int r = post_tag_add(post, tag);
+			assert(!r);
 		} else if (!memcmp(line, "source ", 7)) {
 			line += 7;
 			post->source = mm_strdup(line);
@@ -426,7 +435,8 @@ static int populate_from_db(PGconn *conn) {
 if (!posts[atol(PQgetvalue(res, i, 0))]) {
 printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 } else
-		post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
+		r = post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
+		assert(!r);
 	}
 	PQclear(res);
 	res = NULL;

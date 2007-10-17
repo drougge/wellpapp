@@ -164,9 +164,7 @@ static int build_search_cmd(const char *cmd, void *search_) {
 		case 'T': // Tag
 		case 't': // Removed tag
 			if (*args == 'G') {
-				guid_t guid;
-				if (guid_str2guid(&guid, args + 1)) return error(cmd);
-				tag = tag_find_guid(guid);
+				tag = tag_find_guidstr(args + 1);
 			} else if (*args == 'N') {
 				tag = tag_find_name(args + 1);
 			} else {
@@ -388,12 +386,16 @@ static int tag_post_cmd(const char *cmd, void *post_) {
 			}
 			break;
 		case 'T': // Add tag
-			if (!*post) return error(cmd);
-			return error(cmd); // @@TODO: Implement adding
-			break;
 		case 't': // Remove tag
 			if (!*post) return error(cmd);
-			return error(cmd); // @@TODO: Implement removal
+			tag_t *tag = tag_find_guidstr(args + 1);
+			if (!tag) return error(cmd);
+			if (*cmd == 'T') {
+				int r = post_tag_add(*post, tag);
+				if (r) return error(cmd);
+			} else {
+				return error(cmd); // @@TODO: Implement removal
+			}
 			break;
 		default:
 			return error(cmd);
