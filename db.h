@@ -77,7 +77,8 @@ typedef enum {
 
 typedef struct post {
 	md5_t          md5;
-	char           *source;
+	const char     *source;
+	const char     *title;
 	time_t         created;
 	uint16_t       uid; // Danbooru post-ID. Probably shouldn't be here.
 	int16_t        score;
