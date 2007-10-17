@@ -330,6 +330,37 @@ done:
 	c_printf("RO\n");
 }
 
+static const char *tagtype_names[] = {
+	"unspecified",
+	"inimage",
+	"artist",
+	"character",
+	"copyright",
+	"meta",
+	"ambiguous",
+};
+
+static void tag_search(const char *spec) {
+	tag_t *tag = NULL;
+	if (*spec == 'G') {
+		guid_t guid;
+		if (guid_str2guid(&guid, spec + 1)) {
+			error(spec);
+			return;
+		}
+		tag = tag_find_guid(guid);
+	} else if (*spec == 'N') {
+		tag = tag_find_name(spec + 1);
+	}
+	if (tag) {
+		c_printf("RG%s ", guid_guid2str(tag->guid));
+		c_printf("N%s ", tag->name);
+		c_printf("T%s ", tagtype_names[tag->type]);
+		c_printf("P%u\n", tag->of_posts);
+	}
+	c_printf("RO\n");
+}
+
 void client_handle(int _s) {
 	char buf[PROT_MAXLEN];
 	int len;
@@ -338,9 +369,15 @@ void client_handle(int _s) {
 	while (42) {
 		len = get_line(buf, sizeof(buf));
 		if (*buf == 'S') {
-			search_t search;
-			int r = build_search(buf + 1, &search);
-			if (!r) do_search(&search);
+			if (buf[1] == 'P') {
+				search_t search;
+				int r = build_search(buf + 2, &search);
+				if (!r) do_search(&search);
+			} else if (buf[1] == 'T') {
+				tag_search(buf + 2);
+			} else {
+				close_error(E_COMMAND);
+			}
 		} else if (*buf == 'N') {
 			c_printf("RO\n");
 		} else if (*buf == 'Q') {

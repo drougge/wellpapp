@@ -96,6 +96,7 @@ typedef struct tag_postlist {
 	struct tag_postlist *next;
 } tag_postlist_t;
 
+/* Keep synced to tagtype_names[] in client.c */
 typedef enum {
 	TAGTYPE_UNSPECIFIED, // Not specified (not known)
 	TAGTYPE_INIMAGE,     // Something visible in the image ("thighhighs", ...)
