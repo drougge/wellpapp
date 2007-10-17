@@ -388,7 +388,7 @@ static int tag_post_cmd(const char *cmd, void *post_) {
 		case 'T': // Add tag
 		case 't': // Remove tag
 			if (!*post) return error(cmd);
-			tag_t *tag = tag_find_guidstr(args + 1);
+			tag_t *tag = tag_find_guidstr(args);
 			if (!tag) return error(cmd);
 			if (*cmd == 'T') {
 				int r = post_tag_add(*post, tag);
