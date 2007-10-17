@@ -80,15 +80,21 @@ static int str2id(const char *str, const char **ids) {
 }
 
 static void c_printf(const char *fmt, ...) {
-	va_list ap;
-	char    buf[PROT_MAXLEN];
-	int     len;
+	va_list     ap;
+	static char buf[PROT_MAXLEN];
+	static int  buf_used = 0;
+	int         len;
 
 	va_start(ap, fmt);
-	len = vsnprintf(buf, sizeof(buf), fmt, ap);
+	len = vsnprintf(buf + buf_used, sizeof(buf) - buf_used, fmt, ap);
 	va_end(ap);
-	assert(len < sizeof(buf));
-	write(s, buf, len);
+	assert(len < sizeof(buf) - buf_used);
+	buf_used += len;
+	if (buf[buf_used - 1] == '\n') {
+		int w = write(s, buf, buf_used);
+		assert(w == buf_used);
+		buf_used = 0;
+	}
 }
 
 static int error(const char *what) {
