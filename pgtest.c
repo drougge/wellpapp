@@ -21,7 +21,7 @@ rbtree_head_t *posttree;
 
 guid_t server_guid;
 
-// @@TODO: Check that tag isn't already set. Locking.
+// @@TODO: Locking/locklessness.
 int post_tag_add(post_t *post, tag_t *tag) {
 	tag_postlist_t *pl, *ppl = NULL;
 	post_taglist_t *tl, *ptl = NULL;
@@ -29,6 +29,7 @@ int post_tag_add(post_t *post, tag_t *tag) {
 
 	assert(post);
 	assert(tag);
+	if (post_has_tag(post, tag)) return 1;
 	pl = &tag->posts;
 	tl = &post->tags;
 	tag->of_posts++;
@@ -436,7 +437,9 @@ if (!posts[atol(PQgetvalue(res, i, 0))]) {
 printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 } else
 		r = post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
-		assert(!r);
+		if (r) {
+			printf("WARN: post %s already tagged as %d?\n", PQgetvalue(res, i, 0), tag_id);
+		}
 	}
 	PQclear(res);
 	res = NULL;
