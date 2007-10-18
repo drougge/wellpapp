@@ -82,19 +82,20 @@ static int md5_digit2digit(char digit) {
 	if (digit >= '0' && digit <= '9') return digit - '0';
 	if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
 	if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
-	assert(0);
-	return 0;
+	return -1;
 }
 
-static md5_t md5_str2md5(const char *str) {
-	md5_t md5;
+static int md5_str2md5(md5_t *res_md5, const char *md5str) {
 	int i;
 
-	assert(strlen(str) == 32);
+	if (strlen(md5str) != 32) return 1;
 	for (i = 0; i < 16; i++) {
-		md5.m[i] = md5_digit2digit(str[i * 2]) << 4 | md5_digit2digit(str[i * 2 + 1]);
+		int l = md5_digit2digit(md5str[i * 2]);
+		int r = md5_digit2digit(md5str[i * 2 + 1]);
+		if (l < 0 || r < 0) return 1;
+		res_md5->m[i] = l << 4 | r;
 	}
-	return md5;
+	return 0;
 }
 
 const char *md5_md52str(md5_t md5) {
@@ -203,8 +204,7 @@ static void add_tagalias(const char *name, tag_t *tag) {
 int post_find_md5str(post_t **res_post, const char *md5str) {
 	md5_t md5;
 	*res_post = NULL;
-	if (strlen(md5str) != 32) return 1;
-	md5 = md5_str2md5(md5str);
+	if (md5_str2md5(&md5, md5str)) return 1;
 	return rbtree_find(posttree, (void *)res_post, md5.key);
 }
 
@@ -229,6 +229,7 @@ static void populate_from_log_line(const char *line) {
 			char   m[33];
 			post_t *post;
 			char   *line_;
+			int     r;
 
 			assert(line[1] == 'P');
 			post = mm_alloc(sizeof(*post));
@@ -236,7 +237,8 @@ static void populate_from_log_line(const char *line) {
 			assert(strlen(line) > 34); /* @ A bit more, really. */
 			memcpy(m, line, 32);
 			m[32] = 0;
-			post->md5 = md5_str2md5(m);
+			r = md5_str2md5(&post->md5, m);
+			assert(!r);
 			line += 33;
 			post->width   = strtol(line, &line_, 0);
 			post->height  = strtol(line_, &line_, 0);
@@ -253,11 +255,13 @@ static void populate_from_log_line(const char *line) {
 		char   m[33];
 		tag_t  *tag;
 		post_t *post;
+		int    r;
 
 		line++;
 		memcpy(m, line, 32);
 		m[32] = 0;
-		md5 = md5_str2md5(m);
+		r = md5_str2md5(&md5, m);
+		assert(!r);
 		rbtree_find(posttree, (void *)&post, md5.key);
 		assert(post);
 		line += 33;
@@ -394,7 +398,8 @@ static int populate_from_db(PGconn *conn) {
 		post->created  = time_str2unix(PQgetvalue(res, i, 1));
 		post->uid      = atol(PQgetvalue(res, i, 2));
 		post->score    = atol(PQgetvalue(res, i, 3));
-		post->md5      = md5_str2md5(PQgetvalue(res, i, 5));
+		r = md5_str2md5(&post->md5, PQgetvalue(res, i, 5));
+		assert(!r);
 		post->width    = atol(PQgetvalue(res, i, 6));
 		post->height   = atol(PQgetvalue(res, i, 7));
 		post->rating   = danboorurating2rating(PQgetvalue(res, i, 9));
