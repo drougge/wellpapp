@@ -453,12 +453,10 @@ void client_handle(int _s) {
 					close_error(E_COMMAND);
 				}
 				break;
-			case 'P': // Add 'P'ost
-				close_error(E_COMMAND); // @@
 			case 'T': // 'T'ag post
 				tag_post(buf + 1);
 				break;
-			case 'A': // 'A'dd tag
+			case 'A': // 'A'dd something
 				close_error(E_COMMAND); // @@
 			case 'N': // 'N'OP
 				c_printf("OK\n");
