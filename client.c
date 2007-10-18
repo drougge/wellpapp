@@ -41,13 +41,44 @@ typedef enum {
 
 static const char *orders[] = {"date", "score", NULL};
 
-static const char *flags[] = {"tagname", "tagid", "ext", NULL};
+static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
+                                  "width", "height", NULL};
+
+static void c_printf(const char *fmt, ...);
+static void FLAGPRINT_EXTENSION(post_t *post) {
+	c_printf("%s", extensions[post->filetype]);
+}
+static void FLAGPRINT_DATE(post_t *post) {
+	c_printf("%llu", (unsigned long long)post->created);
+}
+static void FLAGPRINT_WIDTH(post_t *post) {
+	c_printf("%u", post->width);
+}
+static void FLAGPRINT_HEIGHT(post_t *post) {
+	c_printf("%u", post->height);
+}
+
+typedef void (*flag_printer_t)(post_t *);
+static const flag_printer_t flag_printers[] = {
+	NULL,
+	NULL,
+	FLAGPRINT_EXTENSION,
+	FLAGPRINT_DATE,
+	FLAGPRINT_WIDTH,
+	FLAGPRINT_HEIGHT,
+};
+
 typedef enum {
 	FLAG_RETURN_TAGNAMES,
 	FLAG_RETURN_TAGIDS,
 	FLAG_RETURN_EXTENSION,
+	FLAG_RETURN_DATE,
+	FLAG_RETURN_WIDTH,
+	FLAG_RETURN_HEIGHT,
+	FLAG_LAST,
 } flag_t;
 #define FLAG(n) (1 << (n))
+#define FLAG_FIRST_SINGLE FLAG_RETURN_EXTENSION
 
 typedef struct search {
 	tag_t   *tags[PROT_TAGS_PER_SEARCH];
@@ -208,7 +239,7 @@ static int build_search_cmd(const char *cmd, void *search_) {
 			search->of_orders++;
 			break;
 		case 'F': // Flag (option)
-			i = str2id(args, flags);
+			i = str2id(args, flagnames);
 			if (i < 1) return error(cmd);
 			search->flags |= FLAG(i - 1);
 			break;
@@ -328,11 +359,11 @@ static int sorter(void *_search, const void *_p1, const void *_p2) {
 }
 
 static void return_post(post_t *post, int flags) {
+	int i;
 	c_printf("RP%s", md5_md52str(post->md5));
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
 		post_taglist_t *tags = &post->tags;
 		while (tags) {
-			int i;
 			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 				if (tags->tags[i]) {
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
@@ -346,8 +377,11 @@ static void return_post(post_t *post, int flags) {
 			tags = tags->next;
 		}
 	}
-	if (flags & FLAG(FLAG_RETURN_EXTENSION)) {
-		c_printf(" E%s", extensions[post->filetype]);
+	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
+		if (flags & FLAG(i)) {
+			c_printf(" F%s=", flagnames[i]);
+			flag_printers[i](post);
+		}
 	}
 	c_printf("\n");
 }
