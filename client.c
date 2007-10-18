@@ -314,6 +314,31 @@ static int sorter(void *_search, const void *_p1, const void *_p2) {
 	return 0;
 }
 
+static void return_post(post_t *post, int flags) {
+	c_printf("RP%s", md5_md52str(post->md5));
+	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
+		post_taglist_t *tags = &post->tags;
+		while (tags) {
+			int i;
+			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+				if (tags->tags[i]) {
+					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
+						c_printf(" T%s", tags->tags[i]->name);
+					}
+					if (flags & FLAG(FLAG_RETURN_TAGIDS)) {
+						c_printf(" G%s", guid_guid2str(tags->tags[i]->guid));
+					}
+				}
+			}
+			tags = tags->next;
+		}
+	}
+	if (flags & FLAG(FLAG_RETURN_EXTENSION)) {
+		c_printf(" E%s", extensions[post->filetype]);
+	}
+	c_printf("\n");
+}
+
 static void do_search(search_t *search) {
 	result_t result;
 	int i;
@@ -330,28 +355,7 @@ static void do_search(search_t *search) {
 	if (result.of_posts) {
 		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
 		for (i = 0; i < result.of_posts; i++) {
-			c_printf("RP%s", md5_md52str(result.posts[i]->md5));
-			if (search->flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
-				post_taglist_t *tags = &result.posts[i]->tags;
-				while (tags) {
-					int j;
-					for (j = 0; j < POST_TAGLIST_PER_NODE; j++) {
-						if (tags->tags[j]) {
-							if (search->flags & FLAG(FLAG_RETURN_TAGNAMES)) {
-								c_printf(" T%s", tags->tags[j]->name);
-							}
-							if (search->flags & FLAG(FLAG_RETURN_TAGIDS)) {
-								c_printf(" G%s", guid_guid2str(tags->tags[j]->guid));
-							}
-						}
-					}
-					tags = tags->next;
-				}
-			}
-			if (search->flags & FLAG(FLAG_RETURN_EXTENSION)) {
-				c_printf(" E%s", extensions[result.posts[i]->filetype]);
-			}
-			c_printf("\n");
+			return_post(result.posts[i], search->flags);
 		}
 	}
 done:
