@@ -204,7 +204,7 @@ static void add_tagalias(const char *name, tag_t *tag) {
 int post_find_md5str(post_t **res_post, const char *md5str) {
 	md5_t md5;
 	*res_post = NULL;
-	if (md5_str2md5(&md5, md5str)) return 1;
+	if (md5_str2md5(&md5, md5str)) return -1;
 	return rbtree_find(posttree, (void *)res_post, md5.key);
 }
 

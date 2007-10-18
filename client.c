@@ -52,12 +52,14 @@ typedef enum {
 typedef struct search {
 	tag_t   *tags[PROT_TAGS_PER_SEARCH];
 	tag_t   *excluded_tags[PROT_TAGS_PER_SEARCH];
+	post_t  *post;
 	int     of_tags;
 	int     of_excluded_tags;
 	order_t orders[PROT_ORDERS_PER_SEARCH];
 	int     of_orders;
 	int     flags;
 } search_t;
+static post_t null_post; /* search->post for not found posts */
 
 typedef struct result {
 	post_t **posts;
@@ -176,6 +178,7 @@ static int build_search_cmd(const char *cmd, void *search_) {
 	search_t   *search = search_;
 	const char *args = cmd + 1;
 	int        i;
+	int        r;
 
 	switch(*cmd) {
 		case 'T': // Tag
@@ -209,6 +212,14 @@ static int build_search_cmd(const char *cmd, void *search_) {
 			if (i < 1) return error(cmd);
 			search->flags |= FLAG(i - 1);
 			break;
+		case 'M': // md5 (specific post)
+			if (search->post) return error(cmd);
+			r = post_find_md5str(&search->post, args);
+			if (r < 0) return error(cmd);
+			if (r > 0) { /* Not found */
+				search->post = &null_post;
+			}
+			break;
 		default:
 			close_error(E_SYNTAX);
 			return 1; /* NOTREACHED */
@@ -220,7 +231,9 @@ static int build_search_cmd(const char *cmd, void *search_) {
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
 	if (cmd_loop(cmd, search, build_search_cmd)) return 1;
-	if (!search->of_tags) return error("E Specify at least one included tag");
+	if (!search->of_tags && !search->post) {
+		return error("E Specify at least one included tag");
+	}
 	/* Searching is faster if ordered by post-count */
 	qsort(search->tags, search->of_tags, sizeof(tag_t *), sort_search);
 	return 0;
@@ -343,6 +356,16 @@ static void do_search(search_t *search) {
 	result_t result;
 	int i;
 
+	if (search->post) {
+		if (search->of_tags || search->of_excluded_tags) {
+			error("E mutually exclusive options specified");
+			return;
+		}
+		if (search->post != &null_post) {
+			return_post(search->post, search->flags);
+		}
+		goto done;
+	}
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		result = intersect(result, search->tags[i]);
