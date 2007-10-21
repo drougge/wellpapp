@@ -32,8 +32,10 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	assert(weak == T_YES || weak == T_NO);
 	if (post_has_tag(post, tag, T_DONTCARE)) return 1;
 	if (weak) {
-		pl = &tag->weak_posts;
-		tl = &post->weak_tags;
+		pl = tag->weak_posts;
+		if (!pl) pl = tag->weak_posts = mm_alloc(sizeof(*pl));
+		tl = post->weak_tags;
+		if (!tl) tl = post->weak_tags = mm_alloc(sizeof(*tl));
 	} else {
 		pl = &tag->posts;
 		tl = &post->tags;
@@ -170,7 +172,7 @@ again:
 		if (weak == T_NO) {
 			tl = &post->tags;
 		} else {
-			tl = &post->weak_tags;
+			tl = post->weak_tags;
 		}
 		while (tl) {
 			int i;
@@ -184,7 +186,7 @@ again:
 		if (weak == T_NO) {
 			pl = &tag->posts;
 		} else {
-			pl = &tag->weak_posts;
+			pl = tag->weak_posts;
 		}
 		while (pl) {
 			int i;

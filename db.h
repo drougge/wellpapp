@@ -61,7 +61,7 @@ typedef struct guid {
 	};
 } guid_t;
 
-#define POST_TAGLIST_PER_NODE 10
+#define POST_TAGLIST_PER_NODE 14
 struct tag;
 typedef struct post_taglist {
 	struct tag          *tags[POST_TAGLIST_PER_NODE];
@@ -89,10 +89,10 @@ typedef struct post {
 	uint16_t       of_tags;
 	uint16_t       of_holes;
 	post_taglist_t tags;
-	post_taglist_t weak_tags;
+	post_taglist_t *weak_tags;
 } post_t;
 
-#define TAG_POSTLIST_PER_NODE 20
+#define TAG_POSTLIST_PER_NODE 30
 typedef struct tag_postlist {
 	post_t *posts[TAG_POSTLIST_PER_NODE];
 	struct tag_postlist *next;
@@ -116,7 +116,7 @@ typedef struct tag {
 	uint16_t       of_holes;
 	uint32_t       of_posts;
 	tag_postlist_t posts;
-	tag_postlist_t weak_posts;
+	tag_postlist_t *weak_posts;
 } tag_t;
 
 typedef struct tagalias {
