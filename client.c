@@ -281,28 +281,28 @@ static void add_post_to_result(post_t *post, result_t *result) {
 	result->of_posts++;
 }
 
-static result_t remove_tag(result_t old_result, tag_t *tag) {
+static result_t remove_tag(result_t old_result, tag_t *tag, truth_t weak) {
 	result_t new_result;
 	uint32_t i;
 
 	memset(&new_result, 0, sizeof(new_result));
 	for (i = 0; i < old_result.of_posts; i++) {
 		post_t *post = old_result.posts[i];
-		if (!post_has_tag(post, tag)) {
+		if (!post_has_tag(post, tag, weak)) {
 			add_post_to_result(post, &new_result);
 		}
 	}
 	return new_result;
 }
 
-static result_t intersect(result_t old_result, tag_t *tag) {
+static result_t intersect(result_t old_result, tag_t *tag, truth_t weak) {
 	result_t new_result;
 	memset(&new_result, 0, sizeof(new_result));
 	if (old_result.of_posts) {
 		uint32_t i;
 		for (i = 0; i < old_result.of_posts; i++) {
 			post_t *post = old_result.posts[i];
-			if (post_has_tag(post, tag)) {
+			if (post_has_tag(post, tag, weak)) {
 				add_post_to_result(post, &new_result);
 			}
 		}
@@ -402,11 +402,11 @@ static void do_search(search_t *search) {
 	}
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
-		result = intersect(result, search->tags[i]);
+		result = intersect(result, search->tags[i], T_DONTCARE);
 		if (!result.of_posts) goto done;
 	}
 	for (i = 0; i < search->of_excluded_tags; i++) {
-		result = remove_tag(result, search->excluded_tags[i]);
+		result = remove_tag(result, search->excluded_tags[i], T_DONTCARE);
 		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
@@ -466,10 +466,15 @@ static int tag_post_cmd(const char *cmd, void *post_) {
 		case 'T': // Add tag
 		case 't': // Remove tag
 			if (!*post) return error(cmd);
+			truth_t weak = T_NO;
+			if (*args == '~') { // Weak tag
+				args++;
+				weak = T_YES;
+			}
 			tag_t *tag = tag_find_guidstr(args);
 			if (!tag) return error(cmd);
 			if (*cmd == 'T') {
-				int r = post_tag_add(*post, tag);
+				int r = post_tag_add(*post, tag, weak);
 				if (r) return error(cmd);
 			} else {
 				return error(cmd); // @@TODO: Implement removal

@@ -22,16 +22,22 @@ rbtree_head_t *posttree;
 guid_t server_guid;
 
 // @@TODO: Locking/locklessness.
-int post_tag_add(post_t *post, tag_t *tag) {
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	tag_postlist_t *pl, *ppl = NULL;
 	post_taglist_t *tl, *ptl = NULL;
 	int i;
 
 	assert(post);
 	assert(tag);
-	if (post_has_tag(post, tag)) return 1;
-	pl = &tag->posts;
-	tl = &post->tags;
+	assert(weak == T_YES || weak == T_NO);
+	if (post_has_tag(post, tag, T_DONTCARE)) return 1;
+	if (weak) {
+		pl = &tag->weak_posts;
+		tl = &post->weak_tags;
+	} else {
+		pl = &tag->posts;
+		tl = &post->tags;
+	}
 	tag->of_posts++;
 	post->of_tags++;
 	while (tl) {
@@ -155,11 +161,17 @@ tag_t *tag_find_name(const char *name) {
 	return (tag_t *)tag;
 }
 
-int post_has_tag(post_t *post, tag_t *tag) {
+int post_has_tag(post_t *post, tag_t *tag, truth_t weak) {
 	assert(post);
 	assert(tag);
+again:
 	if (post->of_tags < tag->of_posts) {
-		post_taglist_t *tl = &post->tags;
+		post_taglist_t *tl;
+		if (weak == T_NO) {
+			tl = &post->tags;
+		} else {
+			tl = &post->weak_tags;
+		}
 		while (tl) {
 			int i;
 			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
@@ -168,7 +180,12 @@ int post_has_tag(post_t *post, tag_t *tag) {
 			tl = tl->next;
 		}
 	} else {
-		tag_postlist_t *pl = &tag->posts;
+		tag_postlist_t *pl;
+		if (weak == T_NO) {
+			pl = &tag->posts;
+		} else {
+			pl = &tag->weak_posts;
+		}
 		while (pl) {
 			int i;
 			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
@@ -176,6 +193,10 @@ int post_has_tag(post_t *post, tag_t *tag) {
 			}
 			pl = pl->next;
 		}
+	}
+	if (weak == T_DONTCARE) {
+		weak = T_NO;
+		goto again;
 	}
 	return 0;
 }
@@ -270,7 +291,7 @@ static void populate_from_log_line(const char *line) {
 			tag = tag_find_name(line);
 if (!tag) printf("no tag '%s' %p '%s'\n",line,(void *)line,line-4);
 			assert(tag);
-			int r = post_tag_add(post, tag);
+			int r = post_tag_add(post, tag, T_NO);
 			assert(!r);
 		} else if (!memcmp(line, "source ", 7)) {
 			line += 7;
@@ -441,7 +462,7 @@ static int populate_from_db(PGconn *conn) {
 if (!posts[atol(PQgetvalue(res, i, 0))]) {
 printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 } else
-		r = post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag);
+		r = post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag, T_NO);
 		if (r) {
 			printf("WARN: post %s already tagged as %d?\n", PQgetvalue(res, i, 0), tag_id);
 		}

@@ -61,7 +61,7 @@ typedef struct guid {
 	};
 } guid_t;
 
-#define POST_TAGLIST_PER_NODE 14
+#define POST_TAGLIST_PER_NODE 10
 struct tag;
 typedef struct post_taglist {
 	struct tag          *tags[POST_TAGLIST_PER_NODE];
@@ -89,9 +89,10 @@ typedef struct post {
 	uint16_t       of_tags;
 	uint16_t       of_holes;
 	post_taglist_t tags;
+	post_taglist_t weak_tags;
 } post_t;
 
-#define TAG_POSTLIST_PER_NODE 30
+#define TAG_POSTLIST_PER_NODE 20
 typedef struct tag_postlist {
 	post_t *posts[TAG_POSTLIST_PER_NODE];
 	struct tag_postlist *next;
@@ -115,6 +116,7 @@ typedef struct tag {
 	uint16_t       of_holes;
 	uint32_t       of_posts;
 	tag_postlist_t posts;
+	tag_postlist_t weak_posts;
 } tag_t;
 
 typedef struct tagalias {
@@ -133,11 +135,17 @@ typedef enum {
 	FILETYPE_FLASH,
 } filetype_t;
 
+typedef enum {
+	T_NO,
+	T_YES,
+	T_DONTCARE
+} truth_t;
+
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
-int post_tag_add(post_t *post, tag_t *tag);
-int post_has_tag(post_t *post, tag_t *tag);
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
+int post_has_tag(post_t *post, tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
 const char *md5_md52str(md5_t md5);
 
