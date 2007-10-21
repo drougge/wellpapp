@@ -80,15 +80,20 @@ typedef enum {
 #define FLAG(n) (1 << (n))
 #define FLAG_FIRST_SINGLE FLAG_RETURN_EXTENSION
 
+typedef struct search_tag {
+	tag_t   *tag;
+	truth_t weak;
+} search_tag_t;
+
 typedef struct search {
-	tag_t   *tags[PROT_TAGS_PER_SEARCH];
-	tag_t   *excluded_tags[PROT_TAGS_PER_SEARCH];
-	post_t  *post;
-	int     of_tags;
-	int     of_excluded_tags;
-	order_t orders[PROT_ORDERS_PER_SEARCH];
-	int     of_orders;
-	int     flags;
+	search_tag_t tags[PROT_TAGS_PER_SEARCH];
+	search_tag_t excluded_tags[PROT_TAGS_PER_SEARCH];
+	post_t       *post;
+	int          of_tags;
+	int          of_excluded_tags;
+	order_t      orders[PROT_ORDERS_PER_SEARCH];
+	int          of_orders;
+	int          flags;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
@@ -181,10 +186,10 @@ static int get_line(char *buf, int size) {
 }
 
 static int sort_search(const void *_t1, const void *_t2) {
-	const tag_t *t1 = *(const tag_t **)_t1;
-	const tag_t *t2 = *(const tag_t **)_t2;
-	if (t1->of_posts < t2->of_posts) return -1;
-	if (t1->of_posts > t2->of_posts) return 1;
+	const search_tag_t *t1 = (const search_tag_t *)_t1;
+	const search_tag_t *t2 = (const search_tag_t *)_t2;
+	if (t1->tag->of_posts < t2->tag->of_posts) return -1;
+	if (t1->tag->of_posts > t2->tag->of_posts) return 1;
 	return 0;
 }
 
@@ -206,6 +211,7 @@ static int cmd_loop(char *cmd, void *data, cmd_func_t func) {
 
 static int build_search_cmd(const char *cmd, void *search_) {
 	tag_t      *tag;
+	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
 	const char *args = cmd + 1;
 	int        i;
@@ -214,6 +220,13 @@ static int build_search_cmd(const char *cmd, void *search_) {
 	switch(*cmd) {
 		case 'T': // Tag
 		case 't': // Removed tag
+			if (*args == '~') {
+				args++;
+				weak = T_YES;
+			} else if (*args == '!') {
+				args++;
+				weak = T_NO;
+			}
 			if (*args == 'G') {
 				tag = tag_find_guidstr(args + 1);
 			} else if (*args == 'N') {
@@ -224,11 +237,13 @@ static int build_search_cmd(const char *cmd, void *search_) {
 			if (!tag) return error(cmd);
 			if (*cmd == 'T') {
 				if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
-				search->tags[search->of_tags] = tag;
+				search->tags[search->of_tags].tag  = tag;
+				search->tags[search->of_tags].weak = weak;
 				search->of_tags++;
 			} else {
 				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
-				search->excluded_tags[search->of_excluded_tags] = tag;
+				search->excluded_tags[search->of_excluded_tags].tag  = tag;
+				search->excluded_tags[search->of_excluded_tags].weak = weak;
 				search->of_excluded_tags++;
 			}
 			break;
@@ -266,7 +281,7 @@ static int build_search(char *cmd, search_t *search) {
 		return error("E Specify at least one included tag");
 	}
 	/* Searching is faster if ordered by post-count */
-	qsort(search->tags, search->of_tags, sizeof(tag_t *), sort_search);
+	qsort(search->tags, search->of_tags, sizeof(search_tag_t), sort_search);
 	return 0;
 }
 
@@ -402,11 +417,13 @@ static void do_search(search_t *search) {
 	}
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
-		result = intersect(result, search->tags[i], T_DONTCARE);
+		search_tag_t *t = &search->tags[i];
+		result = intersect(result, t->tag, t->weak);
 		if (!result.of_posts) goto done;
 	}
 	for (i = 0; i < search->of_excluded_tags; i++) {
-		result = remove_tag(result, search->excluded_tags[i], T_DONTCARE);
+		search_tag_t *t = &search->excluded_tags[i];
+		result = remove_tag(result, t->tag, t->weak);
 		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
