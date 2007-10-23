@@ -1,4 +1,4 @@
-/* Oförändrad från den i efs förutom det här uppe. */
+/* Oförändrad från den i efs förutom det här uppe, och en cmp-funktion. */
 
 #include "db.h"
 
@@ -56,7 +56,17 @@ void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback) {
 	rbtree_iterate_i(head->root, callback);
 }
 
-/* --###-- slut på det ändrade --###-- */
+static int rbtree_key_lt(rbtree_key_t a, rbtree_key_t b) {
+	if (a.a < b.a) return 1;
+	if (a.a == b.a && a.b < b.b) return 1;
+	return 0;
+}
+
+static int rbtree_key_eq(rbtree_key_t a, rbtree_key_t b) {
+	return a.a == b.a && a.b == b.b;
+}
+
+/* --###-- slut på det ändrade (utom rbtree_key_lt/eq-anrop) --###-- */
 
 #define efs_rbtree_thischild(p, c) ((p)->child[(p)->child[0] != (c)])
 #define efs_rbtree_otherchild(p, c) ((p)->child[(p)->child[0] == (c)])
@@ -182,8 +192,8 @@ int efs_rbtree_insert(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_valu
 		return 0;
 	}
 	while (42) {
-		err1(node->key == key);
-		child = (node->key < key);
+		err1(rbtree_key_eq(node->key, key));
+		child = rbtree_key_lt(node->key, key);
 		if (node->child[child]) {
 			node = node->child[child];
 		} else {
@@ -242,8 +252,8 @@ int efs_rbtree_delete(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_key_
 
 	node = head->root;
 	while (42) {
-		if (node->key == key) break;
-		node = node->child[key > node->key];
+		if (rbtree_key_eq(node->key, key)) break;
+		node = node->child[rbtree_key_lt(node->key, key)];
 		if (!node) return 1;
 	}
 	if (node->child[0] && node->child[1]) { /* We can't really delete this node */
@@ -289,11 +299,11 @@ int efs_rbtree_find(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_value_
 
 	node = head->root;
 	while (node) {
-		if (node->key == key) {
+		if (rbtree_key_eq(node->key, key)) {
 			if (r_value) *r_value = node->value;
 			return 0;
 		}
-		node = node->child[key > node->key];
+		node = node->child[rbtree_key_lt(node->key, key)];
 	}
 	return 1;
 }

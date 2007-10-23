@@ -23,7 +23,10 @@ typedef uint16_t efs_u16_t;
 typedef uint32_t efs_u32_t;
 typedef uint64_t efs_u64_t;
 
-typedef efs_u64_t rbtree_key_t;
+typedef struct rbtree_key {
+	uint64_t a;
+	uint64_t b;
+} rbtree_key_t;
 typedef void *    rbtree_value_t;
 
 typedef enum {
