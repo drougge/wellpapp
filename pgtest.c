@@ -5,6 +5,7 @@
 #include <md5.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <signal.h>
 
 void assert_fail(const char *ass, const char *file, const char *func, int line) {
 	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n", ass, func, file, line);
@@ -556,6 +557,15 @@ static void serve(void) {
 	}
 }
 
+static const char *dumpname = "/tmp/db.log";
+
+static void sig_dump(int sig) {
+	(void)sig;
+	printf("Dumping to \"%s\"..\n", dumpname);
+	dump_log(dumpname);
+	printf("Dump done.\n");
+}
+
 int main(int argc, char **argv) {
 	int r = 0;
 	int dump = 0;
@@ -583,8 +593,9 @@ int main(int argc, char **argv) {
 	*/
 	if (dump) {
 		printf("dumping..\n");
-		dump_log("/tmp/db.log");
+		dump_log(dumpname);
 	}
+	signal(SIGUSR1, sig_dump);
 	printf("serving..\n");
 	serve();
 err:
