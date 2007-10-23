@@ -1,0 +1,78 @@
+Line oriented. Each line sent to server is a separate command, each line
+returned represents a separate object in the reply. Results from commands
+are prefixed with "R". Replies are terminated with "OK" (without "R") or a
+line beginning with "E" for errors.
+
+Each line consist of one initial letter for the command, followed by one or
+more space separated arguments.
+
+Commands:
+S - search
+T - tag a post
+A - add a new object
+N - nop (to keep server from closing idle connection)
+Q - quit
+
+S:
+First char of first argument determines if search is for a post ("P") or a
+tag ("T").
+	P:
+	Arguments:
+		T: Set tag
+		t: Not set tag
+		O: Ordering of results
+		F: Flag (request some data to be returned)
+		M: Find specific post.
+	T and t:
+		Specify tag by name ("N") or guid ("G").
+		Prefix tag-spec with "~" to find only weak tags, or "!" to
+		find only strong tags.
+	O:
+		Currently "date" or "score". Prefix with - to reverse sort.
+	F:
+		Available flags:
+			tagname: Return name of set tags.
+			tagguid: Return guid of set tags.
+			ext: Return file-type in the form of a likely
+				extension. Currently one of "jpeg", "gif",
+				"png", "bmp" or "swf".
+			created: Time as a unix timestamp (UTC).
+			width: Width in pixels.
+			height: Height in pixels.
+	M:
+		md5 of post. Can not be specified together with "T" or "t".
+		Can only be specified once.
+	Returned posts are ordered according to O arguments, or not at all.
+	Returned data for each post in not ordered, except that the Ntg
+	tagname is for the same tag as the Nth tagguid.
+	Example:
+		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext
+	Example reply:
+		RGyBYR8f-qto48a-aaaaaa-aaaaa0 P0123456789abcdef0123456789abcdef Tfoo T~bar G~foYYLK-qto48a-aaaaaa-aaaa79 Fext=jpeg
+
+	T:
+	Not really implemented yet, can only be used to find a tag using
+	complete name ("N") or guid ("G").
+	Example:
+		STNnekomimi
+
+T:
+Arguments:
+	P: md5 of post
+	T: guid of a tag to add
+	t: guid of a tag to remove
+Exactly one P must be specified as the first argument, any number of "T" and
+"t" may be specified.  Replies only "OK". On error, acceptable arguments
+preceding the erronious one are applied. GUIDs may be prefixed with "~" to
+apply the tag weakly.
+Example:
+	TP0123456789abcdef0123456789abcdef T29kQAF-qto48a-aaaaaa-aaaaaf
+
+A:
+Not implemented yet.
+
+N:
+Replies "OK".
+
+Q:
+Replies "Q *", closes connection.
