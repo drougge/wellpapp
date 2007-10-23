@@ -83,7 +83,7 @@ typedef struct post {
 	const char     *source;
 	const char     *title;
 	time_t         created;
-	uint16_t       uid; // Danbooru post-ID. Probably shouldn't be here.
+	uint16_t       uid; // Danbooru post-ID. Probably shouldn't be here. Not logged.
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
@@ -144,6 +144,13 @@ typedef enum {
 	T_DONTCARE
 } truth_t;
 
+typedef uint32_t trans_id_t;
+
+typedef struct trans {
+	off_t      mark_offset;
+	trans_id_t id;
+} trans_t;
+
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
@@ -171,6 +178,10 @@ void mm_unlock(void);
 
 void client_handle(int s);
 
+void log_trans_start(trans_t *trans, void *user);
+void log_trans_end(trans_t *trans);
+void log_write(trans_t *trans, const char *fmt, ...);
+void log_write_single(void *user, const char *fmt, ...);
 int dump_log(const char *filename);
 
 guid_t guid_gen_tag_guid(void);
@@ -178,3 +189,6 @@ const char *guid_guid2str(guid_t guid);
 int guid_str2guid(guid_t *res_guid, const char *str);
 int guid_is_valid_server_guid(const guid_t guid);
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
+
+const char *str_str2enc(const char *str);
+const char *str_enc2str(const char *enc);
