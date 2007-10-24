@@ -138,6 +138,12 @@ static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_write_single(NULL, "ATG%s N%s T%d", guid_guid2str(tag->guid), tag->name, tag->type);
 }
 
+
+static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
+	tagalias_t *tagalias = (tagalias_t *)value;
+	log_write_single(NULL, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
+}
+
 static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	trans_t trans;
 	post_t *post = (post_t *)value;
@@ -179,12 +185,14 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 
 extern rbtree_head_t *tagtree;
 extern rbtree_head_t *posttree;
+extern rbtree_head_t *tagaliastree;
 
 int dump_log(const char *filename) {
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd < 0) return 1;
 	do_sync = 0;
 	rbtree_iterate(tagtree, tag_iter);
+	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
 	do_sync = 1;
 	trans_sync();
