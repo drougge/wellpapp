@@ -90,8 +90,16 @@ again:
 void log_trans_end(trans_t *trans) {
 	off_t pos, r2;
 	int   r;
+	char  buf[12];
+	int   len;
 	
 	trans_line_done_(trans);
+	len = snprintf(buf, sizeof(buf), "E%08x\n", trans->id);
+	assert(len == 10);
+	trans_lock();
+	len = write(fd, buf, 10);
+	assert(len == 10);
+	trans_unlock();
 	trans_sync();
 	trans_lock();
 	pos = lseek(fd, trans->mark_offset, SEEK_SET);
