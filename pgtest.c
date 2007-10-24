@@ -2,7 +2,6 @@
 
 #include <time.h>
 #include <libpq-fe.h>
-#include <md5.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <signal.h>
@@ -120,29 +119,9 @@ const char *md5_md52str(md5_t md5) {
 	return buf;
 }
 
-static rbtree_key_t md5_key(const char *data, int len) {
-	MD5_CTX ctx;
-	md5_t   md5;
-
-	MD5Init(&ctx);
-	MD5Update(&ctx, data, len);
-	MD5Final(md5.m, &ctx);
-	return md5.key;
-}
-
-static rbtree_key_t guid2hash(const guid_t guid) {
-	return md5_key((char *)&guid, sizeof(guid));
-}
-
-static rbtree_key_t name2hash(const char *name) {
-	return md5_key(name, strlen(name));
-}
-
 tag_t *tag_find_guid(const guid_t guid) {
-	rbtree_key_t hash = guid2hash(guid);
 	void         *tag = NULL;
-
-	rbtree_find(tagguidtree, &tag, hash);
+	rbtree_find(tagguidtree, &tag, guid.key);
 	return (tag_t *)tag;
 }
 
@@ -153,7 +132,7 @@ tag_t *tag_find_guidstr(const char *guidstr) {
 }
 
 tag_t *tag_find_name(const char *name) {
-	rbtree_key_t hash = name2hash(name);
+	rbtree_key_t hash = rbtree_str2key(name);
 	void         *tag = NULL;
 
 	rbtree_find(tagtree, &tag, hash);
@@ -206,16 +185,16 @@ again:
 
 static void add_tag(const char *name, tag_t *tag) {
 	tag->name = mm_strdup(name);
-	if (rbtree_insert(tagtree, tag, name2hash(name))) {
+	if (rbtree_insert(tagtree, tag, rbtree_str2key(name))) {
 		assert(0);
 	}
-	if (rbtree_insert(tagguidtree, tag, guid2hash(tag->guid))) {
+	if (rbtree_insert(tagguidtree, tag, tag->guid.key)) {
 		assert(0);
 	}
 }
 
 static void add_tagalias(const char *name, tag_t *tag) {
-	rbtree_key_t hash = name2hash(name);
+	rbtree_key_t hash = rbtree_str2key(name);
 	tagalias_t   *alias;
 	alias = mm_alloc(sizeof(*alias));
 	alias->name = mm_strdup(name);
@@ -243,7 +222,21 @@ static int read_log_line(FILE *fh, char *buf, int len) {
 	return len;
 }
 
-static void populate_from_log_line(const char *line) {
+static int dummy_error(const char *msg) {
+	(void)msg;
+	return 1;
+}
+
+static void populate_from_log_line(char *line) {
+	if (*line == 'A') { // 'A'dd something
+		prot_add(line + 1, dummy_error);
+	} else if (*line == 'T') { // 'T'ag post
+		prot_tag_post(line + 1, dummy_error);
+	} else {
+		printf("Log: What? %s\n", line);
+		assert(0);
+	}
+
 	if (*line == 'C') {
 		if (line[1] == 'T') {
 			tag_t *tag;

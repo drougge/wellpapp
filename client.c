@@ -193,7 +193,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(const char *cmd, void *search_, prot_err_func_t error) {
+static int build_search_cmd(const char *cmd, void *search_, int last, prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -201,6 +201,7 @@ static int build_search_cmd(const char *cmd, void *search_, prot_err_func_t erro
 	int        i;
 	int        r;
 
+	(void)last;
 	switch(*cmd) {
 		case 'T': // Tag
 		case 't': // Removed tag
@@ -484,7 +485,10 @@ void client_handle(int _s) {
 				}
 				break;
 			case 'A': // 'A'dd something
-				close_error(E_COMMAND); // @@
+				if (!prot_add(buf + 1, client_error)) {
+					c_printf("OK\n");
+				}
+				break;
 			case 'N': // 'N'OP
 				c_printf("OK\n");
 				break;

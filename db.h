@@ -56,11 +56,10 @@ typedef union md5 {
 	rbtree_key_t key;
 } md5_t;
 
-typedef struct guid {
-	union {
-		uint8_t  data_u8[16];
-		uint32_t data_u32[4];
-	};
+typedef union guid {
+	uint8_t      data_u8[16];
+	uint32_t     data_u32[4];
+	rbtree_key_t key;
 } guid_t;
 
 typedef enum {
@@ -159,11 +158,12 @@ typedef struct trans {
 } trans_t;
 
 typedef int (*prot_err_func_t)(const char *msg);
-typedef int (*prot_cmd_func_t)(const char *cmd, void *data, prot_err_func_t error);
+typedef int (*prot_cmd_func_t)(const char *cmd, void *data, int last, prot_err_func_t error);
 
-/* Note that this modifies *cmd. */
+/* Note that these modify *cmd. */
 int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t error);
 int prot_tag_post(char *cmd, prot_err_func_t error);
+int prot_add(char *cmd, prot_err_func_t error);
 
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
@@ -181,6 +181,7 @@ int rbtree_find(rbtree_head_t *head, rbtree_value_t *r_value, rbtree_key_t key);
 int rbtree_init(rbtree_head_t *head, rbtree_allocation_policy_t allocation_policy, int allocation_value);
 void rbtree_free(rbtree_head_t *head);
 int rbtree_count(rbtree_head_t *head);
+rbtree_key_t rbtree_str2key(const char *str);
 
 int  mm_init(const char *filename, int use_existing);
 void *mm_alloc(unsigned int size);

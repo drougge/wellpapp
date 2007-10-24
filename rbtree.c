@@ -2,6 +2,8 @@
 
 #include "db.h"
 
+#include <md5.h>
+
 #define efs_rbtree_count(bs, a)        rbtree_count(a)
 #define efs_rbtree_delete(bs, a, b)    rbtree_delete(a, b)
 #define efs_rbtree_find(bs, a, b, c)   rbtree_find(a, b, c)
@@ -46,7 +48,7 @@ static int allocmem(void *res, int z) {
 
 #define efs_freemem(dummy1, ptr, dummy2) mm_free(ptr)
 
-void rbtree_iterate_i(rbtree_node_t *node, rbtree_callback_t callback) {
+static void rbtree_iterate_i(rbtree_node_t *node, rbtree_callback_t callback) {
 	callback(node->key, node->value);
 	if (node->child[0]) rbtree_iterate_i(node->child[0], callback);
 	if (node->child[1]) rbtree_iterate_i(node->child[1], callback);
@@ -64,6 +66,16 @@ static int rbtree_key_lt(rbtree_key_t a, rbtree_key_t b) {
 
 static int rbtree_key_eq(rbtree_key_t a, rbtree_key_t b) {
 	return a.a == b.a && a.b == b.b;
+}
+
+rbtree_key_t rbtree_str2key(const char *str) {
+	MD5_CTX ctx;
+	md5_t   md5;
+
+	MD5Init(&ctx);
+	MD5Update(&ctx, str, strlen(str));
+	MD5Final(md5.m, &ctx);
+	return md5.key;
 }
 
 /* --###-- slut på det ändrade (utom rbtree_key_lt/eq-anrop) --###-- */
