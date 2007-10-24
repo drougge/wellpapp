@@ -158,6 +158,13 @@ typedef struct trans {
 	char       buf[4000];
 } trans_t;
 
+typedef int (*prot_err_func_t)(const char *msg);
+typedef int (*prot_cmd_func_t)(const char *cmd, void *data, prot_err_func_t error);
+
+/* Note that this modifies *cmd. */
+int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t error);
+int prot_tag_post(char *cmd, prot_err_func_t error);
+
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);

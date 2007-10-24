@@ -145,7 +145,7 @@ static void c_printf(const char *fmt, ...) {
 	if (c_buf_used + BUF_MIN_FREE > sizeof(c_buf)) c_flush();
 }
 
-static int error(const char *what) {
+static int client_error(const char *what) {
 	c_printf("RE %s\n", what);
 	return 1;
 }
@@ -193,23 +193,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-typedef int (*cmd_func_t)(const char *cmd, void *data);
-
-static int cmd_loop(char *cmd, void *data, cmd_func_t func) {
-	while (*cmd) {
-		int  len = 0;
-		while (cmd[len] && cmd[len] != ' ') len++;
-		if (cmd[len]) {
-			cmd[len] = 0;
-			len++;
-		}
-		if (func(cmd, data)) return 1;
-		cmd += len;
-	}
-	return 0;
-}
-
-static int build_search_cmd(const char *cmd, void *search_) {
+static int build_search_cmd(const char *cmd, void *search_, prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -276,9 +260,9 @@ static int build_search_cmd(const char *cmd, void *search_) {
 
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (cmd_loop(cmd, search, build_search_cmd)) return 1;
+	if (prot_cmd_loop(cmd, search, build_search_cmd, client_error)) return 1;
 	if (!search->of_tags && !search->post) {
-		return error("E Specify at least one included tag");
+		return client_error("E Specify at least one included tag");
 	}
 	/* Searching is faster if ordered by post-count */
 	qsort(search->tags, search->of_tags, sizeof(search_tag_t), sort_search);
@@ -414,7 +398,7 @@ static void do_search(search_t *search) {
 
 	if (search->post) {
 		if (search->of_tags || search->of_excluded_tags) {
-			error("E mutually exclusive options specified");
+			client_error("E mutually exclusive options specified");
 			return;
 		}
 		if (search->post != &null_post) {
@@ -458,7 +442,7 @@ static void tag_search(const char *spec) {
 	if (*spec == 'G') {
 		guid_t guid;
 		if (guid_str2guid(&guid, spec + 1, GUIDTYPE_TAG)) {
-			error(spec);
+			client_error(spec);
 			return;
 		}
 		tag = tag_find_guid(guid);
@@ -472,51 +456,6 @@ static void tag_search(const char *spec) {
 		c_printf("P%u\n", tag->of_posts);
 	}
 	c_printf("OK\n");
-}
-
-static int tag_post_cmd(const char *cmd, void *post_) {
-	post_t     **post = post_;
-	const char *args = cmd + 1;
-
-	switch (*cmd) {
-		case 'P': // Which post
-			if (*post) {
-				return error(cmd);
-			} else {
-				post_find_md5str(post, args);
-				if (!*post) return error(cmd);
-			}
-			break;
-		case 'T': // Add tag
-		case 't': // Remove tag
-			if (!*post) return error(cmd);
-			truth_t weak = T_NO;
-			if (*args == '~') { // Weak tag
-				args++;
-				weak = T_YES;
-			}
-			tag_t *tag = tag_find_guidstr(args);
-			if (!tag) return error(cmd);
-			if (*cmd == 'T') {
-				int r = post_tag_add(*post, tag, weak);
-				if (r) return error(cmd);
-			} else {
-				return error(cmd); // @@TODO: Implement removal
-			}
-			break;
-		default:
-			return error(cmd);
-			break;
-	}
-	return 0;
-}
-
-static void tag_post(char *cmd) {
-	post_t *post = NULL;
-
-	if (!cmd_loop(cmd, &post, tag_post_cmd)) {
-		c_printf("OK\n");
-	}
 }
 
 void client_handle(int _s) {
@@ -540,7 +479,9 @@ void client_handle(int _s) {
 				}
 				break;
 			case 'T': // 'T'ag post
-				tag_post(buf + 1);
+				if (!prot_tag_post(buf + 1, client_error)) {
+					c_printf("OK\n");
+				}
 				break;
 			case 'A': // 'A'dd something
 				close_error(E_COMMAND); // @@
