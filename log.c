@@ -150,22 +150,7 @@ static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_write(&dump_trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
 }
 
-static void post_iter(rbtree_key_t key, rbtree_value_t value) {
-	post_t *post = (post_t *)value;
-	const char *md5;
-	post_taglist_t *tl;
-
-	md5 = md5_md52str(post->md5);
-	log_clear_init(&dump_trans);
-	log_write(&dump_trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%d rating=%d", md5, post->width, post->height, (unsigned long long)post->created, post->score, post->filetype, post->rating);
-	if (post->source) {
-		log_write(&dump_trans, "MP%s source=%s", md5, str_str2enc(post->source));
-	}
-	if (post->title) {
-		log_write(&dump_trans, "MP%s title=%s", md5, str_str2enc(post->title));
-	}
-	log_set_init(&dump_trans, "TP%s", md5);
-	tl = &post->tags;
+static void post_taglist(post_taglist_t *tl) {
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
@@ -175,16 +160,25 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 		}
 		tl = tl->next;
 	}
-	tl = post->weak_tags;
-	while (tl) {
-		int i;
-		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-			if (tl->tags[i]) {
-				log_write(&dump_trans, "TG~%s", guid_guid2str(tl->tags[i]->guid));
-			}
-		}
-		tl = tl->next;
+}
+
+static void post_iter(rbtree_key_t key, rbtree_value_t value) {
+	post_t *post = (post_t *)value;
+	const char *md5;
+
+	md5 = md5_md52str(post->md5);
+	log_write(&dump_trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%d rating=%d", md5, post->width, post->height, (unsigned long long)post->created, post->score, post->filetype, post->rating);
+	log_set_init(&dump_trans, "MP%s", md5);
+	if (post->source) {
+		log_write(&dump_trans, "source=%s", str_str2enc(post->source));
 	}
+	if (post->title) {
+		log_write(&dump_trans, "title=%s", str_str2enc(post->title));
+	}
+	log_set_init(&dump_trans, "TP%s", md5);
+	post_taglist(&post->tags);
+	post_taglist(post->weak_tags);
+	log_clear_init(&dump_trans);
 }
 
 extern rbtree_head_t *tagtree;
