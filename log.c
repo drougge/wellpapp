@@ -163,7 +163,7 @@ static void post_taglist(post_taglist_t *tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&dump_trans, "TG%s", guid_guid2str(tl->tags[i]->guid));
+				log_write(&dump_trans, "T%s", guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
