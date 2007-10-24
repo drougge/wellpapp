@@ -184,6 +184,7 @@ void client_handle(int s);
 void log_trans_start(trans_t *trans, void *user);
 void log_trans_end(trans_t *trans);
 void log_set_init(trans_t *trans, const char *fmt, ...);
+void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
 int dump_log(const char *filename);

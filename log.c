@@ -107,12 +107,17 @@ void log_trans_end(trans_t *trans) {
 void log_set_init(trans_t *trans, const char *fmt, ...) {
 	va_list ap;
 
-	trans_line_done_(trans);
+	log_clear_init(trans);
 	va_start(ap, fmt);
 	trans->init_len = vsnprintf(trans->buf, sizeof(trans->buf), fmt, ap);
 	va_end(ap);
 	assert(trans->init_len < sizeof(trans->buf));
 	trans->buf_used = trans->init_len;
+}
+
+void log_clear_init(trans_t *trans) {
+	trans_line_done_(trans);
+	trans->buf_used = trans->init_len = 0;
 }
 
 void log_write(trans_t *trans, const char *fmt, ...) {
@@ -133,39 +138,39 @@ void log_write_single(void *user, const char *fmt, ...) {
 	log_trans_end(&trans);
 }
 
+static trans_t dump_trans;
 static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
 	tag_t *tag = (tag_t *)value;
-	log_write_single(NULL, "ATG%s N%s T%d", guid_guid2str(tag->guid), tag->name, tag->type);
+	log_write(&dump_trans, "ATG%s N%s T%d", guid_guid2str(tag->guid), tag->name, tag->type);
 }
 
 
 static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
 	tagalias_t *tagalias = (tagalias_t *)value;
-	log_write_single(NULL, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
+	log_write(&dump_trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
 }
 
 static void post_iter(rbtree_key_t key, rbtree_value_t value) {
-	trans_t trans;
 	post_t *post = (post_t *)value;
 	const char *md5;
 	post_taglist_t *tl;
 
 	md5 = md5_md52str(post->md5);
-	log_trans_start(&trans, NULL);
-	log_write(&trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%d rating=%d", md5, post->width, post->height, (unsigned long long)post->created, post->score, post->filetype, post->rating);
+	log_clear_init(&dump_trans);
+	log_write(&dump_trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%d rating=%d", md5, post->width, post->height, (unsigned long long)post->created, post->score, post->filetype, post->rating);
 	if (post->source) {
-		log_write(&trans, "MP%s source=%s", md5, str_str2enc(post->source));
+		log_write(&dump_trans, "MP%s source=%s", md5, str_str2enc(post->source));
 	}
 	if (post->title) {
-		log_write(&trans, "MP%s title=%s", md5, str_str2enc(post->title));
+		log_write(&dump_trans, "MP%s title=%s", md5, str_str2enc(post->title));
 	}
-	log_set_init(&trans, "TP%s", md5);
+	log_set_init(&dump_trans, "TP%s", md5);
 	tl = &post->tags;
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&trans, "TG%s", guid_guid2str(tl->tags[i]->guid));
+				log_write(&dump_trans, "TG%s", guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
@@ -175,12 +180,11 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&trans, "TG~%s", guid_guid2str(tl->tags[i]->guid));
+				log_write(&dump_trans, "TG~%s", guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
 	}
-	log_trans_end(&trans);
 }
 
 extern rbtree_head_t *tagtree;
@@ -190,12 +194,11 @@ extern rbtree_head_t *tagaliastree;
 int dump_log(const char *filename) {
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd < 0) return 1;
-	do_sync = 0;
+	log_trans_start(&dump_trans, NULL);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
-	do_sync = 1;
-	trans_sync();
+	log_trans_end(&dump_trans);
 	if (close(fd)) return 1;
 	fd = -1;
 	return 0;
