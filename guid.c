@@ -1,6 +1,5 @@
 #include "db.h"
 
-#include <md5.h>
 #include <netinet/in.h> /* For htonl */
 
 static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
@@ -9,14 +8,13 @@ static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
 extern const guid_t server_guid;
 extern uint32_t     *tag_guid_last;
 
-static void guid_checksum(const guid_t guid, const char *what, unsigned char *res) {
-	unsigned char digest[16];
-	MD5_CTX ctx;
-	MD5Init(&ctx);
-	MD5Update(&ctx, what, strlen(what));
-	MD5Update(&ctx, guid.data, sizeof(guid.data));
-	MD5Final(digest, &ctx);
-	memcpy(res, digest, 4);
+static uint8_t guid_checksum(const guid_t guid, const guidtype_t what) {
+	uint8_t sum = what;
+	int i;
+	for (i = 0; i < 16; i++) {
+		if (i != 7) sum += guid.data_u8[i];
+	}
+	return sum;
 }
 
 guid_t guid_gen_tag_guid(void) {
@@ -27,9 +25,9 @@ guid_t guid_gen_tag_guid(void) {
 		tag_guid_last[0]++;
 		assert(tag_guid_last[0]);
 	}
-	guid.data_u32[1] = htonl(tag_guid_last[0]);
-	guid.data_u32[2] = htonl(tag_guid_last[1]);
-	guid_checksum(guid, "TAG", guid.check);
+	guid.data_u32[2] = htonl(tag_guid_last[0]);
+	guid.data_u32[3] = htonl(tag_guid_last[1]);
+	guid.data_u8[7] = guid_checksum(guid, GUIDTYPE_TAG);
 	return guid;
 }
 
@@ -64,7 +62,11 @@ const char *guid_guid2str(guid_t guid) {
 	return buf;
 }
 
-int guid_str2guid(guid_t *res_guid, const char *str) {
+static int guid_is_valid_something(const guid_t guid, guidtype_t what) {
+	return guid.data_u8[7] == guid_checksum(guid, what);
+}
+
+int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type) {
 	uint32_t val[4] = {0, 0, 0, 0};
 	uint32_t pval;
 	int      consumed = 0;
@@ -97,21 +99,21 @@ int guid_str2guid(guid_t *res_guid, const char *str) {
 		}
 		assert(v == 0);
 	}
-	return 0;
-}
-
-static int guid_is_valid_something(const guid_t guid, const char *what) {
-	unsigned char csum[4];
-	guid_checksum(guid, what, csum);
-	return !memcmp(csum, guid.check, sizeof(guid.check));
+	return !guid_is_valid_something(*res_guid, type);
 }
 
 int guid_is_valid_server_guid(const guid_t guid) {
-	return guid_is_valid_something(guid, "SERVER")
-	       && guid.data_u32[1] == 0 && guid.data_u32[2] == 0;
+	return guid_is_valid_something(guid, GUIDTYPE_SERVER)
+	       && guid.data_u32[2] == 0 && guid.data_u32[3] == 0;
 }
 
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local) {
-	if (!guid_is_valid_something(guid, "TAG")) return 0;
-	return !must_be_local || guid.data_u32[0] == server_guid.data_u32[0];
+	if (!guid_is_valid_something(guid, GUIDTYPE_TAG)) return 0;
+	if (must_be_local) {
+		int i;
+		for (i = 0; i < 7; i++) {
+			if (guid.data_u8[i] != server_guid.data_u8[i]) return 0;
+		}
+	}
+	return 1;
 }

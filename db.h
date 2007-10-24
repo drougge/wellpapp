@@ -57,12 +57,16 @@ typedef union md5 {
 } md5_t;
 
 typedef struct guid {
-	unsigned char check[4];
 	union {
-		unsigned char data[12];
-		uint32_t      data_u32[3];
+		uint8_t  data_u8[16];
+		uint32_t data_u32[4];
 	};
 } guid_t;
+
+typedef enum {
+	GUIDTYPE_SERVER,
+	GUIDTYPE_TAG,
+} guidtype_t;
 
 #define POST_TAGLIST_PER_NODE 14
 struct tag;
@@ -191,7 +195,7 @@ int dump_log(const char *filename);
 
 guid_t guid_gen_tag_guid(void);
 const char *guid_guid2str(guid_t guid);
-int guid_str2guid(guid_t *res_guid, const char *str);
+int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type);
 int guid_is_valid_server_guid(const guid_t guid);
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 

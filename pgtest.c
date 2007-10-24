@@ -148,7 +148,7 @@ tag_t *tag_find_guid(const guid_t guid) {
 
 tag_t *tag_find_guidstr(const char *guidstr) {
 	guid_t guid;
-	if (guid_str2guid(&guid, guidstr)) return NULL;
+	if (guid_str2guid(&guid, guidstr, GUIDTYPE_TAG)) return NULL;
 	return tag_find_guid(guid);
 }
 
@@ -571,7 +571,8 @@ int main(int argc, char **argv) {
 	int dump = 0;
 
 	assert(argc == 2);
-	r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa");
+	// r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
+	r = guid_str2guid(&server_guid, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
 	assert(!r);
 	printf("initing mm..\n");
 	if (mm_init("/tmp/db.datastore", !access("/tmp/db.datastore/0.db", F_OK))) {

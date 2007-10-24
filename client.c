@@ -457,7 +457,7 @@ static void tag_search(const char *spec) {
 	tag_t *tag = NULL;
 	if (*spec == 'G') {
 		guid_t guid;
-		if (guid_str2guid(&guid, spec + 1)) {
+		if (guid_str2guid(&guid, spec + 1, GUIDTYPE_TAG)) {
 			error(spec);
 			return;
 		}
