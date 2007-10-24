@@ -149,6 +149,9 @@ typedef uint32_t trans_id_t;
 typedef struct trans {
 	off_t      mark_offset;
 	trans_id_t id;
+	int        init_len;
+	int        buf_used;
+	char       buf[4000];
 } trans_t;
 
 tag_t *tag_find_name(const char *name);
@@ -180,6 +183,7 @@ void client_handle(int s);
 
 void log_trans_start(trans_t *trans, void *user);
 void log_trans_end(trans_t *trans);
+void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
 int dump_log(const char *filename);

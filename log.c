@@ -28,6 +28,8 @@ void log_trans_start(trans_t *trans, void *user) {
 	char buf[12];
 	int  len, r;
 	
+	trans->init_len = 0;
+	trans->buf_used = 0;
 	trans_lock();
 	trans->id = next_trans_id++;
 	len = snprintf(buf, sizeof(buf), "T%08xU\n", trans->id);
@@ -40,10 +42,56 @@ void log_trans_start(trans_t *trans, void *user) {
 	trans->mark_offset -= 2;
 }
 
+static void trans_line_done_(trans_t *trans) {
+	char idbuf[12];
+	struct iovec iov[3];
+	int len, wlen;
+
+	if (trans->buf_used == trans->init_len) return;
+	iov[0].iov_base = idbuf;
+	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%08x ", trans->id);
+	assert(iov[0].iov_len == 10);
+	iov[1].iov_base = trans->buf;
+	iov[1].iov_len  = trans->buf_used;
+	iov[2].iov_base = "\n";
+	iov[2].iov_len  = 1;
+char *ptr = trans->buf;
+while (*ptr) assert(*ptr++ != '\n');
+	wlen = iov[0].iov_len + iov[1].iov_len + iov[2].iov_len;
+	trans_lock();
+	len = writev(fd, iov, 3);
+	trans_unlock();
+	assert(len == wlen);
+	trans->buf_used = trans->init_len;
+}
+
+static void log_write_(trans_t *trans, const char *fmt, va_list ap) {
+	int looped = 0;
+	int len;
+again:
+	if (trans->buf_used) {
+		trans->buf[trans->buf_used] = ' ';
+		trans->buf_used++;
+	}
+	len = vsnprintf(trans->buf + trans->buf_used, sizeof(trans->buf) - trans->buf_used, fmt, ap);
+	if (trans->buf_used + len >= sizeof(trans->buf)) {
+		assert(!looped);
+		trans_line_done_(trans);
+		looped = 1;
+		goto again;
+	}
+	trans->buf_used += len;
+	if (trans->init_len == 0                         // No init -> lines can't be appended to
+	 || trans->buf_used + 20 > sizeof(trans->buf)) { // Nothing more will fit.
+		trans_line_done_(trans);
+	}
+}
+
 void log_trans_end(trans_t *trans) {
 	off_t pos, r2;
 	int   r;
 	
+	trans_line_done_(trans);
 	trans_sync();
 	trans_lock();
 	pos = lseek(fd, trans->mark_offset, SEEK_SET);
@@ -56,28 +104,15 @@ void log_trans_end(trans_t *trans) {
 	assert(pos == trans->mark_offset);
 }
 
-static void log_write_(trans_t *trans, const char *fmt, va_list ap) {
-	char *buf = NULL;
-	char idbuf[12];
-	struct iovec iov[3];
-	int len, wlen;
+void log_set_init(trans_t *trans, const char *fmt, ...) {
+	va_list ap;
 
-	iov[0].iov_base = idbuf;
-	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%08x ", trans->id);
-	assert(iov[0].iov_len == 10);
-	iov[2].iov_base = "\n";
-	iov[2].iov_len  = 1;
-	iov[1].iov_len = vasprintf(&buf, fmt, ap);
-	assert(buf);
-char *ptr = buf;
-while (*ptr) assert(*ptr++ != '\n');
-	iov[1].iov_base = buf;
-	wlen = iov[0].iov_len + iov[1].iov_len + iov[2].iov_len;
-	trans_lock();
-	len = writev(fd, iov, 3);
-	trans_unlock();
-	free(buf);
-	assert(len == wlen);
+	trans_line_done_(trans);
+	va_start(ap, fmt);
+	trans->init_len = vsnprintf(trans->buf, sizeof(trans->buf), fmt, ap);
+	va_end(ap);
+	assert(trans->init_len < sizeof(trans->buf));
+	trans->buf_used = trans->init_len;
 }
 
 void log_write(trans_t *trans, const char *fmt, ...) {
@@ -118,12 +153,13 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	if (post->title) {
 		log_write(&trans, "MP%s title=%s", md5, str_str2enc(post->title));
 	}
+	log_set_init(&trans, "TP%s", md5);
 	tl = &post->tags;
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&trans, "TP%s TG%s", md5, guid_guid2str(tl->tags[i]->guid));
+				log_write(&trans, "TG%s", guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
@@ -133,7 +169,7 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&trans, "TP%s TG~%s", md5, guid_guid2str(tl->tags[i]->guid));
+				log_write(&trans, "TG~%s", guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
