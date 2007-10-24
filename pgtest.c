@@ -238,7 +238,7 @@ static int read_log_line(FILE *fh, char *buf, int len) {
 		return 0;
 	}
 	len = strlen(buf) - 1;
-	assert(len > 16 && buf[len] == '\n');
+	assert(len > 8 && buf[len] == '\n');
 	buf[len] = 0;
 	return len;
 }
@@ -307,47 +307,52 @@ if (!tag) printf("no tag '%s' %p '%s'\n",line,(void *)line,line-4);
 	}
 }
 
+#define MAX_CONCURRENT_TRANSACTIONS 64
+static int find_trans(uint32_t *trans, uint32_t needle) {
+	int i;
+	for (i = 0; i < MAX_CONCURRENT_TRANSACTIONS; i++) {
+		if (trans[i] == needle) return i;
+	}
+	return -1;
+}
+
 static void populate_from_log(const char *filename) {
-	uint64_t trans_id = 0;
 	FILE     *fh;
-	char     cmp[18];
 	char     buf[4096];
+	uint32_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
 	int      len;
 
 	fh = fopen(filename, "r");
 	assert(fh);
 	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
-		if (trans_id) {
-			if (!memcmp(cmp + 1, buf + 1, 16)) {
-				if (*buf == 'E') {
-					trans_id = 0;
-				} else {
-					assert(*buf == 'D');
-					populate_from_log_line(buf + 18);
-				}
+		char     *end;
+		uint32_t tid = strtoul(buf + 1, &end, 16);
+		assert(end == buf + 9);
+		if (*buf == 'T') { // New transaction
+			assert(len == 10);
+			if (buf[9] == 'D') { // Complete transaction
+				int trans_pos = find_trans(trans, 0);
+				assert(trans_pos != -1);
+				trans[trans_pos] = tid;
+			} else if (buf[9] == 'U') { // Unfinished transaction
+				// Do nothing
+			} else { // What?
+				assert(0);
 			}
-		} else if (*buf == 'S') {
-			long pos = ftell(fh);
-			int r;
-
-			assert(pos > 0);
-			assert(len == 17);
-			memcpy(cmp, buf, 18);
-			*cmp = 'E';
-			while (42) {
-				r = read_log_line(fh, buf, sizeof(buf));
-				if (!r) {
-					printf("Skipping incomplete transaction %s\n", cmp + 1);
-					break;
-				}
-				if (!strcmp(buf, cmp)) {
-					trans_id = strtoll(cmp + 1, NULL, 16);
-					*cmp = 'D';
-					break;
-				}
+		} else if (*buf == 'D') { // Data from transaction
+			assert(len > 10);
+			if (find_trans(trans, tid) >= 0) {
+				populate_from_log_line(buf + 10);
+			} else {
+				printf("Skipping data from incomplete transaction: %s\n", buf);
 			}
-			r = fseek(fh, pos, SEEK_SET);
-			assert(!r);
+		} else if (*buf == 'E') { // End of transaction
+			int pos;
+			assert(len == 9);
+			pos = find_trans(trans, tid);
+			if (pos != -1) trans[pos] = 0;
+		} else { // What?
+			assert(0);
 		}
 	}
 }
