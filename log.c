@@ -189,10 +189,6 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_clear_init(&dump_trans);
 }
 
-extern rbtree_head_t *tagtree;
-extern rbtree_head_t *posttree;
-extern rbtree_head_t *tagaliastree;
-
 int dump_log(const char *filename) {
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd < 0) return 1;

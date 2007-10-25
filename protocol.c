@@ -3,10 +3,6 @@
 #include <stddef.h> /* offsetof() */
 #include <errno.h>
 
-extern rbtree_head_t *tagtree;
-extern rbtree_head_t *tagaliastree;
-extern rbtree_head_t *tagguidtree;
-
 static int tag_post_cmd(const char *cmd, void *post_, int last, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
@@ -161,6 +157,23 @@ typedef struct {
 	fieldtype_t type;
 	const char  **array;
 } post_field_t;
+
+const char *rating_names[] = {
+	"unspecified",
+	"safe",
+	"questionable",
+	"explicit",
+	NULL
+};
+
+const char *filetype_names[] = {
+	"jpeg",
+	"gif",
+	"png",
+	"bmp",
+	"swf",
+	NULL
+};
 
 #define POST_FIELD_DEF(name, type, array) {#name, sizeof(((post_t *)0)->name), \
                                            offsetof(post_t, name), type, array}

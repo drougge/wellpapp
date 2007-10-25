@@ -78,11 +78,6 @@ static void mm_new_segment(void) {
 	}
 }
 
-extern rbtree_head_t *posttree;
-extern rbtree_head_t *tagtree;
-extern rbtree_head_t *tagaliastree;
-extern rbtree_head_t *tagguidtree;
-
 static int lock_fd;
 
 int mm_init(const char *filename, int use_existing) {

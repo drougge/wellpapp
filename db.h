@@ -75,6 +75,7 @@ typedef struct post_taglist {
 	struct post_taglist *next;
 } post_taglist_t;
 
+/* Keep synced to rating_names[] in protocol.c */
 typedef enum {
 	RATING_UNSPECIFIED,
 	RATING_SAFE,
@@ -133,7 +134,7 @@ typedef struct tagalias {
 
 typedef uint32_t tag_id_t;
 
-/* Keep synced to extensions[] in client.c */
+/* Keep synced to filetype_names[] in protocol.c */
 typedef enum {
 	FILETYPE_JPEG,
 	FILETYPE_GIF,
@@ -211,3 +212,11 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 
 const char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
+
+extern rbtree_head_t *posttree;
+extern rbtree_head_t *tagtree;
+extern rbtree_head_t *tagaliastree;
+extern rbtree_head_t *tagguidtree;
+
+extern const char *filetype_names[];
+extern const char *rating_names[];

@@ -25,14 +25,6 @@ static char *errors[] = {
 	"out of memory",
 };
 
-static const char *extensions[] = {
-	"jpeg",
-	"gif",
-	"png",
-	"bmp",
-	"swf",
-};
-
 typedef enum {
 	ORDER_NONE,
 	ORDER_DATE,
@@ -46,7 +38,7 @@ static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
 
 static void c_printf(const char *fmt, ...);
 static void FLAGPRINT_EXTENSION(post_t *post) {
-	c_printf("%s", extensions[post->filetype]);
+	c_printf("%s", filetype_names[post->filetype]);
 }
 static void FLAGPRINT_DATE(post_t *post) {
 	c_printf("%llu", (unsigned long long)post->created);
