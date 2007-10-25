@@ -93,7 +93,7 @@ static int md5_digit2digit(char digit) {
 	return -1;
 }
 
-static int md5_str2md5(md5_t *res_md5, const char *md5str) {
+int md5_str2md5(md5_t *res_md5, const char *md5str) {
 	int i;
 
 	if (strlen(md5str) != 32) return 1;

@@ -6,6 +6,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
@@ -172,6 +173,7 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
 int post_has_tag(post_t *post, tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
 const char *md5_md52str(md5_t md5);
+int md5_str2md5(md5_t *res_md5, const char *md5str);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
 void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);

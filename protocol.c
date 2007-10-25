@@ -1,6 +1,10 @@
 #include "db.h"
 
+#include <stddef.h> /* offsetof() */
+#include <errno.h>
+
 extern rbtree_head_t *tagtree;
+extern rbtree_head_t *tagaliastree;
 extern rbtree_head_t *tagguidtree;
 
 static int tag_post_cmd(const char *cmd, void *post_, int last, prot_err_func_t error) {
@@ -114,11 +118,173 @@ static int add_tag_cmd(const char *cmd, void *data, int last, prot_err_func_t er
 }
 
 static int add_alias_cmd(const char *cmd, void *data, int last, prot_err_func_t error) {
+	tagalias_t *tagalias = data;
+	const char *args = cmd + 1;
+
+	if (!*cmd || !*args) return error(cmd);
+	switch (*cmd) {
+		case 'G':
+			tagalias->tag = tag_find_guidstr(args);
+			break;
+		case 'N':
+			tagalias->name = mm_strdup(args);
+			break;
+		default:
+			return error(cmd);
+	}
+	if (last) {
+		rbtree_key_t key;
+		if (!tagalias->tag || !tagalias->name) return error(cmd);
+		key = rbtree_str2key(tagalias->name);
+		mm_lock();
+		if (!rbtree_find(tagaliastree, NULL, key)
+		 || rbtree_insert(tagaliastree, tagalias, key)) {
+		 	mm_unlock();
+		 	return error(cmd);
+		}
+		mm_unlock();
+	}
+	return 0;
+}
+
+typedef enum {
+	FIELDTYPE_UNSIGNED,
+	FIELDTYPE_SIGNED,
+	FIELDTYPE_ENUM,
+	FIELDTYPE_STRING,
+} fieldtype_t;
+
+typedef struct {
+	const char  *name;
+	int         size;
+	int         offset;
+	fieldtype_t type;
+	const char  **array;
+} post_field_t;
+
+#define POST_FIELD_DEF(name, type, array) {#name, sizeof(((post_t *)0)->name), \
+                                           offsetof(post_t, name), type, array}
+post_field_t post_fields[] = {
+	POST_FIELD_DEF(width, FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF(height, FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF(created, FIELDTYPE_UNSIGNED, NULL), // Could be signed, but I don't care.
+	POST_FIELD_DEF(score, FIELDTYPE_SIGNED, NULL),
+	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, filetype_names),
+	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, rating_names),
+	POST_FIELD_DEF(score, FIELDTYPE_STRING, NULL),
+	POST_FIELD_DEF(title, FIELDTYPE_STRING, NULL),
+	{NULL}
+};
+
+static int put_int_value(post_t *post, post_field_t *field, const char *val) {
+	/* I can see no reasonable way to merge these cases. *
+	 * (Other than horrible preprocessor madness.)       */
+	if (!*val) return 1;
+	errno = 0;
+	if (field->type == FIELDTYPE_SIGNED) {
+		char *end;
+		long long v = strtoll(val, &end, 10);
+		if (errno || *end) return 1;
+		if (v == LLONG_MAX || v == LLONG_MIN) return 1;
+		if (field->size == 8) {
+			int64_t rv = v;
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 8);
+		} else if (field->size == 4) {
+			int32_t rv = v;
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 4);
+		} else {
+			int16_t rv = v;
+			assert(field->size == 2);
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 2);
+		}
+	} else {
+		char *end;
+		unsigned long long v = strtoull(val, &end, 10);
+		if (errno || *end) return 1;
+		if (v == ULLONG_MAX) return 1;
+		if (field->size == 8) {
+			uint64_t rv = v;
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 8);
+		} else if (field->size == 4) {
+			uint32_t rv = v;
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 4);
+		} else {
+			uint16_t rv = v;
+			assert(field->size == 2);
+			if (v != rv) return 1;
+			memcpy((char *)post + field->offset, &rv, 2);
+		}
+	}
+	return 0;
+}
+
+static int put_enum_value(post_t *post, post_field_t *field, const char *val) {
+	const char **array = field->array;
+	uint16_t i;
+	assert(field->size == 2);
+	for (i = 0; array[i]; i++) {
+		if (!strcmp(array[i], val)) {
+			memcpy((char *)post + field->offset, &i, 2);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int put_string_value(post_t *post, post_field_t *field, const char *val) {
+	const char **res = (const char **)((char *)post + field->offset);
+	const char *decoded;
+
+	decoded = str_enc2str(val);
+	if (!decoded) return 1;
+	*res = mm_strdup(decoded);
+	return 0;
+}
+
+static int put_in_post_field(post_t *post, const char *str, int nlen) {
+	post_field_t *field = post_fields;
+	int (*func[])(post_t *, post_field_t *, const char *) = {
+		put_int_value,
+		put_int_value,
+		put_enum_value,
+		put_string_value,
+	};
+
+	while (field->name) {
+		if (!memcmp(field->name, str, nlen)) {
+			const char *valp = str + nlen + 1;
+			if (field->name[nlen]) return 1;
+			if (!*valp) return 1;
+			if (func[field->type](post, field, valp)) {
+				return 1;
+			}
+		}
+		field++;
+	}
 	return 1;
 }
 
 static int add_post_cmd(const char *cmd, void *data, int last, prot_err_func_t error) {
-	return 1;
+	post_t     *post = data;
+	const char *eqp;
+
+	eqp = strchr(cmd, '=');
+	if (eqp) {
+		if (put_in_post_field(post, cmd, eqp - cmd)) {
+			return error(cmd);
+		}
+	} else { // This is the md5
+		int r = md5_str2md5(&post->md5, cmd);
+		if (r) return error(cmd);
+	}
+	if (last) {
+	}
+	return 0;
 }
 
 int prot_add(char *cmd, prot_err_func_t error) {
@@ -131,9 +297,13 @@ int prot_add(char *cmd, prot_err_func_t error) {
 			data = mm_alloc(sizeof(tag_t));
 			break;
 		case 'A':
-			func = add_alias_cmd; break;
+			func = add_alias_cmd;
+			data = mm_alloc(sizeof(tagalias_t));
+			break;
 		case 'P':
-			func = add_post_cmd; break;
+			func = add_post_cmd;
+			data = mm_alloc(sizeof(post_t));
+			break;
 		default:
 			return error1(cmd, error);
 	}
