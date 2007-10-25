@@ -296,6 +296,17 @@ static int add_post_cmd(const char *cmd, void *data, int last, prot_err_func_t e
 		if (r) return error(cmd);
 	}
 	if (last) {
+		int r;
+		md5_t null_md5;
+		memset(&null_md5, 0, sizeof(md5_t));
+		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))
+		 || !post->height || !post->width || !post->created) {
+			return error(cmd);
+		}
+		mm_lock();
+		r = rbtree_insert(posttree, post, post->md5.key);
+		mm_unlock();
+		if (r) return error(cmd);
 	}
 	return 0;
 }
