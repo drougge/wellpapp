@@ -236,68 +236,6 @@ static void populate_from_log_line(char *line) {
 		printf("Log: What? %s\n", line);
 		assert(0);
 	}
-
-	if (*line == 'C') {
-		if (line[1] == 'T') {
-			tag_t *tag;
-			tag = mm_alloc(sizeof(*tag));
-			add_tag(line + 2, tag);
-		} else {
-			char   m[33];
-			post_t *post;
-			char   *line_;
-			int     r;
-
-			assert(line[1] == 'P');
-			post = mm_alloc(sizeof(*post));
-			line += 2;
-			assert(strlen(line) > 34); /* @ A bit more, really. */
-			memcpy(m, line, 32);
-			m[32] = 0;
-			r = md5_str2md5(&post->md5, m);
-			assert(!r);
-			line += 33;
-			post->width   = strtol(line, &line_, 0);
-			post->height  = strtol(line_, &line_, 0);
-			post->created = strtoll(line_, &line_, 0);
-			post->uid     = 0; // @@
-			post->score   = 0;
-			post->source  = NULL;
-			if (rbtree_insert(posttree, post, post->md5.key)) {
-				assert(0);
-			}
-		}
-	} else if (*line == 'P') {
-		md5_t  md5;
-		char   m[33];
-		tag_t  *tag;
-		post_t *post;
-		int    r;
-
-		line++;
-		memcpy(m, line, 32);
-		m[32] = 0;
-		r = md5_str2md5(&md5, m);
-		assert(!r);
-		rbtree_find(posttree, (void *)&post, md5.key);
-		assert(post);
-		line += 33;
-		if (!memcmp(line, "tag ", 4)) {
-			line += 4;
-			tag = tag_find_name(line);
-if (!tag) printf("no tag '%s' %p '%s'\n",line,(void *)line,line-4);
-			assert(tag);
-			int r = post_tag_add(post, tag, T_NO);
-			assert(!r);
-		} else if (!memcmp(line, "source ", 7)) {
-			line += 7;
-			post->source = mm_strdup(line);
-		} else {
-			printf("P? %s\n", line);
-		}
-	} else {
-		printf("? %s\n", line);
-	}
 }
 
 #define MAX_CONCURRENT_TRANSACTIONS 64
