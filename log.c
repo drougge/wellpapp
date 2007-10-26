@@ -175,7 +175,7 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	const char *md5;
 
 	md5 = md5_md52str(post->md5);
-	log_write(&dump_trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%d rating=%d", md5, post->width, post->height, (unsigned long long)post->created, post->score, post->filetype, post->rating);
+	log_write(&dump_trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%s rating=%s", md5, post->width, post->height, (unsigned long long)post->created, post->score, filetype_names[post->filetype], rating_names[post->rating]);
 	log_set_init(&dump_trans, "MP%s", md5);
 	if (post->source) {
 		log_write(&dump_trans, "source=%s", str_str2enc(post->source));
