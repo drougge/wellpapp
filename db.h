@@ -106,7 +106,7 @@ typedef struct tag_postlist {
 	struct tag_postlist *next;
 } tag_postlist_t;
 
-/* Keep synced to tagtype_names[] in client.c */
+/* Keep synced to tagtype_names[] in protocol.c */
 typedef enum {
 	TAGTYPE_UNSPECIFIED, // Not specified (not known)
 	TAGTYPE_INIMAGE,     // Something visible in the image ("thighhighs", ...)
@@ -227,3 +227,4 @@ extern rbtree_head_t *tagguidtree;
 
 extern const char *filetype_names[];
 extern const char *rating_names[];
+extern const char *tagtype_names[];

@@ -3,6 +3,17 @@
 #include <stddef.h> /* offsetof() */
 #include <errno.h>
 
+const char *tagtype_names[] = {
+	"unspecified",
+	"inimage",
+	"artist",
+	"character",
+	"copyright",
+	"meta",
+	"ambiguous",
+	NULL
+};
+
 static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
@@ -69,6 +80,17 @@ static int error1(char *cmd, prot_err_func_t error) {
 	return error(cmd);
 }
 
+static int put_enum_value_gen(uint16_t *res, const char **array, const char *val) {
+	uint16_t i;
+	for (i = 0; array[i]; i++) {
+		if (!strcmp(array[i], val)) {
+			*res = i;
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
@@ -86,8 +108,9 @@ static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans
 			tag->name = mm_strdup(args);
 			break;
 		case 'T':
-			tag->type = strtoul(args, &ptr, 10);
-			if (*ptr) return error(cmd);
+			if (put_enum_value_gen(&tag->type, tagtype_names, args)) {
+				return error(cmd);
+			}
 			break;
 		default:
 			return error(cmd);
@@ -240,17 +263,9 @@ static int put_int_value(post_t *post, post_field_t *field, const char *val) {
 	return 0;
 }
 
-static int put_enum_value(post_t *post, post_field_t *field, const char *val) {
-	const char **array = field->array;
-	uint16_t i;
+static int put_enum_value_post(post_t *post, post_field_t *field, const char *val) {
 	assert(field->size == 2);
-	for (i = 0; array[i]; i++) {
-		if (!strcmp(array[i], val)) {
-			memcpy((char *)post + field->offset, &i, 2);
-			return 0;
-		}
-	}
-	return 1;
+	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), field->array, val);
 }
 
 static int put_string_value(post_t *post, post_field_t *field, const char *val) {
@@ -268,7 +283,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 	int (*func[])(post_t *, post_field_t *, const char *) = {
 		put_int_value,
 		put_int_value,
-		put_enum_value,
+		put_enum_value_post,
 		put_string_value,
 	};
 

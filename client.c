@@ -422,16 +422,6 @@ done:
 	c_printf("OK\n");
 }
 
-static const char *tagtype_names[] = {
-	"unspecified",
-	"inimage",
-	"artist",
-	"character",
-	"copyright",
-	"meta",
-	"ambiguous",
-};
-
 static void tag_search(const char *spec) {
 	tag_t *tag = NULL;
 	if (*spec == 'G') {

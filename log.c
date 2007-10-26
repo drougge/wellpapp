@@ -149,7 +149,7 @@ void log_write_single(void *user, const char *fmt, ...) {
 static trans_t dump_trans;
 static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
 	tag_t *tag = (tag_t *)value;
-	log_write(&dump_trans, "ATG%s N%s T%d", guid_guid2str(tag->guid), tag->name, tag->type);
+	log_write(&dump_trans, "ATG%s N%s T%s", guid_guid2str(tag->guid), tag->name, tagtype_names[tag->type]);
 }
 
 
