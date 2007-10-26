@@ -99,7 +99,7 @@ static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans
 		for (i = 0; i < sizeof(tag->guid); i++) {
 			if (ptr[i]) break;
 		}
-		if (i != sizeof(tag->guid) || !tag->name) return error(cmd);
+		if (i == sizeof(tag->guid) || !tag->name) return error(cmd);
 		key = rbtree_str2key(tag->name);
 		mm_lock();
 		if (rbtree_insert(tagtree, tag, key)) {
