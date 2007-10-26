@@ -228,14 +228,22 @@ static int dummy_error(const char *msg) {
 }
 
 static void populate_from_log_line(char *line) {
-	if (*line == 'A') { // 'A'dd something
-		prot_add(line + 1, dummy_error);
-	} else if (*line == 'T') { // 'T'ag post
-		prot_tag_post(line + 1, dummy_error);
-	} else {
-		printf("Log: What? %s\n", line);
-		assert(0);
+	int r;
+	switch (*line) {
+		case 'A': // 'A'dd something
+			r = prot_add(line + 1, dummy_error);
+			break;
+		case 'T': // 'T'ag post
+			r = prot_tag_post(line + 1, dummy_error);
+			break;
+		case 'M': // 'M'odify post
+			r = prot_modify(line + 1, dummy_error);
+			break;
+		default:
+			printf("Log: What? %s\n", line);
+			r = 1;
 	}
+	assert(!r);
 }
 
 #define MAX_CONCURRENT_TRANSACTIONS 64
