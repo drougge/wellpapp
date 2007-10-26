@@ -185,7 +185,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flags, prot_err_func_t error) {
+static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -194,6 +194,8 @@ static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flag
 	int        r;
 
 	(void)flags;
+	(void)trans;
+
 	switch(*cmd) {
 		case 'T': // Tag
 		case 't': // Removed tag
@@ -253,7 +255,7 @@ static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flag
 
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(cmd, search, build_search_cmd, CMDFLAG_NONE, client_error)) return 1;
+	if (prot_cmd_loop(cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
 	if (!search->of_tags && !search->post) {
 		return client_error("E Specify at least one included tag");
 	}
@@ -451,6 +453,13 @@ static void tag_search(const char *spec) {
 	c_printf("OK\n");
 }
 
+static void modifying_command(int (*func)(char *, trans_t *, prot_err_func_t), char *cmd) {
+// @@ trans
+	if (!func(cmd, NULL, client_error)) {
+		c_printf("OK\n");
+	}
+}
+
 void client_handle(int _s) {
 	char buf[PROT_MAXLEN];
 	int len;
@@ -472,14 +481,10 @@ void client_handle(int _s) {
 				}
 				break;
 			case 'T': // 'T'ag post
-				if (!prot_tag_post(buf + 1, client_error)) {
-					c_printf("OK\n");
-				}
+				modifying_command(prot_tag_post, buf + 1);
 				break;
 			case 'A': // 'A'dd something
-				if (!prot_add(buf + 1, client_error)) {
-					c_printf("OK\n");
-				}
+				modifying_command(prot_add, buf + 1);
 				break;
 			case 'N': // 'N'OP
 				c_printf("OK\n");

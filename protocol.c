@@ -3,10 +3,11 @@
 #include <stddef.h> /* offsetof() */
 #include <errno.h>
 
-static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, prot_err_func_t error) {
+static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
+// @@ trans
 	(void)flags;
 	switch (*cmd) {
 		case 'P': // Which post
@@ -41,7 +42,7 @@ static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, pro
 	return 0;
 }
 
-int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, prot_err_func_t error) {
+int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -50,15 +51,15 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t f
 			len++;
 		}
 		if (!cmd[len]) flags |= CMDFLAG_LAST;
-		if (func(cmd, data, flags, error)) return 1;
+		if (func(cmd, data, flags, trans, error)) return 1;
 		cmd += len;
 	}
 	return 0;
 }
 
-int prot_tag_post(char *cmd, prot_err_func_t error) {
+int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error) {
 	post_t *post = NULL;
-	return prot_cmd_loop(cmd, &post, tag_post_cmd, CMDFLAG_NONE, error);
+	return prot_cmd_loop(cmd, &post, tag_post_cmd, CMDFLAG_NONE, trans, error);
 }
 
 static int error1(char *cmd, prot_err_func_t error) {
@@ -68,12 +69,13 @@ static int error1(char *cmd, prot_err_func_t error) {
 	return error(cmd);
 }
 
-static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
+static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
 	char       *ptr;
 
+// @@ trans
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -114,10 +116,11 @@ static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_
 	return 0;
 }
 
-static int add_alias_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
+static int add_alias_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
+// @@ trans
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -283,10 +286,11 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 	return 1;
 }
 
-static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
+static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
+// @@ trans
 	eqp = strchr(cmd, '=');
 	if (eqp) {
 		if (!post) return error(cmd);
@@ -321,7 +325,7 @@ static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err
 	return 0;
 }
 
-int prot_add(char *cmd, prot_err_func_t error) {
+int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -341,11 +345,11 @@ int prot_add(char *cmd, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_NONE, error);
+	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_NONE, trans, error);
 }
 
-int prot_modify(char *cmd, prot_err_func_t error) {
+int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error) {
 	post_t *post = NULL;
 	if (*cmd != 'P') return error(cmd);
-	return prot_cmd_loop(cmd + 1, &post, post_cmd, CMDFLAG_MODIFY, error);
+	return prot_cmd_loop(cmd + 1, &post, post_cmd, CMDFLAG_MODIFY, trans, error);
 }

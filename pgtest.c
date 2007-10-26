@@ -231,13 +231,13 @@ static void populate_from_log_line(char *line) {
 	int r;
 	switch (*line) {
 		case 'A': // 'A'dd something
-			r = prot_add(line + 1, dummy_error);
+			r = prot_add(line + 1, NULL, dummy_error);
 			break;
 		case 'T': // 'T'ag post
-			r = prot_tag_post(line + 1, dummy_error);
+			r = prot_tag_post(line + 1, NULL, dummy_error);
 			break;
 		case 'M': // 'M'odify post
-			r = prot_modify(line + 1, dummy_error);
+			r = prot_modify(line + 1, NULL, dummy_error);
 			break;
 		default:
 			printf("Log: What? %s\n", line);
