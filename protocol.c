@@ -69,7 +69,7 @@ static int error1(char *cmd, prot_err_func_t error) {
 }
 
 static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
-	tag_t      *tag = data;
+	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
 	char       *ptr;
@@ -115,7 +115,7 @@ static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_
 }
 
 static int add_alias_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
-	tagalias_t *tagalias = data;
+	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
 	if (!*cmd || !*args) return error(cmd);
@@ -283,8 +283,8 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 	return 1;
 }
 
-static int add_post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
-	post_t     *post = data;
+static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
+	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
 	eqp = strchr(cmd, '=');
@@ -326,11 +326,11 @@ int prot_add(char *cmd, prot_err_func_t error) {
 			data = mm_alloc(sizeof(tagalias_t));
 			break;
 		case 'P':
-			func = add_post_cmd;
+			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
 			break;
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd + 1, data, func, CMDFLAG_NONE, error);
+	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_NONE, error);
 }
