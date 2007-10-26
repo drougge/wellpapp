@@ -289,14 +289,23 @@ static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err
 
 	eqp = strchr(cmd, '=');
 	if (eqp) {
+		if (!post) return error(cmd);
 		if (put_in_post_field(post, cmd, eqp - cmd)) {
 			return error(cmd);
 		}
 	} else { // This is the md5
-		int r = md5_str2md5(&post->md5, cmd);
-		if (r) return error(cmd);
+		if (flags & CMDFLAG_MODIFY) {
+			post_t **postp = data;
+			int r = post_find_md5str(&post, cmd);
+			if (r) return error(cmd);
+			if (*postp) return error(cmd);
+			*postp = post;
+		} else {
+			int r = md5_str2md5(&post->md5, cmd);
+			if (r) return error(cmd);
+		}
 	}
-	if (flags & CMDFLAG_LAST) {
+	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
 		int r;
 		md5_t null_md5;
 		memset(&null_md5, 0, sizeof(md5_t));
@@ -333,4 +342,10 @@ int prot_add(char *cmd, prot_err_func_t error) {
 			return error1(cmd, error);
 	}
 	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_NONE, error);
+}
+
+int prot_modify(char *cmd, prot_err_func_t error) {
+	post_t *post = NULL;
+	if (*cmd != 'P') return error(cmd);
+	return prot_cmd_loop(cmd + 1, &post, post_cmd, CMDFLAG_MODIFY, error);
 }
