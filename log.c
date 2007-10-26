@@ -104,7 +104,7 @@ void log_trans_end(trans_t *trans) {
 	trans_lock();
 	pos = lseek(fd, trans->mark_offset, SEEK_SET);
 	assert(pos == trans->mark_offset);
-	r = write(fd, "D", 1);
+	r = write(fd, "O", 1);
 	r2  = lseek(fd, 0, SEEK_END);
 	assert(r == 1);
 	assert(r2 != -1);

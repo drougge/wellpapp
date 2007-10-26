@@ -261,7 +261,7 @@ static void populate_from_log(const char *filename) {
 		assert(end == buf + 9);
 		if (*buf == 'T') { // New transaction
 			assert(len == 10);
-			if (buf[9] == 'D') { // Complete transaction
+			if (buf[9] == 'O') { // Complete transaction
 				int trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
