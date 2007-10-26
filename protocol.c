@@ -188,7 +188,7 @@ post_field_t post_fields[] = {
 	POST_FIELD_DEF(score, FIELDTYPE_SIGNED, NULL),
 	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, filetype_names),
 	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, rating_names),
-	POST_FIELD_DEF(score, FIELDTYPE_STRING, NULL),
+	POST_FIELD_DEF(source, FIELDTYPE_STRING, NULL),
 	POST_FIELD_DEF(title, FIELDTYPE_STRING, NULL),
 	{NULL}
 };
@@ -280,6 +280,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 			if (func[field->type](post, field, valp)) {
 				return 1;
 			}
+			return 0;
 		}
 		field++;
 	}
