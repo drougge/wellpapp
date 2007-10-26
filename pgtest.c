@@ -433,8 +433,11 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 		assert(tag_id < MAX_TAGS);
 		tag = tags[tag_id];
 		if (tag) {
+			const char *name = PQgetvalue(res, i, 1);
 			tag->type = danboorutype2type[atol(PQgetvalue(res, i, 2))];
-			add_tag(PQgetvalue(res, i, 1), tag);
+			/* The aliases suggest this might be what it's supposed to be called. */
+			if (!*name) name = "awesome_female";
+			add_tag(name, tag);
 		}
 	}
 	PQclear(res);
