@@ -331,5 +331,5 @@ int prot_add(char *cmd, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd, data, func, error);
+	return prot_cmd_loop(cmd + 1, data, func, error);
 }
