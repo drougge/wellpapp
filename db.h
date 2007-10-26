@@ -159,13 +159,20 @@ typedef struct trans {
 	char       buf[4000];
 } trans_t;
 
+typedef enum {
+	CMDFLAG_NONE   = 0,
+	CMDFLAG_LAST   = 1,
+	CMDFLAG_MODIFY = 2,
+} prot_cmd_flag_t;
+
 typedef int (*prot_err_func_t)(const char *msg);
-typedef int (*prot_cmd_func_t)(const char *cmd, void *data, int last, prot_err_func_t error);
+typedef int (*prot_cmd_func_t)(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error);
 
 /* Note that these modify *cmd. */
-int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t error);
+int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, prot_err_func_t error);
 int prot_tag_post(char *cmd, prot_err_func_t error);
 int prot_add(char *cmd, prot_err_func_t error);
+int prot_modify(char *cmd, prot_err_func_t error);
 
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);

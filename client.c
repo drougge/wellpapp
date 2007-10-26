@@ -185,7 +185,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(const char *cmd, void *search_, int last, prot_err_func_t error) {
+static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flags, prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -193,7 +193,7 @@ static int build_search_cmd(const char *cmd, void *search_, int last, prot_err_f
 	int        i;
 	int        r;
 
-	(void)last;
+	(void)flags;
 	switch(*cmd) {
 		case 'T': // Tag
 		case 't': // Removed tag
@@ -253,7 +253,7 @@ static int build_search_cmd(const char *cmd, void *search_, int last, prot_err_f
 
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(cmd, search, build_search_cmd, client_error)) return 1;
+	if (prot_cmd_loop(cmd, search, build_search_cmd, CMDFLAG_NONE, client_error)) return 1;
 	if (!search->of_tags && !search->post) {
 		return client_error("E Specify at least one included tag");
 	}

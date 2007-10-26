@@ -3,11 +3,11 @@
 #include <stddef.h> /* offsetof() */
 #include <errno.h>
 
-static int tag_post_cmd(const char *cmd, void *post_, int last, prot_err_func_t error) {
+static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
-	(void)last;
+	(void)flags;
 	switch (*cmd) {
 		case 'P': // Which post
 			if (*post) {
@@ -41,7 +41,7 @@ static int tag_post_cmd(const char *cmd, void *post_, int last, prot_err_func_t 
 	return 0;
 }
 
-int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t error) {
+int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, prot_err_func_t error) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -49,7 +49,8 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t e
 			cmd[len] = 0;
 			len++;
 		}
-		if (func(cmd, data, cmd[len], error)) return 1;
+		if (!cmd[len]) flags |= CMDFLAG_LAST;
+		if (func(cmd, data, flags, error)) return 1;
 		cmd += len;
 	}
 	return 0;
@@ -57,7 +58,7 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_err_func_t e
 
 int prot_tag_post(char *cmd, prot_err_func_t error) {
 	post_t *post = NULL;
-	return prot_cmd_loop(cmd, &post, tag_post_cmd, error);
+	return prot_cmd_loop(cmd, &post, tag_post_cmd, CMDFLAG_NONE, error);
 }
 
 static int error1(char *cmd, prot_err_func_t error) {
@@ -67,7 +68,7 @@ static int error1(char *cmd, prot_err_func_t error) {
 	return error(cmd);
 }
 
-static int add_tag_cmd(const char *cmd, void *data, int last, prot_err_func_t error) {
+static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
 	tag_t      *tag = data;
 	int        r;
 	const char *args = cmd + 1;
@@ -89,7 +90,7 @@ static int add_tag_cmd(const char *cmd, void *data, int last, prot_err_func_t er
 		default:
 			return error(cmd);
 	}
-	if (last) {
+	if (flags & CMDFLAG_LAST) {
 		rbtree_key_t key;
 		int i;
 		ptr = (char *)&tag->guid;
@@ -113,7 +114,7 @@ static int add_tag_cmd(const char *cmd, void *data, int last, prot_err_func_t er
 	return 0;
 }
 
-static int add_alias_cmd(const char *cmd, void *data, int last, prot_err_func_t error) {
+static int add_alias_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
 	tagalias_t *tagalias = data;
 	const char *args = cmd + 1;
 
@@ -128,7 +129,7 @@ static int add_alias_cmd(const char *cmd, void *data, int last, prot_err_func_t 
 		default:
 			return error(cmd);
 	}
-	if (last) {
+	if (flags & CMDFLAG_LAST) {
 		rbtree_key_t key;
 		if (!tagalias->tag || !tagalias->name) return error(cmd);
 		key = rbtree_str2key(tagalias->name);
@@ -282,7 +283,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 	return 1;
 }
 
-static int add_post_cmd(const char *cmd, void *data, int last, prot_err_func_t error) {
+static int add_post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, prot_err_func_t error) {
 	post_t     *post = data;
 	const char *eqp;
 
@@ -295,7 +296,7 @@ static int add_post_cmd(const char *cmd, void *data, int last, prot_err_func_t e
 		int r = md5_str2md5(&post->md5, cmd);
 		if (r) return error(cmd);
 	}
-	if (last) {
+	if (flags & CMDFLAG_LAST) {
 		int r;
 		md5_t null_md5;
 		memset(&null_md5, 0, sizeof(md5_t));
@@ -331,5 +332,5 @@ int prot_add(char *cmd, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd + 1, data, func, error);
+	return prot_cmd_loop(cmd + 1, data, func, CMDFLAG_NONE, error);
 }
