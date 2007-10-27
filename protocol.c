@@ -393,6 +393,7 @@ static int mkuser_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_
 			r = put_enum_value_gen(&u16, cap_names, args);
 			if (r) return error(cmd);
 			user->caps |= 1 << u16;
+			break;
 		case 'P':
 			user->password = mm_strdup(args);
 			break;
