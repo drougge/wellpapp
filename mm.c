@@ -14,6 +14,8 @@ typedef struct mm_head {
 	uint32_t of_segments;
 	uint32_t used;
 	uint32_t free;
+	uint32_t wasted;
+	uint32_t used_small;
 	uint32_t flags;
 	uint8_t  *addr;
 	uint8_t  *top;
@@ -70,10 +72,11 @@ static void mm_new_segment(void) {
 	addr = mm_map_segment(nr, fd);
 	close(fd);
 	if (mm_head) {
-		mm_head->size  += MM_SEGMENT_SIZE;
-		mm_head->free  += MM_SEGMENT_SIZE;
-		mm_head->bottom = addr;
-		mm_head->top    = addr + MM_SEGMENT_SIZE;
+		mm_head->size   += MM_SEGMENT_SIZE;
+		mm_head->wasted += mm_head->free;
+		mm_head->free    = MM_SEGMENT_SIZE;
+		mm_head->bottom  = addr;
+		mm_head->top     = addr + MM_SEGMENT_SIZE;
 		mm_head->of_segments++;
 	}
 }
@@ -143,6 +146,7 @@ static void *mm_alloc_(unsigned int size, int unaligned) {
 		assert(mm_head->top >= mm_head->bottom);
 		mm_head->free -= size;
 		mm_head->used += size;
+		mm_head->used_small += size;
 		return mm_head->top;
 	} else {
 		void *ptr = mm_head->bottom;
@@ -185,8 +189,8 @@ char *mm_strdup(const char *str) {
 }
 
 void mm_print(void) {
-	printf("%d of %d bytes used, %d free. %d segments.\n", mm_head->used, mm_head->size, mm_head->free, mm_head->of_segments);
-	printf("%d bytes small, %d bytes aligned.\n", (int)(mm_head->addr + mm_head->size - mm_head->top), (int)(mm_head->bottom - mm_head->addr));
+	printf("%d of %d bytes used, %d free (%d wasted). %d segments.\n", mm_head->used, mm_head->size, mm_head->free, mm_head->wasted, mm_head->of_segments);
+	printf("%d bytes small, %d bytes aligned.\n", mm_head->used_small, mm_head->used - mm_head->used_small);
 }
 
 void mm_lock(void) {
