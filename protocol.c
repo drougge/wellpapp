@@ -369,3 +369,50 @@ int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error) {
 	if (*cmd != 'P') return error(cmd);
 	return prot_cmd_loop(cmd + 1, &post, post_cmd, CMDFLAG_MODIFY, trans, error);
 }
+
+const char *cap_names[] = {
+	"post",
+	"delete",
+	"mkuser",
+	NULL
+};
+
+static int mkuser_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+	user_t     *user = data;
+	const char *args = cmd + 1;
+	uint16_t   u16;
+	int        r;
+
+// @@ trans
+	if (!*cmd || !*args) return error(cmd);
+	switch (*cmd) {
+		case 'N':
+			user->name = mm_strdup(args);
+			break;
+		case 'C':
+			r = put_enum_value_gen(&u16, cap_names, args);
+			if (r) return error(cmd);
+			user->caps |= 1 << u16;
+		case 'P':
+			user->password = mm_strdup(args);
+			break;
+		default:
+			return error(cmd);
+	}
+	if (flags & CMDFLAG_LAST) {
+		rbtree_key_t key;
+		if (!user->name || !user->password) return error(cmd);
+		key = rbtree_str2key(user->name);
+		mm_lock();
+		r = rbtree_insert(usertree, user, key);
+		mm_unlock();
+		if (r) return error(cmd);
+	}
+	return 0;
+}
+
+int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error) {
+	user_t *user;
+	user = mm_alloc(sizeof(*user));
+	return prot_cmd_loop(cmd, user, mkuser_cmd, CMDFLAG_NONE, trans, error);
+}

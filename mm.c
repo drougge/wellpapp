@@ -89,6 +89,7 @@ int mm_init(const char *filename, int use_existing) {
 	tagtree  = posttree + 1;
 	tagaliastree = tagtree + 1;
 	tagguidtree = tagaliastree + 1;
+	usertree = tagguidtree + 1;
 	if (use_existing) {
 		mm_head_t head;
 		int fd, i;
@@ -114,8 +115,8 @@ int mm_init(const char *filename, int use_existing) {
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;
 		mm_head->size     = MM_SEGMENT_SIZE;
-		/* mm_head, tag_guid_last[2] (posttree, tagtree, tagaliastree, tagguidtree) */
-		mm_head->used     = sizeof(*mm_head) + 8 + (sizeof(rbtree_head_t) * 4);
+		/* mm_head, tag_guid_last[2] (posttree, tagtree, tagaliastree, tagguidtree, usertree) */
+		mm_head->used     = sizeof(*mm_head) + 8 + (sizeof(rbtree_head_t) * 5);
 		mm_head->free     = mm_head->size - mm_head->used;
 		mm_head->bottom   = mm_head->addr + mm_head->used;
 		mm_head->top      = mm_head->addr + mm_head->size;
@@ -125,6 +126,7 @@ int mm_init(const char *filename, int use_existing) {
 		r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+		r |= rbtree_init(usertree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 		assert(!r);
 		lock_fd = mm_open_segment(0, O_RDWR);
 		return 1;

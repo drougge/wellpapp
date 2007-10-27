@@ -159,11 +159,27 @@ typedef struct trans {
 	char       buf[4000];
 } trans_t;
 
+/* OR:able flags */
 typedef enum {
 	CMDFLAG_NONE   = 0,
 	CMDFLAG_LAST   = 1,
 	CMDFLAG_MODIFY = 2,
 } prot_cmd_flag_t;
+
+/* Keep synced to cap_names[] in protocol.c */
+/* OR:able flags */
+typedef enum {
+	CAP_NONE   = 0,
+	CAP_POST   = 1, // Can post new images
+	CAP_DELETE = 2, // Can delete posts
+	CAP_MKUSER = 4, // Can create new users
+} capability_t;
+
+typedef struct user {
+	const char   *name;
+	const char   *password;
+	capability_t caps;
+} user_t;
 
 typedef int (*prot_err_func_t)(const char *msg);
 typedef int (*prot_cmd_func_t)(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
@@ -173,6 +189,7 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t f
 int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_add(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error);
+int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error);
 
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
@@ -224,6 +241,7 @@ extern rbtree_head_t *posttree;
 extern rbtree_head_t *tagtree;
 extern rbtree_head_t *tagaliastree;
 extern rbtree_head_t *tagguidtree;
+extern rbtree_head_t *usertree;
 
 extern const char *filetype_names[];
 extern const char *rating_names[];
