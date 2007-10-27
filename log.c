@@ -199,7 +199,12 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_write(&dump_trans, "AUN%s P%s", name, pass);
 	log_set_init(&dump_trans, "MUN%s", name);
 	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
-		if (user->caps & (1UL << i)) log_write(&dump_trans, "C%s", cap_names[i]);
+		capability_t cap = 1UL << i;
+		if (DEFAULT_CAPS & cap) {
+			if (!(user->caps & cap)) log_write(&dump_trans, "c%s", cap_names[i]);
+		} else {
+			if (user->caps & cap) log_write(&dump_trans, "C%s", cap_names[i]);
+		}
 	}
 	log_clear_init(&dump_trans);
 	free(pass);

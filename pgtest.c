@@ -474,7 +474,7 @@ static int populate_from_db(PGconn *conn) {
 	post_t **posts = NULL;
 
 	/* drougge/apa */
-	r = prot_add(strdup("UNZHJvdWdnZQAA Cmkuser Cdelete Cpost PYXBh"), NULL, dummy_error);
+	r = prot_add(strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), NULL, dummy_error);
 	assert(!r);
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));

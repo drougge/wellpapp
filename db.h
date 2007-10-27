@@ -170,11 +170,16 @@ typedef enum {
 /* OR:able flags */
 typedef enum {
 	CAP_NONE   = 0,
-	CAP_POST   = 1, // Can post new images
-	CAP_DELETE = 2, // Can delete posts
-	CAP_MKUSER = 4, // Can create new users
+	CAP_POST   = 1,  // Can post new images
+	CAP_DELETE = 2,  // Can delete posts
+	CAP_MKUSER = 4,  // Can create new users
+	CAP_TAG    = 8,  // Can tag posts
+	CAP_UNTAG  = 16, // Can remove tags from posts
+	CAP_MODCAP = 32, // Can modify capabilities
+	CAP_MKTAG  = 64, // Can create new tags
 } capability_t;
-#define CAP_MAX CAP_MKUSER
+#define CAP_MAX CAP_MKTAG
+#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG)
 
 typedef struct user {
 	const char   *name;

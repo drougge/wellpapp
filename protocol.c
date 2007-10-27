@@ -352,6 +352,10 @@ const char *cap_names[] = {
 	"post",
 	"delete",
 	"mkuser",
+	"tag",
+	"untag",
+	"modcap",
+	"mktag",
 	NULL
 };
 
@@ -425,6 +429,7 @@ int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 		case 'U':
 			func = user_cmd;
 			data = mm_alloc(sizeof(user_t));
+			((user_t *)data)->caps = DEFAULT_CAPS;
 			break;
 		default:
 			return error1(cmd, error);
