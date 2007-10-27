@@ -189,10 +189,28 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_clear_init(&dump_trans);
 }
 
+static void user_iter(rbtree_key_t key, rbtree_value_t value) {
+	user_t *user = (user_t *)value;
+	char   *name, *pass;
+	int    i;
+
+	name = strdup(str_str2enc(user->name));
+	pass = strdup(str_str2enc(user->password));
+	log_write(&dump_trans, "AUN%s P%s", name, pass);
+	log_set_init(&dump_trans, "MUN%s", name);
+	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
+		if (user->caps & (1UL << i)) log_write(&dump_trans, "C%s", cap_names[i]);
+	}
+	log_clear_init(&dump_trans);
+	free(pass);
+	free(name);
+}
+
 int dump_log(const char *filename) {
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd < 0) return 1;
 	log_trans_start(&dump_trans, NULL);
+	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);

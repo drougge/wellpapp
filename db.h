@@ -174,6 +174,7 @@ typedef enum {
 	CAP_DELETE = 2, // Can delete posts
 	CAP_MKUSER = 4, // Can create new users
 } capability_t;
+#define CAP_MAX CAP_MKUSER
 
 typedef struct user {
 	const char   *name;
@@ -246,3 +247,4 @@ extern rbtree_head_t *usertree;
 extern const char *filetype_names[];
 extern const char *rating_names[];
 extern const char *tagtype_names[];
+extern const char *cap_names[];
