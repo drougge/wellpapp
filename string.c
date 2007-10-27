@@ -26,7 +26,7 @@ for (i = 0; i < 64; i++) {
 }
 */
 
-#define GETONE(s) ((uint32_t)(*s ? *s++ : 0))
+#define GETONE(s) ((uint32_t)(*s ? (unsigned char)*s++ : 0))
 const char *str_str2enc(const char *str) {
 	static char buf[1024];
 	char        *ptr;
