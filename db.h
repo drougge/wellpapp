@@ -190,6 +190,7 @@ int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_add(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error);
+user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);

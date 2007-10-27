@@ -15,6 +15,7 @@ typedef enum {
 	E_SYNTAX,
 	E_OVERFLOW,
 	E_MEM,
+	E_AUTH,
 } error_t;
 static char *errors[] = {
 	"line too long",
@@ -23,6 +24,7 @@ static char *errors[] = {
 	"syntax error",
 	"overflow",
 	"out of memory",
+	"bad auth",
 };
 
 typedef enum {
@@ -451,10 +453,22 @@ static void modifying_command(int (*func)(char *, trans_t *, prot_err_func_t), c
 }
 
 void client_handle(int _s) {
-	char buf[PROT_MAXLEN];
-	int len;
+	user_t *user;
+	char   buf[PROT_MAXLEN];
+	int    len;
 
 	s = _s;
+	len = get_line(buf, sizeof(buf));
+	if (len == 0) { // Anonymous user
+		user = NULL;
+	} else {
+		user = prot_auth(buf);
+		if (!user) {
+			close_error(E_AUTH);
+			return;
+		}
+	}
+
 	while (42) {
 		c_flush();
 		len = get_line(buf, sizeof(buf));

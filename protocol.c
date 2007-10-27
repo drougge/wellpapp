@@ -416,3 +416,20 @@ int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error) {
 	user = mm_alloc(sizeof(*user));
 	return prot_cmd_loop(cmd, user, mkuser_cmd, CMDFLAG_NONE, trans, error);
 }
+
+user_t *prot_auth(char *cmd) {
+	char         *pass;
+	rbtree_key_t key;
+	void         *user_;
+	user_t       *user;
+
+	pass = strchr(cmd, ' ');
+	if (!pass) return NULL;
+	*pass++ = '\0';
+	if (!*pass) return NULL;
+	key = rbtree_str2key(cmd);
+	if (rbtree_find(usertree, &user_, key)) return NULL;
+	user = user_;
+	if (strcmp(user->password, pass)) return NULL;
+	return user;
+}
