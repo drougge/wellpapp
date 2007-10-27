@@ -189,7 +189,6 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t f
 int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_add(char *cmd, trans_t *trans, prot_err_func_t error);
 int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error);
-int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);

@@ -473,7 +473,8 @@ static int populate_from_db(PGconn *conn) {
 	tag_t  **tags  = NULL;
 	post_t **posts = NULL;
 
-	r = prot_mkuser(strdup("Ndrougge Cmkuser Cdelete Cpost Papa"), NULL, dummy_error);
+	/* drougge/apa */
+	r = prot_add(strdup("UNZHJvdWdnZQAA Cmkuser Cdelete Cpost PYXBh"), NULL, dummy_error);
 	assert(!r);
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));

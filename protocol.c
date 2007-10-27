@@ -341,6 +341,70 @@ static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t 
 	return 0;
 }
 
+user_t *user_find(const char *name) {
+	void         *user;
+	rbtree_key_t key = rbtree_str2key(name);
+	if (rbtree_find(usertree, &user, key)) return NULL;
+	return (user_t *)user;
+}
+
+const char *cap_names[] = {
+	"post",
+	"delete",
+	"mkuser",
+	NULL
+};
+
+static int user_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+	user_t     *user = *(user_t **)data;
+	const char *args = cmd + 1;
+	const char *name;
+	uint16_t   u16;
+	int        r;
+
+// @@ trans
+	if (!*cmd || !*args) return error(cmd);
+	switch (*cmd) {
+		case 'N':
+			name = str_enc2str(args);
+			if (flags & CMDFLAG_MODIFY) {
+				user_t **userp = data;
+				if (user) return error(cmd);
+				user = user_find(name);
+				*userp = user;
+			} else {
+				user->name = mm_strdup(name);
+			}
+			break;
+		case 'C': // Set cap
+		case 'c': // Remove cap
+			r = put_enum_value_gen(&u16, cap_names, args);
+			if (r || !user) return error(cmd);
+			if (*cmd == 'C') {
+				user->caps |= 1 << u16;
+			} else {
+				user->caps &= ~(1 << u16);
+			}
+			break;
+		case 'P':
+			if (!user) return error(cmd);
+			user->password = mm_strdup(str_enc2str(args));
+			break;
+		default:
+			return error(cmd);
+	}
+	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
+		rbtree_key_t key;
+		if (!user->name || !user->password) return error(cmd);
+		key = rbtree_str2key(user->name);
+		mm_lock();
+		r = rbtree_insert(usertree, user, key);
+		mm_unlock();
+		if (r) return error(cmd);
+	}
+	return 0;
+}
+
 int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
@@ -358,6 +422,10 @@ int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
 			break;
+		case 'U':
+			func = user_cmd;
+			data = mm_alloc(sizeof(user_t));
+			break;
 		default:
 			return error1(cmd, error);
 	}
@@ -365,72 +433,32 @@ int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 }
 
 int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error) {
-	post_t *post = NULL;
-	if (*cmd != 'P') return error(cmd);
-	return prot_cmd_loop(cmd + 1, &post, post_cmd, CMDFLAG_MODIFY, trans, error);
-}
+	prot_cmd_func_t func;
+	void *data = NULL;
 
-const char *cap_names[] = {
-	"post",
-	"delete",
-	"mkuser",
-	NULL
-};
-
-static int mkuser_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
-	user_t     *user = data;
-	const char *args = cmd + 1;
-	uint16_t   u16;
-	int        r;
-
-// @@ trans
-	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
-		case 'N':
-			user->name = mm_strdup(args);
-			break;
-		case 'C':
-			r = put_enum_value_gen(&u16, cap_names, args);
-			if (r) return error(cmd);
-			user->caps |= 1 << u16;
-			break;
 		case 'P':
-			user->password = mm_strdup(args);
+			func = post_cmd;
+			break;
+		case 'U':
+			func = user_cmd;
 			break;
 		default:
-			return error(cmd);
+			return error1(cmd, error);
 	}
-	if (flags & CMDFLAG_LAST) {
-		rbtree_key_t key;
-		if (!user->name || !user->password) return error(cmd);
-		key = rbtree_str2key(user->name);
-		mm_lock();
-		r = rbtree_insert(usertree, user, key);
-		mm_unlock();
-		if (r) return error(cmd);
-	}
-	return 0;
-}
-
-int prot_mkuser(char *cmd, trans_t *trans, prot_err_func_t error) {
-	user_t *user;
-	user = mm_alloc(sizeof(*user));
-	return prot_cmd_loop(cmd, user, mkuser_cmd, CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_MODIFY, trans, error);
 }
 
 user_t *prot_auth(char *cmd) {
-	char         *pass;
-	rbtree_key_t key;
-	void         *user_;
-	user_t       *user;
+	char   *pass;
+	user_t *user;
 
 	pass = strchr(cmd, ' ');
 	if (!pass) return NULL;
 	*pass++ = '\0';
 	if (!*pass) return NULL;
-	key = rbtree_str2key(cmd);
-	if (rbtree_find(usertree, &user_, key)) return NULL;
-	user = user_;
+	user = user_find(cmd);
+	if (!user) return NULL;
 	if (strcmp(user->password, pass)) return NULL;
 	return user;
 }
