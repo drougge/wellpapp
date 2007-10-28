@@ -22,6 +22,8 @@ rbtree_head_t *usertree;
 
 guid_t server_guid;
 
+static user_t *loguser;
+
 // @@TODO: Locking/locklessness.
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	tag_postlist_t *pl, *ppl = NULL;
@@ -232,13 +234,13 @@ static void populate_from_log_line(char *line) {
 	int r;
 	switch (*line) {
 		case 'A': // 'A'dd something
-			r = prot_add(line + 1, NULL, dummy_error);
+			r = prot_add(loguser, line + 1, NULL, dummy_error);
 			break;
 		case 'T': // 'T'ag post
-			r = prot_tag_post(line + 1, NULL, dummy_error);
+			r = prot_tag_post(loguser, line + 1, NULL, dummy_error);
 			break;
 		case 'M': // 'M'odify post
-			r = prot_modify(line + 1, NULL, dummy_error);
+			r = prot_modify(loguser, line + 1, NULL, dummy_error);
 			break;
 		default:
 			printf("Log: What? %s\n", line);
@@ -474,7 +476,7 @@ static int populate_from_db(PGconn *conn) {
 	post_t **posts = NULL;
 
 	/* drougge/apa */
-	r = prot_add(strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), NULL, dummy_error);
+	r = prot_add(loguser, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), NULL, dummy_error);
 	assert(!r);
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));
@@ -646,6 +648,11 @@ static void sig_dump(int sig) {
 int main(int argc, char **argv) {
 	int r = 0;
 	int dump = 0;
+	user_t   user;
+
+	user.name = "LOG-READER";
+	user.caps = ~0;
+	loguser = &user;
 
 	assert(argc == 2);
 	// r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa", GUIDTYPE_SERVER);

@@ -7,6 +7,7 @@
 #define PROT_ORDERS_PER_SEARCH 4
 
 static int s;
+static user_t *user;
 
 typedef enum {
 	E_LINETOOLONG,
@@ -17,7 +18,8 @@ typedef enum {
 	E_MEM,
 	E_AUTH,
 } error_t;
-static char *errors[] = {
+
+static const char *errors[] = {
 	"line too long",
 	"read",
 	"unknown command",
@@ -187,7 +189,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int build_search_cmd(user_t *user, const char *cmd, void *search_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -195,6 +197,7 @@ static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flag
 	int        i;
 	int        r;
 
+	(void)user;
 	(void)flags;
 	(void)trans;
 
@@ -257,7 +260,7 @@ static int build_search_cmd(const char *cmd, void *search_, prot_cmd_flag_t flag
 
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
+	if (prot_cmd_loop(user, cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
 	if (!search->of_tags && !search->post) {
 		return client_error("E Specify at least one included tag");
 	}
@@ -445,15 +448,14 @@ static void tag_search(const char *spec) {
 	c_printf("OK\n");
 }
 
-static void modifying_command(int (*func)(char *, trans_t *, prot_err_func_t), char *cmd) {
+static void modifying_command(int (*func)(user_t *, char *, trans_t *, prot_err_func_t), char *cmd) {
 // @@ trans
-	if (!func(cmd, NULL, client_error)) {
+	if (!func(user, cmd, NULL, client_error)) {
 		c_printf("OK\n");
 	}
 }
 
 void client_handle(int _s) {
-	user_t *user;
 	char   buf[PROT_MAXLEN];
 	int    len;
 

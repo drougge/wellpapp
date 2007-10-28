@@ -14,7 +14,7 @@ const char *tagtype_names[] = {
 	NULL
 };
 
-static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
@@ -53,7 +53,7 @@ static int tag_post_cmd(const char *cmd, void *post_, prot_cmd_flag_t flags, tra
 	return 0;
 }
 
-int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -62,15 +62,15 @@ int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t f
 			len++;
 		}
 		if (!cmd[len]) flags |= CMDFLAG_LAST;
-		if (func(cmd, data, flags, trans, error)) return 1;
+		if (func(user, cmd, data, flags, trans, error)) return 1;
 		cmd += len;
 	}
 	return 0;
 }
 
-int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_tag_post(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 	post_t *post = NULL;
-	return prot_cmd_loop(cmd, &post, tag_post_cmd, CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(user, cmd, &post, tag_post_cmd, CMDFLAG_NONE, trans, error);
 }
 
 static int error1(char *cmd, prot_err_func_t error) {
@@ -91,7 +91,7 @@ static int put_enum_value_gen(uint16_t *res, const char **array, const char *val
 	return 1;
 }
 
-static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int add_tag_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
@@ -139,7 +139,7 @@ static int add_tag_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans
 	return 0;
 }
 
-static int add_alias_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
@@ -302,7 +302,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 	return 1;
 }
 
-static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
@@ -341,7 +341,7 @@ static int post_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t 
 	return 0;
 }
 
-user_t *user_find(const char *name) {
+static user_t *user_find(const char *name) {
 	void         *user;
 	rbtree_key_t key = rbtree_str2key(name);
 	if (rbtree_find(usertree, &user, key)) return NULL;
@@ -359,8 +359,8 @@ const char *cap_names[] = {
 	NULL
 };
 
-static int user_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
-	user_t     *user = *(user_t **)data;
+static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+	user_t     *moduser = *(user_t **)data;
 	const char *args = cmd + 1;
 	const char *name;
 	uint16_t   u16;
@@ -373,43 +373,43 @@ static int user_cmd(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t 
 			name = str_enc2str(args);
 			if (flags & CMDFLAG_MODIFY) {
 				user_t **userp = data;
-				if (user) return error(cmd);
-				user = user_find(name);
-				*userp = user;
+				if (moduser) return error(cmd);
+				moduser = user_find(name);
+				*userp = moduser;
 			} else {
-				user->name = mm_strdup(name);
+				moduser->name = mm_strdup(name);
 			}
 			break;
 		case 'C': // Set cap
 		case 'c': // Remove cap
 			r = put_enum_value_gen(&u16, cap_names, args);
-			if (r || !user) return error(cmd);
+			if (r || !moduser) return error(cmd);
 			if (*cmd == 'C') {
-				user->caps |= 1 << u16;
+				moduser->caps |= 1 << u16;
 			} else {
-				user->caps &= ~(1 << u16);
+				moduser->caps &= ~(1 << u16);
 			}
 			break;
 		case 'P':
-			if (!user) return error(cmd);
-			user->password = mm_strdup(str_enc2str(args));
+			if (!moduser) return error(cmd);
+			moduser->password = mm_strdup(str_enc2str(args));
 			break;
 		default:
 			return error(cmd);
 	}
 	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
 		rbtree_key_t key;
-		if (!user->name || !user->password) return error(cmd);
-		key = rbtree_str2key(user->name);
+		if (!moduser->name || !moduser->password) return error(cmd);
+		key = rbtree_str2key(moduser->name);
 		mm_lock();
-		r = rbtree_insert(usertree, user, key);
+		r = rbtree_insert(usertree, moduser, key);
 		mm_unlock();
 		if (r) return error(cmd);
 	}
 	return 0;
 }
 
-int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -434,10 +434,10 @@ int prot_add(char *cmd, trans_t *trans, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(user, cmd + 1, &data, func, CMDFLAG_NONE, trans, error);
 }
 
-int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_modify(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -451,7 +451,7 @@ int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(cmd + 1, &data, func, CMDFLAG_MODIFY, trans, error);
+	return prot_cmd_loop(user, cmd + 1, &data, func, CMDFLAG_MODIFY, trans, error);
 }
 
 user_t *prot_auth(char *cmd) {

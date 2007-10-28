@@ -188,13 +188,13 @@ typedef struct user {
 } user_t;
 
 typedef int (*prot_err_func_t)(const char *msg);
-typedef int (*prot_cmd_func_t)(const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
+typedef int (*prot_cmd_func_t)(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
 
 /* Note that these modify *cmd. */
-int prot_cmd_loop(char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
-int prot_tag_post(char *cmd, trans_t *trans, prot_err_func_t error);
-int prot_add(char *cmd, trans_t *trans, prot_err_func_t error);
-int prot_modify(char *cmd, trans_t *trans, prot_err_func_t error);
+int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
+int prot_tag_post(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
+int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
+int prot_modify(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
