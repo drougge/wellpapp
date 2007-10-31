@@ -495,6 +495,9 @@ void client_handle(int _s) {
 			case 'A': // 'A'dd something
 				modifying_command(prot_add, buf + 1);
 				break;
+			case 'M': // 'M'odify something
+				modifying_command(prot_modify, buf + 1);
+				break;
 			case 'N': // 'N'OP
 				c_printf("OK\n");
 				break;
