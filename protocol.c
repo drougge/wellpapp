@@ -18,16 +18,13 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_fla
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
-// @@ trans
 	(void)flags;
 	switch (*cmd) {
 		case 'P': // Which post
-			if (*post) {
-				return error(cmd);
-			} else {
-				post_find_md5str(post, args);
-				if (!*post) return error(cmd);
-			}
+			if (*post) return error(cmd);
+			post_find_md5str(post, args);
+			if (!*post) return error(cmd);
+			log_set_init(trans, "P%s", cmd);
 			break;
 		case 'T': // Add tag
 		case 't': // Remove tag
@@ -42,6 +39,7 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_fla
 			if (*cmd == 'T') {
 				int r = post_tag_add(*post, tag, weak);
 				if (r) return error(cmd);
+				log_write(trans, "%s", cmd);
 			} else {
 				return error(cmd); // @@TODO: Implement removal
 			}
