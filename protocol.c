@@ -95,7 +95,6 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_
 	const char *args = cmd + 1;
 	char       *ptr;
 
-// @@ trans
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -132,6 +131,7 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_
 			mm_unlock();
 			return error(cmd);
 		}
+		log_write_tag(trans, tag);
 		mm_unlock();
 	}
 	return 0;
@@ -141,7 +141,6 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_fla
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
-// @@ trans
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -163,6 +162,7 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_fla
 		 	mm_unlock();
 		 	return error(cmd);
 		}
+		log_write_tagalias(trans, tagalias);
 		mm_unlock();
 	}
 	return 0;
@@ -311,6 +311,7 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 		if (put_in_post_field(post, cmd, eqp - cmd)) {
 			return error(cmd);
 		}
+		if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
 	} else { // This is the md5
 		if (flags & CMDFLAG_MODIFY) {
 			post_t **postp = data;
@@ -318,6 +319,7 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 			if (r) return error(cmd);
 			if (*postp) return error(cmd);
 			*postp = post;
+			log_set_init(trans, "MP%s", cmd);
 		} else {
 			int r = md5_str2md5(&post->md5, cmd);
 			if (r) return error(cmd);
@@ -333,8 +335,12 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 		}
 		mm_lock();
 		r = rbtree_insert(posttree, post, post->md5.key);
+		if (r) {
+			mm_unlock();
+			return error(cmd);
+		}
+		log_write_post(trans, post);
 		mm_unlock();
-		if (r) return error(cmd);
 	}
 	return 0;
 }
