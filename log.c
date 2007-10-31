@@ -146,16 +146,36 @@ void log_write_single(void *user, const char *fmt, ...) {
 	log_trans_end(&trans);
 }
 
-static trans_t dump_trans;
-static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
-	tag_t *tag = (tag_t *)value;
-	log_write(&dump_trans, "ATG%s N%s T%s", guid_guid2str(tag->guid), tag->name, tagtype_names[tag->type]);
+void log_write_tag(trans_t *trans, tag_t *tag) {
+	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid), tag->name, tagtype_names[tag->type]);
 }
 
+void log_write_tagalias(trans_t *trans, tagalias_t *tagalias) {
+	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
+}
+
+void log_init(const char *filename) {
+	int   r;
+	off_t o;
+
+	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
+	assert(fd >= 0);
+	o = lseek(fd, 0, SEEK_END);
+	assert(o != -1);
+	r = write(fd, "\n", 1); // Old unclean shutdown could leave an incomplete line.
+	assert(r == 1);
+}
+
+/********************************
+ ** Below here is only dumping **
+ ********************************/
+static trans_t dump_trans;
+static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
+	log_write_tag(&dump_trans, (tag_t *)value);
+}
 
 static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
-	tagalias_t *tagalias = (tagalias_t *)value;
-	log_write(&dump_trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
+	log_write_tagalias(&dump_trans, (tagalias_t *)value);
 }
 
 static void post_taglist(post_taglist_t *tl) {
@@ -227,16 +247,4 @@ int dump_log(const char *filename) {
 err:
 	fd = org_fd;
 	return r;
-}
-
-void log_init(const char *filename) {
-	int   r;
-	off_t o;
-
-	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
-	assert(fd >= 0);
-	o = lseek(fd, 0, SEEK_END);
-	assert(o != -1);
-	r = write(fd, "\n", 1); // Old unclean shutdown could leave an incomplete line.
-	assert(r == 1);
 }
