@@ -2,6 +2,7 @@
 
 #include <stddef.h> /* offsetof() */
 #include <errno.h>
+#include <time.h>
 
 const char *tagtype_names[] = {
 	"unspecified",
@@ -329,7 +330,7 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 		md5_t null_md5;
 		memset(&null_md5, 0, sizeof(md5_t));
 		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))
-		 || !post->height || !post->width || !post->created) {
+		 || !post->height || !post->width || post->filetype == (uint16_t)~0) {
 			return error(cmd);
 		}
 		mm_lock();
@@ -431,6 +432,8 @@ int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 		case 'P':
 			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
+			((post_t *)data)->created  = time(NULL);
+			((post_t *)data)->filetype = ~0;
 			break;
 		case 'U':
 			func = user_cmd;
