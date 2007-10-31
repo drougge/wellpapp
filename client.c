@@ -449,10 +449,13 @@ static void tag_search(const char *spec) {
 }
 
 static void modifying_command(int (*func)(user_t *, char *, trans_t *, prot_err_func_t), char *cmd) {
-// @@ trans
-	if (!func(user, cmd, NULL, client_error)) {
-		c_printf("OK\n");
-	}
+	trans_t trans;
+	int ok;
+
+	log_trans_start(&trans, user);
+	ok = !func(user, cmd, &trans, client_error);
+	log_trans_end(&trans);
+	if (ok) c_printf("OK\n");
 }
 
 void client_handle(int _s) {

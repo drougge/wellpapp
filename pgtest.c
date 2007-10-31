@@ -676,6 +676,7 @@ int main(int argc, char **argv) {
 	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
+	log_init("/tmp/db.datastore/log");
 	if (dump) {
 		printf("dumping..\n");
 		dump_log(dumpname);

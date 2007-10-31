@@ -212,15 +212,31 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 }
 
 int dump_log(const char *filename) {
+	int org_fd = fd;
+	int r = 1;
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
-	if (fd < 0) return 1;
+	err1(fd < 0);
 	log_trans_start(&dump_trans, NULL);
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
 	log_trans_end(&dump_trans);
-	if (close(fd)) return 1;
-	fd = -1;
-	return 0;
+	err1(close(fd));
+	r = 0;
+err:
+	fd = org_fd;
+	return r;
+}
+
+void log_init(const char *filename) {
+	int   r;
+	off_t o;
+
+	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
+	assert(fd >= 0);
+	o = lseek(fd, 0, SEEK_END);
+	assert(o != -1);
+	r = write(fd, "\n", 1); // Old unclean shutdown could leave an incomplete line.
+	assert(r == 1);
 }

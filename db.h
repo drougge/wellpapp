@@ -233,6 +233,7 @@ void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
 int dump_log(const char *filename);
+void log_init(const char *filename);
 
 guid_t guid_gen_tag_guid(void);
 const char *guid_guid2str(guid_t guid);
