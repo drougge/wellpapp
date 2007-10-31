@@ -25,7 +25,7 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_fla
 			if (*post) return error(cmd);
 			post_find_md5str(post, args);
 			if (!*post) return error(cmd);
-			log_set_init(trans, "P%s", cmd);
+			log_set_init(trans, "TP%s", args);
 			break;
 		case 'T': // Add tag
 		case 't': // Remove tag
