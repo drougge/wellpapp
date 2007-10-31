@@ -304,7 +304,6 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
-// @@ trans
 	eqp = strchr(cmd, '=');
 	if (eqp) {
 		if (!post) return error(cmd);
@@ -370,7 +369,6 @@ static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 	uint16_t   u16;
 	int        r;
 
-// @@ trans
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'N':
@@ -380,6 +378,7 @@ static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 				if (moduser) return error(cmd);
 				moduser = user_find(name);
 				*userp = moduser;
+				log_set_init(trans, "MUN%s", args);
 			} else {
 				moduser->name = mm_strdup(name);
 			}
@@ -393,10 +392,12 @@ static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 			} else {
 				moduser->caps &= ~(1 << u16);
 			}
+			if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
 			break;
 		case 'P':
 			if (!moduser) return error(cmd);
 			moduser->password = mm_strdup(str_enc2str(args));
+			if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
 			break;
 		default:
 			return error(cmd);
@@ -409,6 +410,7 @@ static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 		r = rbtree_insert(usertree, moduser, key);
 		mm_unlock();
 		if (r) return error(cmd);
+		log_write_user(trans, user);
 	}
 	return 0;
 }

@@ -158,6 +158,24 @@ void log_write_post(trans_t *trans, post_t *post) {
 	log_write(trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%s rating=%s", md5_md52str(post->md5), post->width, post->height, (unsigned long long)post->created, post->score, filetype_names[post->filetype], rating_names[post->rating]);
 }
 
+void log_write_user(trans_t *trans, user_t *user) {
+	char *name;
+	int  i;
+
+	name = strdup(str_str2enc(user->name));
+	log_write(trans, "AUN%s P%s", name, str_str2enc(user->password));
+	log_set_init(trans, "MUN%s", name);
+	free(name);
+	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
+		capability_t cap = 1UL << i;
+		if (DEFAULT_CAPS & cap) {
+			if (!(user->caps & cap)) log_write(trans, "c%s", cap_names[i]);
+		} else {
+			if (user->caps & cap) log_write(trans, "C%s", cap_names[i]);
+		}
+	}
+	log_clear_init(trans);
+}
 void log_init(const char *filename) {
 	int   r;
 	off_t o;
@@ -214,25 +232,7 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 }
 
 static void user_iter(rbtree_key_t key, rbtree_value_t value) {
-	user_t *user = (user_t *)value;
-	char   *name, *pass;
-	int    i;
-
-	name = strdup(str_str2enc(user->name));
-	pass = strdup(str_str2enc(user->password));
-	log_write(&dump_trans, "AUN%s P%s", name, pass);
-	log_set_init(&dump_trans, "MUN%s", name);
-	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
-		capability_t cap = 1UL << i;
-		if (DEFAULT_CAPS & cap) {
-			if (!(user->caps & cap)) log_write(&dump_trans, "c%s", cap_names[i]);
-		} else {
-			if (user->caps & cap) log_write(&dump_trans, "C%s", cap_names[i]);
-		}
-	}
-	log_clear_init(&dump_trans);
-	free(pass);
-	free(name);
+	log_write_user(&dump_trans, (user_t *)value);
 }
 
 int dump_log(const char *filename) {
