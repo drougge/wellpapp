@@ -155,7 +155,16 @@ void log_write_tagalias(trans_t *trans, tagalias_t *tagalias) {
 }
 
 void log_write_post(trans_t *trans, post_t *post) {
-	log_write(trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%s rating=%s", md5_md52str(post->md5), post->width, post->height, (unsigned long long)post->created, post->score, filetype_names[post->filetype], rating_names[post->rating]);
+	const char *md5 = md5_md52str(post->md5);
+	log_write(trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%s rating=%s", md5, post->width, post->height, (unsigned long long)post->created, post->score, filetype_names[post->filetype], rating_names[post->rating]);
+	log_set_init(trans, "MP%s", md5);
+	if (post->source) {
+		log_write(trans, "source=%s", str_str2enc(post->source));
+	}
+	if (post->title) {
+		log_write(trans, "title=%s", str_str2enc(post->title));
+	}
+	log_clear_init(trans);
 }
 
 void log_write_user(trans_t *trans, user_t *user) {
@@ -214,18 +223,9 @@ static void post_taglist(post_taglist_t *tl) {
 
 static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	post_t *post = (post_t *)value;
-	const char *md5;
 
-	md5 = md5_md52str(post->md5);
 	log_write_post(&dump_trans, post);
-	log_set_init(&dump_trans, "MP%s", md5);
-	if (post->source) {
-		log_write(&dump_trans, "source=%s", str_str2enc(post->source));
-	}
-	if (post->title) {
-		log_write(&dump_trans, "title=%s", str_str2enc(post->title));
-	}
-	log_set_init(&dump_trans, "TP%s", md5);
+	log_set_init(&dump_trans, "TP%s", md5_md52str(post->md5));
 	post_taglist(&post->tags);
 	post_taglist(post->weak_tags);
 	log_clear_init(&dump_trans);
