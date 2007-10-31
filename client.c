@@ -463,16 +463,6 @@ void client_handle(int _s) {
 	int    len;
 
 	s = _s;
-	len = get_line(buf, sizeof(buf));
-	if (len == 0) { // Anonymous user
-		user = NULL;
-	} else {
-		user = prot_auth(buf);
-		if (!user) {
-			close_error(E_AUTH);
-			return;
-		}
-	}
 
 	while (42) {
 		c_flush();
@@ -506,6 +496,14 @@ void client_handle(int _s) {
 				c_flush();
 				close(s);
 				exit(0);
+				break;
+			case 'a': // 'a'uthenticate
+				user = prot_auth(buf + 1);
+				if (user) {
+					c_printf("OK\n");
+				} else {
+					c_printf("E\n");
+				}
 				break;
 			default:
 				close_error(E_COMMAND);

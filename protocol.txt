@@ -12,6 +12,7 @@ T - tag a post
 A - add a new object
 M - modify an existing object
 N - nop (to keep server from closing idle connection)
+a - authenticate
 Q - quit
 
 S:
@@ -104,6 +105,9 @@ Replies "OK".
 
 Q:
 Replies "Q *", closes connection.
+
+a:
+"aUSERNAME PASSWORD". This should be fixed of course.. Replies "OK" or "E".
 
 Encoded strings are base64 with "_-" as the last two chars. All strings are
 always a multiple of 3 characters long, padded with NULs (0, 1 or 2) as
