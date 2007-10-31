@@ -209,12 +209,12 @@ static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_write_tagalias(&dump_trans, (tagalias_t *)value);
 }
 
-static void post_taglist(post_taglist_t *tl) {
+static void post_taglist(post_taglist_t *tl, const char *prefix) {
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&dump_trans, "T%s", guid_guid2str(tl->tags[i]->guid));
+				log_write(&dump_trans, "T%s%s", prefix, guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;
@@ -226,8 +226,8 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 
 	log_write_post(&dump_trans, post);
 	log_set_init(&dump_trans, "TP%s", md5_md52str(post->md5));
-	post_taglist(&post->tags);
-	post_taglist(post->weak_tags);
+	post_taglist(&post->tags, "");
+	post_taglist(post->weak_tags, "~");
 	log_clear_init(&dump_trans);
 }
 
