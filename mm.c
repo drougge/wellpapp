@@ -9,18 +9,19 @@
 #define MM_FLAG_CLEAN 1
 typedef struct mm_head {
 	uint32_t magic0;
-	uint32_t size;
+	uint32_t flags;
+	uint64_t size;
 	uint32_t segment_size;
 	uint32_t of_segments;
-	uint32_t used;
-	uint32_t free;
-	uint32_t wasted;
-	uint32_t used_small;
-	uint32_t flags;
+	uint64_t used;
+	uint64_t free;
+	uint64_t wasted;
+	uint64_t used_small;
+	uint64_t logindex;
 	uint8_t  *addr;
 	uint8_t  *top;
 	uint8_t  *bottom;
-	uint8_t  *pad0;
+	uint32_t pad0;
 	uint32_t magic1;
 } mm_head_t;
 
@@ -33,6 +34,7 @@ static mm_head_t *mm_head;
 static const char *mm_basedir;
 
 uint32_t *tag_guid_last;
+uint64_t *logindex;
 
 static int mm_open_segment(int nr, int flags) {
 	char fn[1024];
@@ -105,6 +107,7 @@ int mm_init(const char *filename, int use_existing) {
 		assert(head.magic1 == MM_MAGIC1);
 		mm_map_segment(0, fd);
 		mm_head = (mm_head_t *)MM_BASE_ADDR;
+		logindex = &mm_head->logindex;
 		for (i = 1; i < head.of_segments; i++) {
 			fd = mm_open_segment(i, O_RDWR);
 			mm_map_segment(i, fd);
@@ -114,6 +117,7 @@ int mm_init(const char *filename, int use_existing) {
 		int r;
 		mm_new_segment();
 		mm_head = (mm_head_t *)MM_BASE_ADDR;
+		logindex = &mm_head->logindex;
 		mm_head->addr     = MM_BASE_ADDR;
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;
@@ -189,8 +193,8 @@ char *mm_strdup(const char *str) {
 }
 
 void mm_print(void) {
-	printf("%d of %d bytes used, %d free (%d wasted). %d segments.\n", mm_head->used, mm_head->size, mm_head->free, mm_head->wasted, mm_head->of_segments);
-	printf("%d bytes small, %d bytes aligned.\n", mm_head->used_small, mm_head->used - mm_head->used_small);
+	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", mm_head->used, mm_head->size, mm_head->free, mm_head->wasted, mm_head->of_segments);
+	printf("%llu bytes small, %llu bytes aligned.\n", mm_head->used_small, mm_head->used - mm_head->used_small);
 }
 
 void mm_lock(void) {

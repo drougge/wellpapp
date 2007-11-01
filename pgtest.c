@@ -621,6 +621,7 @@ static void serve(void) {
 	r = listen(s, 5);
 	assert(!r);
 	while (1) {
+		log_rotate(0);
 		c = accept(s, NULL, NULL);
 		if (c < 0) {
 			perror("accept");
@@ -636,19 +637,16 @@ static void serve(void) {
 	}
 }
 
-static const char *dumpname = "/tmp/db.log";
-
 static void sig_dump(int sig) {
 	(void)sig;
-	printf("Dumping to \"%s\"..\n", dumpname);
-	dump_log(dumpname);
+	printf("Dumping complete log..\n");
+	log_dump();
 	printf("Dump done.\n");
 }
 
 int main(int argc, char **argv) {
-	int r = 0;
-	int dump = 0;
-	user_t   user;
+	int    r = 0;
+	user_t user;
 
 	user.name = "LOG-READER";
 	user.caps = ~0;
@@ -667,7 +665,6 @@ int main(int argc, char **argv) {
 			err(!conn, 2);
 			err(PQstatus(conn) != CONNECTION_OK, 2);
 			err(populate_from_db(conn), 3);
-//			dump = 1;
 		} else {
 			populate_from_log(argv[1]);
 		}
@@ -676,11 +673,7 @@ int main(int argc, char **argv) {
 	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
-	log_init("/tmp/db.datastore/log");
-	if (dump) {
-		printf("dumping..\n");
-		dump_log(dumpname);
-	}
+	log_init("/tmp/db.log");
 	signal(SIGUSR1, sig_dump);
 	printf("serving..\n");
 	serve();

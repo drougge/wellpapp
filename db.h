@@ -232,12 +232,13 @@ void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
-void log_init(const char *filename);
+void log_init(const char *dirname);
 void log_write_tag(trans_t *trans, tag_t *tag);
 void log_write_tagalias(trans_t *trans, tagalias_t *tagalias);
 void log_write_post(trans_t *trans, post_t *post);
 void log_write_user(trans_t *trans, user_t *user);
-int dump_log(const char *filename);
+void log_dump(void);
+void log_rotate(int force);
 
 guid_t guid_gen_tag_guid(void);
 const char *guid_guid2str(guid_t guid);

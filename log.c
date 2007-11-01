@@ -109,12 +109,12 @@ void log_trans_end(trans_t *trans) {
 	assert(r == 1);
 	assert(r2 != -1);
 	trans_unlock();
-	assert(pos == trans->mark_offset);
 }
 
 void log_set_init(trans_t *trans, const char *fmt, ...) {
 	va_list ap;
 
+	if (!trans) return;
 	log_clear_init(trans);
 	va_start(ap, fmt);
 	trans->init_len = vsnprintf(trans->buf, sizeof(trans->buf), fmt, ap);
@@ -124,12 +124,14 @@ void log_set_init(trans_t *trans, const char *fmt, ...) {
 }
 
 void log_clear_init(trans_t *trans) {
+	if (!trans) return;
 	trans_line_done_(trans);
 	trans->buf_used = trans->init_len = 0;
 }
 
 void log_write(trans_t *trans, const char *fmt, ...) {
 	va_list ap;
+	if (!trans) return;
 	va_start(ap, fmt);
 	log_write_(trans, fmt, ap);
 	va_end(ap);
@@ -185,16 +187,35 @@ void log_write_user(trans_t *trans, user_t *user) {
 	}
 	log_clear_init(trans);
 }
-void log_init(const char *filename) {
-	int   r;
-	off_t o;
 
+extern uint64_t *logindex;
+static const char *logdir;
+#define LOG_ROTATE_SIZE (1024 * 1024)
+
+void log_rotate(int force) {
+	char filename[1024];
+	int  len;
+
+	if (!force) {
+		off_t size;
+		trans_lock();
+		size = lseek(fd, 0, SEEK_CUR);
+		trans_unlock();
+		if (size < LOG_ROTATE_SIZE) return;
+	}
+
+	len = snprintf(filename, sizeof(filename), "%s/%llu.log", logdir, (unsigned long long)*logindex);
+	assert(len < sizeof(filename));
+	if (fd != -1) close(fd);
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
-	assert(fd >= 0);
-	o = lseek(fd, 0, SEEK_END);
-	assert(o != -1);
-	r = write(fd, "\n", 1); // Old unclean shutdown could leave an incomplete line.
-	assert(r == 1);
+	assert(fd != -1);
+	*logindex += 1;
+}
+
+void log_init(const char *dirname) {
+	logdir = strdup(dirname);
+	assert(logdir);
+	log_rotate(1);
 }
 
 /********************************
@@ -235,20 +256,13 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_write_user(&dump_trans, (user_t *)value);
 }
 
-int dump_log(const char *filename) {
-	int org_fd = fd;
-	int r = 1;
-	fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
-	err1(fd < 0);
+void log_dump(void) {
+	log_rotate(1);
 	log_trans_start(&dump_trans, NULL);
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
 	log_trans_end(&dump_trans);
-	err1(close(fd));
-	r = 0;
-err:
-	fd = org_fd;
-	return r;
+	log_rotate(1);
 }
