@@ -4,17 +4,6 @@
 #include <errno.h>
 #include <time.h>
 
-const char *tagtype_names[] = {
-	"unspecified",
-	"inimage",
-	"artist",
-	"character",
-	"copyright",
-	"meta",
-	"ambiguous",
-	NULL
-};
-
 static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
@@ -181,25 +170,8 @@ typedef struct {
 	int         size;
 	int         offset;
 	fieldtype_t type;
-	const char  **array;
+	const char  ***array;
 } post_field_t;
-
-const char *rating_names[] = {
-	"unspecified",
-	"safe",
-	"questionable",
-	"explicit",
-	NULL
-};
-
-const char *filetype_names[] = {
-	"jpeg",
-	"gif",
-	"png",
-	"bmp",
-	"swf",
-	NULL
-};
 
 #define POST_FIELD_DEF(name, type, array) {#name, sizeof(((post_t *)0)->name), \
                                            offsetof(post_t, name), type, array}
@@ -208,8 +180,8 @@ post_field_t post_fields[] = {
 	POST_FIELD_DEF(height, FIELDTYPE_UNSIGNED, NULL),
 	POST_FIELD_DEF(created, FIELDTYPE_UNSIGNED, NULL), // Could be signed, but I don't care.
 	POST_FIELD_DEF(score, FIELDTYPE_SIGNED, NULL),
-	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, filetype_names),
-	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, rating_names),
+	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, &filetype_names),
+	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, &rating_names),
 	POST_FIELD_DEF(source, FIELDTYPE_STRING, NULL),
 	POST_FIELD_DEF(title, FIELDTYPE_STRING, NULL),
 	{NULL}
@@ -264,7 +236,7 @@ static int put_int_value(post_t *post, post_field_t *field, const char *val) {
 
 static int put_enum_value_post(post_t *post, post_field_t *field, const char *val) {
 	assert(field->size == 2);
-	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), field->array, val);
+	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), *field->array, val);
 }
 
 static int put_string_value(post_t *post, post_field_t *field, const char *val) {

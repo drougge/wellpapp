@@ -295,3 +295,62 @@ void db_serve(void) {
 		}
 	}
 }
+
+static const char *strndup(const char *str, int len) {
+	char *res = malloc(len + 1);
+	memcpy(res, str, len);
+	res[len] = '\0';
+	return res;
+}
+
+static void cfg_parse_list(const char ***res_list, const char *str) {
+	int        words = 1;
+	int        word;
+	const char **list;
+	const char *p;
+	int        len;
+
+	p = str;
+	while (*p) if (*p++ == ' ') words++;
+	list = malloc(sizeof(const char *) * (words + 1));
+	p = str;
+	word = 0;
+	while (*p) {
+		str = p;
+		assert(*p != ' ');
+		while (*p && *p != ' ') p++;
+		len = p - str;
+		if (*p) p++;
+		assert(word < words);
+		list[word++] = strndup(str, len);
+	}
+	list[word] = NULL;
+	assert(word == words);
+	*res_list = list;
+}
+
+const char **tagtype_names = NULL;
+const char **rating_names = NULL;
+const char **filetype_names = NULL;
+
+void db_read_cfg(void) {
+	char buf[1024];
+	FILE *fh = fopen("db.conf", "r");
+	assert(fh);
+	while (fgets(buf, sizeof(buf), fh)) {
+		int len = strlen(buf);
+		assert(len && buf[len - 1] == '\n');
+		buf[len - 1] = '\0';
+		if (!memcmp("tagtypes=", buf, 9)) {
+			cfg_parse_list(&tagtype_names, buf + 9);
+		} else if (!memcmp("ratings=", buf, 8)) {
+			cfg_parse_list(&rating_names, buf + 8);
+		} else {
+			assert(*buf == '\0' || *buf == '#');
+		}
+	}
+	assert(feof(fh));
+	fclose(fh);
+	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
+	assert(tagtype_names && rating_names);
+}

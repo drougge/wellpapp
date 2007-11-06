@@ -134,7 +134,8 @@ typedef struct tagalias {
 
 typedef uint32_t tag_id_t;
 
-/* Keep synced to filetype_names[] in protocol.c */
+/* Keep enum and #define synced */
+#define FILETYPE_NAMES_STR "jpeg gif png bmp swf"
 typedef enum {
 	FILETYPE_JPEG,
 	FILETYPE_GIF,
@@ -207,6 +208,7 @@ const char *md5_md52str(md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
 void populate_from_log(const char *filename);
 void db_serve(void);
+void db_read_cfg(void);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
 void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);
@@ -257,7 +259,7 @@ extern rbtree_head_t *tagaliastree;
 extern rbtree_head_t *tagguidtree;
 extern rbtree_head_t *usertree;
 
-extern const char *filetype_names[];
-extern const char *rating_names[];
-extern const char *tagtype_names[];
+extern const char **filetype_names;
+extern const char **rating_names;
+extern const char **tagtype_names;
 extern const char *cap_names[];

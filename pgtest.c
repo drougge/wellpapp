@@ -368,6 +368,7 @@ int main(int argc, char **argv) {
 	loguser = &user;
 
 	assert(argc == 2);
+	db_read_cfg();
 	// r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
 	r = guid_str2guid(&server_guid, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
 	assert(!r);
