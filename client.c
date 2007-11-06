@@ -99,20 +99,6 @@ typedef struct result {
 	uint32_t room;
 } result_t;
 
-static int str2id(const char *str, const char **ids) {
-	int id   = 0;
-	int sign = 1;
-	if (*str == '-') {
-		sign = -1;
-		str++;
-	}
-	while (ids[id]) {
-		if (!strcmp(str, ids[id])) return (id + 1) * sign;
-		id++;
-	}
-	return 0;
-}
-
 static int  c_buf_used = 0;
 static char c_buf[PROT_MAXLEN];
 #define BUF_MIN_FREE 1024

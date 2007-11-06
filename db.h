@@ -75,14 +75,6 @@ typedef struct post_taglist {
 	struct post_taglist *next;
 } post_taglist_t;
 
-/* Keep synced to rating_names[] in protocol.c */
-typedef enum {
-	RATING_UNSPECIFIED,
-	RATING_SAFE,
-	RATING_QUESTIONABLE,
-	RATING_EXPLICIT,
-} rating_t;
-
 typedef struct post {
 	md5_t          md5;
 	const char     *source;
@@ -105,17 +97,6 @@ typedef struct tag_postlist {
 	post_t *posts[TAG_POSTLIST_PER_NODE];
 	struct tag_postlist *next;
 } tag_postlist_t;
-
-/* Keep synced to tagtype_names[] in protocol.c */
-typedef enum {
-	TAGTYPE_UNSPECIFIED, // Not specified (not known)
-	TAGTYPE_INIMAGE,     // Something visible in the image ("thighhighs", ...)
-	TAGTYPE_ARTIST,      // Someone who worked on the image.
-	TAGTYPE_CHARACTER,   // A person in the image ("fate_testarossa", ...)
-	TAGTYPE_COPYRIGHT,   // Where it's from. Name of anime, book, ...
-	TAGTYPE_META,        // Things like "tagme", "what", ...
-	TAGTYPE_AMBIGUOUS,   // A tag that needs to split in several tags.
-} tagtype_t;
 
 typedef struct tag {
 	const char     *name;
@@ -210,6 +191,7 @@ int md5_str2md5(md5_t *res_md5, const char *md5str);
 void populate_from_log(const char *filename);
 void db_serve(void);
 void db_read_cfg(void);
+int str2id(const char *str, const char **ids);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
 void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);

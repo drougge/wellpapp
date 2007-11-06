@@ -106,6 +106,20 @@ const char *md5_md52str(md5_t md5) {
 	return buf;
 }
 
+int str2id(const char *str, const char **ids) {
+	int id   = 0;
+	int sign = 1;
+	if (*str == '-') {
+		sign = -1;
+		str++;
+	}
+	while (ids[id]) {
+		if (!strcmp(str, ids[id])) return (id + 1) * sign;
+		id++;
+	}
+	return 0;
+}
+
 tag_t *tag_find_guid(const guid_t guid) {
 	void         *tag = NULL;
 	rbtree_find(tagguidtree, &tag, guid.key);

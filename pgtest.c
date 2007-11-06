@@ -69,22 +69,17 @@ static int ext2filetype(const char *ext) {
 	return -1;
 }
 
-static rating_t danboorurating2rating(const char *dr) {
+static uint16_t danboorurating2rating(const char *dr) {
+	int r;
 	switch(*dr) {
-		case 's': return RATING_SAFE;
-		case 'q': return RATING_QUESTIONABLE;
-		case 'e': return RATING_EXPLICIT;
-		default : return RATING_UNSPECIFIED;
+		case 's': r = str2id("safe", rating_names); break;
+		case 'q': r = str2id("questionable", rating_names); break;
+		case 'e': r = str2id("explicit", rating_names); break;
+		default:  r = str2id("unspecified", rating_names); break;
 	}
+	assert(r > 0);
+	return r - 1;
 }
-
-static tagtype_t danboorutype2type[] = {
-	TAGTYPE_UNSPECIFIED, // "general"
-	TAGTYPE_ARTIST,
-	TAGTYPE_AMBIGUOUS,
-	TAGTYPE_COPYRIGHT,
-	TAGTYPE_CHARACTER,
-};
 
 /* Fix posts with broken width/height (bmp images) */
 typedef struct {
@@ -223,6 +218,21 @@ static int populate_from_db(PGconn *conn) {
 	int i;
 	tag_t  **tags  = NULL;
 	post_t **posts = NULL;
+	uint16_t danboorutype2type[5];
+	const char *danboorutype2type_str[] = {
+		"unspecified",
+		"artist",
+		"ambiguous",
+		"copyright",
+		"character",
+		NULL
+	};
+
+	for (i = 0; danboorutype2type_str[i]; i++) {
+		int r = str2id(danboorutype2type_str[i], tagtype_names);
+		assert(r > 0);
+		danboorutype2type[i] = r - 1;
+	}
 
 	/* drougge/apa */
 	r = prot_add(loguser, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), NULL, dummy_error);
