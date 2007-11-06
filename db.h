@@ -205,6 +205,8 @@ int post_has_tag(post_t *post, tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
 const char *md5_md52str(md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
+void populate_from_log(const char *filename);
+void db_serve(void);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
 void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);
