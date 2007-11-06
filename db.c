@@ -332,6 +332,7 @@ static void cfg_parse_list(const char ***res_list, const char *str) {
 const char **tagtype_names = NULL;
 const char **rating_names = NULL;
 const char **filetype_names = NULL;
+const char **cap_names = NULL;
 
 void db_read_cfg(void) {
 	char buf[1024];
@@ -352,5 +353,6 @@ void db_read_cfg(void) {
 	assert(feof(fh));
 	fclose(fh);
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
+	cfg_parse_list(&cap_names, CAP_NAMES_STR);
 	assert(tagtype_names && rating_names);
 }

@@ -324,17 +324,6 @@ static user_t *user_find(const char *name) {
 	return (user_t *)user;
 }
 
-const char *cap_names[] = {
-	"post",
-	"delete",
-	"mkuser",
-	"tag",
-	"untag",
-	"modcap",
-	"mktag",
-	NULL
-};
-
 static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	user_t     *moduser = *(user_t **)data;
 	const char *args = cmd + 1;

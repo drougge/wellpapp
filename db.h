@@ -167,8 +167,9 @@ typedef enum {
 	CMDFLAG_MODIFY = 2,
 } prot_cmd_flag_t;
 
-/* Keep synced to cap_names[] in protocol.c */
+/* Keep enum and #define synced */
 /* OR:able flags */
+#define CAP_NAMES_STR "post delete mkuser tag untag modcap mktag"
 typedef enum {
 	CAP_NONE   = 0,
 	CAP_POST   = 1,  // Can post new images
@@ -262,4 +263,4 @@ extern rbtree_head_t *usertree;
 extern const char **filetype_names;
 extern const char **rating_names;
 extern const char **tagtype_names;
-extern const char *cap_names[];
+extern const char **cap_names;
