@@ -447,8 +447,12 @@ static void modifying_command(int (*func)(user_t *, char *, trans_t *, prot_err_
 void client_handle(int _s) {
 	char   buf[PROT_MAXLEN];
 	int    len;
+	user_t anonymous;
 
 	s = _s;
+	anonymous.name = "A";
+	anonymous.caps = DEFAULT_CAPS;
+	user = &anonymous;
 
 	while (42) {
 		c_flush();
@@ -489,6 +493,7 @@ void client_handle(int _s) {
 					c_printf("OK\n");
 				} else {
 					c_printf("E\n");
+					user = &anonymous;
 				}
 				break;
 			default:

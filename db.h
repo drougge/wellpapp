@@ -52,6 +52,23 @@ typedef struct rbtree_head {
 	int                        allocation_value;
 } rbtree_head_t;
 
+/* Keep enum and #define synced */
+/* OR:able flags */
+#define CAP_NAMES_STR "post delete mkuser tag untag modcap mktag super"
+typedef enum {
+	CAP_NONE   = 0,
+	CAP_POST   = 1,   // Can post new images
+	CAP_DELETE = 2,   // Can delete posts
+	CAP_MKUSER = 4,   // Can create new users
+	CAP_TAG    = 8,   // Can tag posts
+	CAP_UNTAG  = 16,  // Can remove tags from posts
+	CAP_MODCAP = 32,  // Can modify capabilities
+	CAP_MKTAG  = 64,  // Can create new tags
+	CAP_SUPER  = 128, // Can modify things that are not supposed to be modified.
+} capability_t;
+#define CAP_MAX CAP_SUPER
+#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG)
+
 typedef union md5 {
 	uint8_t      m[16];
 	rbtree_key_t key;
@@ -93,6 +110,25 @@ typedef struct post {
 	post_taglist_t tags;
 	post_taglist_t *weak_tags;
 } post_t;
+
+/* Keep this synced with function-array in protocol.c:put_in_post_field() */
+typedef enum {
+	FIELDTYPE_UNSIGNED,
+	FIELDTYPE_SIGNED,
+	FIELDTYPE_ENUM,
+	FIELDTYPE_STRING,
+} fieldtype_t;
+
+typedef struct post_field {
+	const char   *name;
+	int          size;
+	int          offset;
+	fieldtype_t  type;
+	capability_t modcap; // Capability needed to modify field
+	const char   ***array;
+} post_field_t;
+
+extern const post_field_t post_fields[];
 
 #define TAG_POSTLIST_PER_NODE 30
 typedef struct tag_postlist {
@@ -149,22 +185,6 @@ typedef enum {
 	CMDFLAG_LAST   = 1,
 	CMDFLAG_MODIFY = 2,
 } prot_cmd_flag_t;
-
-/* Keep enum and #define synced */
-/* OR:able flags */
-#define CAP_NAMES_STR "post delete mkuser tag untag modcap mktag"
-typedef enum {
-	CAP_NONE   = 0,
-	CAP_POST   = 1,  // Can post new images
-	CAP_DELETE = 2,  // Can delete posts
-	CAP_MKUSER = 4,  // Can create new users
-	CAP_TAG    = 8,  // Can tag posts
-	CAP_UNTAG  = 16, // Can remove tags from posts
-	CAP_MODCAP = 32, // Can modify capabilities
-	CAP_MKTAG  = 64, // Can create new tags
-} capability_t;
-#define CAP_MAX CAP_MKTAG
-#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG)
 
 typedef struct user {
 	const char   *name;

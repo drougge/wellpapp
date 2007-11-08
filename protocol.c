@@ -158,41 +158,26 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_fla
 	return 0;
 }
 
-/* Keep this synced with function-array in put_in_post_field() */
-typedef enum {
-	FIELDTYPE_UNSIGNED,
-	FIELDTYPE_SIGNED,
-	FIELDTYPE_ENUM,
-	FIELDTYPE_STRING,
-	FIELDTYPE_CONSTANT // Unsigned, not assignable
-} fieldtype_t;
+#define POST_FIELD_DEF(name, type, assignable, array)                   \
+                      {#name, sizeof(((post_t *)0)->name),              \
+                       offsetof(post_t, name), type, assignable, array}
 
-typedef struct {
-	const char  *name;
-	int         size;
-	int         offset;
-	fieldtype_t type;
-	const char  ***array;
-} post_field_t;
-
-#define POST_FIELD_DEF(name, type, array) {#name, sizeof(((post_t *)0)->name), \
-                                           offsetof(post_t, name), type, array}
-post_field_t post_fields[] = {
-	POST_FIELD_DEF(width, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(height, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(modified, FIELDTYPE_CONSTANT, NULL),   // Could be signed
-	POST_FIELD_DEF(created, FIELDTYPE_UNSIGNED, NULL),    // Could be signed
-	POST_FIELD_DEF(image_date, FIELDTYPE_UNSIGNED, NULL), // Could be signed
-	POST_FIELD_DEF(image_date_fuzz, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(score, FIELDTYPE_SIGNED, NULL),
-	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, &filetype_names),
-	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, &rating_names),
-	POST_FIELD_DEF(source, FIELDTYPE_STRING, NULL),
-	POST_FIELD_DEF(title, FIELDTYPE_STRING, NULL),
+const post_field_t post_fields[] = {
+	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
+	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
+	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
+	POST_FIELD_DEF(created  , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
+	POST_FIELD_DEF(image_date, FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
+	POST_FIELD_DEF(image_date_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
+	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , CAP_POST, NULL),
+	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , CAP_POST, &filetype_names),
+	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , CAP_POST, &rating_names),
+	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , CAP_POST, NULL),
+	POST_FIELD_DEF(title    , FIELDTYPE_STRING  , CAP_POST, NULL),
 	{NULL}
 };
 
-static int put_int_value(post_t *post, post_field_t *field, const char *val) {
+static int put_int_value(post_t *post, const post_field_t *field, const char *val) {
 	/* I can see no reasonable way to merge these cases. *
 	 * (Other than horrible preprocessor madness.)       */
 	if (!*val) return 1;
@@ -239,12 +224,12 @@ static int put_int_value(post_t *post, post_field_t *field, const char *val) {
 	return 0;
 }
 
-static int put_enum_value_post(post_t *post, post_field_t *field, const char *val) {
+static int put_enum_value_post(post_t *post, const post_field_t *field, const char *val) {
 	assert(field->size == 2);
 	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), *field->array, val);
 }
 
-static int put_string_value(post_t *post, post_field_t *field, const char *val) {
+static int put_string_value(post_t *post, const post_field_t *field, const char *val) {
 	const char **res = (const char **)((char *)post + field->offset);
 	const char *decoded;
 
@@ -254,9 +239,9 @@ static int put_string_value(post_t *post, post_field_t *field, const char *val) 
 	return 0;
 }
 
-static int put_in_post_field(post_t *post, const char *str, int nlen) {
-	post_field_t *field = post_fields;
-	int (*func[])(post_t *, post_field_t *, const char *) = {
+static int put_in_post_field(user_t *user, post_t *post, const char *str, int nlen) {
+	const post_field_t *field = post_fields;
+	int (*func[])(post_t *, const post_field_t *, const char *) = {
 		put_int_value,
 		put_int_value,
 		put_enum_value_post,
@@ -268,7 +253,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 			const char *valp = str + nlen + 1;
 			if (field->name[nlen]) return 1;
 			if (!*valp) return 1;
-			if (field->type == FIELDTYPE_CONSTANT) return 1;
+			if (!(user->caps & field->modcap)) return 1;
 			if (func[field->type](post, field, valp)) {
 				return 1;
 			}
@@ -286,7 +271,7 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 	eqp = strchr(cmd, '=');
 	if (eqp) {
 		if (!post) return error(cmd);
-		if (put_in_post_field(post, cmd, eqp - cmd)) {
+		if (put_in_post_field(user, post, cmd, eqp - cmd)) {
 			return error(cmd);
 		}
 		if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
