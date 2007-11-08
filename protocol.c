@@ -177,49 +177,50 @@ const post_field_t post_fields[] = {
 	{NULL}
 };
 
-static int put_int_value(post_t *post, const post_field_t *field, const char *val) {
-	/* I can see no reasonable way to merge these cases. *
-	 * (Other than horrible preprocessor madness.)       */
+static int put_signed_int_value(post_t *post, const post_field_t *field, const char *val) {
+	char *end;
 	if (!*val) return 1;
 	errno = 0;
-	if (field->type == FIELDTYPE_SIGNED) {
-		char *end;
-		long long v = strtoll(val, &end, 10);
-		if (errno || *end) return 1;
-		if (v == LLONG_MAX || v == LLONG_MIN) return 1;
-		if (field->size == 8) {
-			int64_t rv = v;
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 8);
-		} else if (field->size == 4) {
-			int32_t rv = v;
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 4);
-		} else {
-			int16_t rv = v;
-			assert(field->size == 2);
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 2);
-		}
+	long long v = strtoll(val, &end, 10);
+	if (errno || *end) return 1;
+	if (v == LLONG_MAX || v == LLONG_MIN) return 1;
+	if (field->size == 8) {
+		int64_t rv = v;
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 8);
+	} else if (field->size == 4) {
+		int32_t rv = v;
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 4);
 	} else {
-		char *end;
-		unsigned long long v = strtoull(val, &end, 10);
-		if (errno || *end) return 1;
-		if (v == ULLONG_MAX) return 1;
-		if (field->size == 8) {
-			uint64_t rv = v;
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 8);
-		} else if (field->size == 4) {
-			uint32_t rv = v;
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 4);
-		} else {
-			uint16_t rv = v;
-			assert(field->size == 2);
-			if (v != rv) return 1;
-			memcpy((char *)post + field->offset, &rv, 2);
-		}
+		int16_t rv = v;
+		assert(field->size == 2);
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 2);
+	}
+	return 0;
+}
+
+static int put_unsigned_int_value(post_t *post, const post_field_t *field, const char *val) {
+	char *end;
+	if (!*val) return 1;
+	errno = 0;
+	unsigned long long v = strtoull(val, &end, 10);
+	if (errno || *end) return 1;
+	if (v == ULLONG_MAX) return 1;
+	if (field->size == 8) {
+		uint64_t rv = v;
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 8);
+	} else if (field->size == 4) {
+		uint32_t rv = v;
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 4);
+	} else {
+		uint16_t rv = v;
+		assert(field->size == 2);
+		if (v != rv) return 1;
+		memcpy((char *)post + field->offset, &rv, 2);
 	}
 	return 0;
 }
@@ -242,8 +243,8 @@ static int put_string_value(post_t *post, const post_field_t *field, const char 
 static int put_in_post_field(user_t *user, post_t *post, const char *str, int nlen) {
 	const post_field_t *field = post_fields;
 	int (*func[])(post_t *, const post_field_t *, const char *) = {
-		put_int_value,
-		put_int_value,
+		put_unsigned_int_value,
+		put_signed_int_value,
 		put_enum_value_post,
 		put_string_value,
 	};
