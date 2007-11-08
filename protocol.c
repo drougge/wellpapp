@@ -158,11 +158,13 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_fla
 	return 0;
 }
 
+/* Keep this synced with function-array in put_in_post_field() */
 typedef enum {
 	FIELDTYPE_UNSIGNED,
 	FIELDTYPE_SIGNED,
 	FIELDTYPE_ENUM,
 	FIELDTYPE_STRING,
+	FIELDTYPE_CONSTANT // Unsigned, not assignable
 } fieldtype_t;
 
 typedef struct {
@@ -178,7 +180,10 @@ typedef struct {
 post_field_t post_fields[] = {
 	POST_FIELD_DEF(width, FIELDTYPE_UNSIGNED, NULL),
 	POST_FIELD_DEF(height, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(created, FIELDTYPE_UNSIGNED, NULL), // Could be signed, but I don't care.
+	POST_FIELD_DEF(modified, FIELDTYPE_CONSTANT, NULL),   // Could be signed
+	POST_FIELD_DEF(created, FIELDTYPE_UNSIGNED, NULL),    // Could be signed
+	POST_FIELD_DEF(image_date, FIELDTYPE_UNSIGNED, NULL), // Could be signed
+	POST_FIELD_DEF(image_date_fuzz, FIELDTYPE_UNSIGNED, NULL),
 	POST_FIELD_DEF(score, FIELDTYPE_SIGNED, NULL),
 	POST_FIELD_DEF(filetype, FIELDTYPE_ENUM, &filetype_names),
 	POST_FIELD_DEF(rating, FIELDTYPE_ENUM, &rating_names),
@@ -263,6 +268,7 @@ static int put_in_post_field(post_t *post, const char *str, int nlen) {
 			const char *valp = str + nlen + 1;
 			if (field->name[nlen]) return 1;
 			if (!*valp) return 1;
+			if (field->type == FIELDTYPE_CONSTANT) return 1;
 			if (func[field->type](post, field, valp)) {
 				return 1;
 			}
