@@ -24,7 +24,7 @@ static void trans_sync(void) {
 	}
 }
 
-void log_trans_start(trans_t *trans, void *user) {
+void log_trans_start(trans_t *trans, const user_t *user) {
 	char buf[12];
 	unsigned int len, r;
 	
@@ -163,12 +163,12 @@ void log_write_single(void *user, const char *fmt, ...) {
 	log_trans_end(&trans);
 }
 
-void log_write_tag(trans_t *trans, tag_t *tag) {
+void log_write_tag(trans_t *trans, const tag_t *tag) {
 	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid),
 	          tag->name, tagtype_names[tag->type]);
 }
 
-void log_write_tagalias(trans_t *trans, tagalias_t *tagalias) {
+void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias) {
 	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid),
 	          tagalias->name);
 }
@@ -207,7 +207,7 @@ static void log_string_field(trans_t *trans, int last, const void *data,
 	}
 }
 
-void log_write_post(trans_t *trans, post_t *post) {
+void log_write_post(trans_t *trans, const post_t *post) {
 	const field_t *field = post_fields;
 	const char    *md5 = md5_md52str(post->md5);
 	void (*func[])(trans_t *, int, const void *, const field_t *) = {
@@ -224,7 +224,7 @@ void log_write_post(trans_t *trans, post_t *post) {
 	}
 }
 
-void log_write_user(trans_t *trans, user_t *user) {
+void log_write_user(trans_t *trans, const user_t *user) {
 	char *name;
 	int  i;
 

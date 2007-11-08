@@ -194,22 +194,29 @@ typedef struct user {
 } user_t;
 
 typedef int (*prot_err_func_t)(const char *msg);
-typedef int (*prot_cmd_func_t)(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
+typedef int (*prot_cmd_func_t)(const user_t *user, const char *cmd, void *data,
+                               prot_cmd_flag_t flags, trans_t *trans,
+                               prot_err_func_t error);
 
 /* Note that these modify *cmd. */
-int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error);
-int prot_tag_post(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
-int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
-int prot_modify(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error);
+int prot_cmd_loop(const user_t *user, char *cmd, void *data,
+                  prot_cmd_func_t func, prot_cmd_flag_t flags,
+                  trans_t *trans, prot_err_func_t error);
+int prot_tag_post(const user_t *user, char *cmd, trans_t *trans,
+                  prot_err_func_t error);
+int prot_add(const user_t *user, char *cmd, trans_t *trans,
+             prot_err_func_t error);
+int prot_modify(const user_t *user, char *cmd, trans_t *trans,
+                prot_err_func_t error);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
-int post_has_tag(post_t *post, tag_t *tag, truth_t weak);
+int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
-const char *md5_md52str(md5_t md5);
+const char *md5_md52str(const md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
 void populate_from_log(const char *filename);
 void db_serve(void);
@@ -229,24 +236,24 @@ rbtree_key_t rbtree_str2key(const char *str);
 int  mm_init(const char *filename, int use_existing);
 void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
-char *mm_strdup(const char *str);
+const char *mm_strdup(const char *str);
 void mm_print(void);
 void mm_lock(void);
 void mm_unlock(void);
 
 void client_handle(int s);
 
-void log_trans_start(trans_t *trans, void *user);
+void log_trans_start(trans_t *trans, const user_t *user);
 void log_trans_end(trans_t *trans);
 void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
 void log_init(const char *dirname);
-void log_write_tag(trans_t *trans, tag_t *tag);
-void log_write_tagalias(trans_t *trans, tagalias_t *tagalias);
-void log_write_post(trans_t *trans, post_t *post);
-void log_write_user(trans_t *trans, user_t *user);
+void log_write_tag(trans_t *trans, const tag_t *tag);
+void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
+void log_write_post(trans_t *trans, const post_t *post);
+void log_write_user(trans_t *trans, const user_t *user);
 void log_dump(void);
 void log_rotate(int force);
 

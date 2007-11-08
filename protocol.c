@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <time.h>
 
-static int tag_post_cmd(user_t *user, const char *cmd, void *post_,
+static int tag_post_cmd(const user_t *user, const char *cmd, void *post_,
                         prot_cmd_flag_t flags, trans_t *trans,
                         prot_err_func_t error) {
 	post_t     **post = post_;
@@ -45,8 +45,9 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_,
 	return 0;
 }
 
-int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func,
-                  prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+int prot_cmd_loop(const user_t *user, char *cmd, void *data,
+                  prot_cmd_func_t func, prot_cmd_flag_t flags,
+                  trans_t *trans, prot_err_func_t error) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -61,7 +62,8 @@ int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func,
 	return 0;
 }
 
-int prot_tag_post(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_tag_post(const user_t *user, char *cmd, trans_t *trans,
+                  prot_err_func_t error) {
 	post_t *post = NULL;
 	return prot_cmd_loop(user, cmd, &post, tag_post_cmd,
 	                     CMDFLAG_NONE, trans, error);
@@ -74,7 +76,8 @@ static int error1(char *cmd, prot_err_func_t error) {
 	return error(cmd);
 }
 
-static int put_enum_value_gen(uint16_t *res, const char * const *array, const char *val) {
+static int put_enum_value_gen(uint16_t *res, const char * const *array,
+                              const char *val) {
 	uint16_t i;
 	for (i = 0; array[i]; i++) {
 		if (!strcmp(array[i], val)) {
@@ -85,7 +88,7 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array, const ch
 	return 1;
 }
 
-static int add_tag_cmd(user_t *user, const char *cmd, void *data,
+static int add_tag_cmd(const user_t *user, const char *cmd, void *data,
                        prot_cmd_flag_t flags, trans_t *trans,
                        prot_err_func_t error) {
 	tag_t      *tag = *(tag_t **)data;
@@ -137,7 +140,7 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data,
 	return 0;
 }
 
-static int add_alias_cmd(user_t *user, const char *cmd, void *data,
+static int add_alias_cmd(const user_t *user, const char *cmd, void *data,
                          prot_cmd_flag_t flags, trans_t *trans,
                          prot_err_func_t error) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
@@ -239,7 +242,7 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 	return 0;
 }
 
-static int put_in_post_field(user_t *user, post_t *post, const char *str,
+static int put_in_post_field(const user_t *user, post_t *post, const char *str,
                              unsigned int nlen) {
 	const field_t *field = post_fields;
 	int (*func[])(post_t *, const field_t *, const char *) = {
@@ -265,7 +268,7 @@ static int put_in_post_field(user_t *user, post_t *post, const char *str,
 	return 1;
 }
 
-static int post_cmd(user_t *user, const char *cmd, void *data,
+static int post_cmd(const user_t *user, const char *cmd, void *data,
                     prot_cmd_flag_t flags, trans_t *trans,
                     prot_err_func_t error) {
 	post_t     *post = *(post_t **)data;
@@ -320,7 +323,7 @@ static user_t *user_find(const char *name) {
 	return (user_t *)user;
 }
 
-static int user_cmd(user_t *user, const char *cmd, void *data,
+static int user_cmd(const user_t *user, const char *cmd, void *data,
                     prot_cmd_flag_t flags, trans_t *trans,
                     prot_err_func_t error) {
 	user_t     *moduser = *(user_t **)data;
@@ -375,7 +378,8 @@ static int user_cmd(user_t *user, const char *cmd, void *data,
 	return 0;
 }
 
-int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_add(const user_t *user, char *cmd, trans_t *trans,
+             prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -402,10 +406,12 @@ int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(user, cmd + 1, &data, func, CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(user, cmd + 1, &data, func,
+	                     CMDFLAG_NONE, trans, error);
 }
 
-int prot_modify(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
+int prot_modify(const user_t *user, char *cmd, trans_t *trans,
+                prot_err_func_t error) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -419,7 +425,8 @@ int prot_modify(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) 
 		default:
 			return error1(cmd, error);
 	}
-	return prot_cmd_loop(user, cmd + 1, &data, func, CMDFLAG_MODIFY, trans, error);
+	return prot_cmd_loop(user, cmd + 1, &data, func,
+	                     CMDFLAG_MODIFY, trans, error);
 }
 
 user_t *prot_auth(char *cmd) {

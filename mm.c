@@ -187,7 +187,7 @@ void mm_free(void *mem) {
 */
 }
 
-char *mm_strdup(const char *str) {
+const char *mm_strdup(const char *str) {
 	char *new;
 	int len = strlen(str);
 

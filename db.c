@@ -95,7 +95,7 @@ int md5_str2md5(md5_t *res_md5, const char *md5str) {
 	return 0;
 }
 
-const char *md5_md52str(md5_t md5) {
+const char *md5_md52str(const md5_t md5) {
 	static char buf[33];
 	static const char digits[] = {'0', '1', '2', '3', '4', '5', '6', '7',
 	                              '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
@@ -147,12 +147,12 @@ tag_t *tag_find_name(const char *name) {
 	return (tag_t *)tag;
 }
 
-int post_has_tag(post_t *post, tag_t *tag, truth_t weak) {
+int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak) {
 	assert(post);
 	assert(tag);
 again:
 	if (post->of_tags < tag->of_posts) {
-		post_taglist_t *tl;
+		const post_taglist_t *tl;
 		if (weak == T_NO) {
 			tl = &post->tags;
 		} else {
@@ -166,7 +166,7 @@ again:
 			tl = tl->next;
 		}
 	} else {
-		tag_postlist_t *pl;
+		const tag_postlist_t *pl;
 		if (weak == T_NO) {
 			pl = &tag->posts;
 		} else {

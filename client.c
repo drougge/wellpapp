@@ -175,7 +175,9 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(user_t *user, const char *cmd, void *search_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int build_search_cmd(const user_t *user, const char *cmd, void *search_,
+                            prot_cmd_flag_t flags, trans_t *trans,
+                            prot_err_func_t error) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -434,7 +436,7 @@ static void tag_search(const char *spec) {
 	c_printf("OK\n");
 }
 
-static void modifying_command(int (*func)(user_t *, char *, trans_t *, prot_err_func_t), char *cmd) {
+static void modifying_command(int (*func)(const user_t *, char *, trans_t *, prot_err_func_t), char *cmd) {
 	trans_t trans;
 	int ok;
 
