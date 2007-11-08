@@ -4,7 +4,9 @@
 #include <errno.h>
 #include <time.h>
 
-static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int tag_post_cmd(user_t *user, const char *cmd, void *post_,
+                        prot_cmd_flag_t flags, trans_t *trans,
+                        prot_err_func_t error) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
@@ -41,7 +43,8 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_, prot_cmd_fla
 	return 0;
 }
 
-int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func,
+                  prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -58,7 +61,8 @@ int prot_cmd_loop(user_t *user, char *cmd, void *data, prot_cmd_func_t func, pro
 
 int prot_tag_post(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 	post_t *post = NULL;
-	return prot_cmd_loop(user, cmd, &post, tag_post_cmd, CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(user, cmd, &post, tag_post_cmd,
+	                     CMDFLAG_NONE, trans, error);
 }
 
 static int error1(char *cmd, prot_err_func_t error) {
@@ -79,7 +83,9 @@ static int put_enum_value_gen(uint16_t *res, const char **array, const char *val
 	return 1;
 }
 
-static int add_tag_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int add_tag_cmd(user_t *user, const char *cmd, void *data,
+                       prot_cmd_flag_t flags, trans_t *trans,
+                       prot_err_func_t error) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
@@ -127,7 +133,9 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_
 	return 0;
 }
 
-static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int add_alias_cmd(user_t *user, const char *cmd, void *data,
+                         prot_cmd_flag_t flags, trans_t *trans,
+                         prot_err_func_t error) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
@@ -210,8 +218,9 @@ PUT_INT_VALUE_FUNC(signed, int, strtoll, v == LLONG_MAX || v == LLONG_MIN)
 PUT_INT_VALUE_FUNC(unsigned, uint, strtoull, v == ULLONG_MAX)
 
 static int put_enum_value_post(post_t *post, const field_t *field, const char *val) {
+	uint16_t *p = (uint16_t *)((char *)post + field->offset);
 	assert(field->size == 2);
-	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), *field->array, val);
+	return put_enum_value_gen(p, *field->array, val);
 }
 
 static int put_string_value(post_t *post, const field_t *field, const char *val) {
@@ -249,7 +258,9 @@ static int put_in_post_field(user_t *user, post_t *post, const char *str, int nl
 	return 1;
 }
 
-static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int post_cmd(user_t *user, const char *cmd, void *data,
+                    prot_cmd_flag_t flags, trans_t *trans,
+                    prot_err_func_t error) {
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
@@ -278,7 +289,8 @@ static int post_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t f
 		md5_t null_md5;
 		memset(&null_md5, 0, sizeof(md5_t));
 		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))
-		 || !post->height || !post->width || post->filetype == (uint16_t)~0) {
+		    || !post->height || !post->width
+		    || post->filetype == (uint16_t)~0) {
 			return error(cmd);
 		}
 		mm_lock();
@@ -300,7 +312,9 @@ static user_t *user_find(const char *name) {
 	return (user_t *)user;
 }
 
-static int user_cmd(user_t *user, const char *cmd, void *data, prot_cmd_flag_t flags, trans_t *trans, prot_err_func_t error) {
+static int user_cmd(user_t *user, const char *cmd, void *data,
+                    prot_cmd_flag_t flags, trans_t *trans,
+                    prot_err_func_t error) {
 	user_t     *moduser = *(user_t **)data;
 	const char *args = cmd + 1;
 	const char *name;

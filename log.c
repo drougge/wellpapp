@@ -65,7 +65,8 @@ while (*ptr) assert(*ptr++ != '\n');
 	trans->buf_used = trans->init_len;
 }
 
-static void log_write_(trans_t *trans, int complete, const char *fmt, va_list ap) {
+static void log_write_(trans_t *trans, int complete,
+                       const char *fmt, va_list ap) {
 	int looped = 0;
 	int len;
 again:
@@ -74,7 +75,8 @@ again:
 		trans->buf[trans->buf_used] = ' ';
 		trans->buf_used++;
 	}
-	len = vsnprintf(trans->buf + trans->buf_used, sizeof(trans->buf) - trans->buf_used, fmt, ap);
+	len = vsnprintf(trans->buf + trans->buf_used,
+	                sizeof(trans->buf) - trans->buf_used, fmt, ap);
 	if (trans->buf_used + len >= sizeof(trans->buf)) {
 		assert(complete && !looped);
 		trans_line_done_(trans);
@@ -83,8 +85,8 @@ again:
 	}
 	trans->buf_used += len;
 	if (!complete) return;
-	if (trans->init_len == 0                         // No init -> lines can't be appended to
-	 || trans->buf_used + 20 > sizeof(trans->buf)) { // Nothing more will fit.
+	if (trans->init_len == 0    // No init -> lines can't be appended to.
+	 || trans->buf_used + 20 > sizeof(trans->buf)) { // No more will fit.
 		trans_line_done_(trans);
 	}
 }
@@ -159,16 +161,19 @@ void log_write_single(void *user, const char *fmt, ...) {
 }
 
 void log_write_tag(trans_t *trans, tag_t *tag) {
-	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid), tag->name, tagtype_names[tag->type]);
+	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid),
+	          tag->name, tagtype_names[tag->type]);
 }
 
 void log_write_tagalias(trans_t *trans, tagalias_t *tagalias) {
-	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
+	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid),
+	          tagalias->name);
 }
 
-static void log_int_field(trans_t *trans, int last, const void *data, const field_t *field) {
-	const char        *fp;
-	const char        *fmt;
+static void log_int_field(trans_t *trans, int last, const void *data,
+                          const field_t *field) {
+	const char         *fp;
+	const char         *fmt;
 	unsigned long long value;
 
 	fp = ((const char *)data) + field->offset;
@@ -184,13 +189,15 @@ static void log_int_field(trans_t *trans, int last, const void *data, const fiel
 	log_write_nl(trans, last, fmt, field->name, value);
 }
 
-static void log_enum_field(trans_t *trans, int last, const void *data, const field_t *field) {
+static void log_enum_field(trans_t *trans, int last, const void *data,
+                           const field_t *field) {
 	const char **array = *field->array;
 	uint16_t   value = *(const uint16_t *)(((const char *)data) + field->offset);
 	log_write_nl(trans, last, "%s=%s", field->name, array[value]);
 }
 
-static void log_string_field(trans_t *trans, int last, const void *data, const field_t *field) {
+static void log_string_field(trans_t *trans, int last, const void *data,
+                           const field_t *field) {
 	const char *value = *(const char **)(((const char *)data) + field->offset);
 	if (value) {
 		log_write_nl(trans, last, "%s=%s", field->name, str_str2enc(value));
@@ -225,9 +232,13 @@ void log_write_user(trans_t *trans, user_t *user) {
 	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
 		capability_t cap = 1UL << i;
 		if (DEFAULT_CAPS & cap) {
-			if (!(user->caps & cap)) log_write(trans, "c%s", cap_names[i]);
+			if (!(user->caps & cap)) {
+				log_write(trans, "c%s", cap_names[i]);
+			}
 		} else {
-			if (user->caps & cap) log_write(trans, "C%s", cap_names[i]);
+			if (user->caps & cap) {
+				log_write(trans, "C%s", cap_names[i]);
+			}
 		}
 	}
 	log_clear_init(trans);
@@ -249,7 +260,8 @@ void log_rotate(int force) {
 		if (size < LOG_ROTATE_SIZE) return;
 	}
 
-	len = snprintf(filename, sizeof(filename), "%s/%llu.log", logdir, (unsigned long long)*logindex);
+	len = snprintf(filename, sizeof(filename), "%s/%llu.log", logdir,
+	               (unsigned long long)*logindex);
 	assert(len < sizeof(filename));
 	if (fd != -1) close(fd);
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
@@ -280,7 +292,8 @@ static void post_taglist(post_taglist_t *tl, const char *prefix) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&dump_trans, "T%s%s", prefix, guid_guid2str(tl->tags[i]->guid));
+				log_write(&dump_trans, "T%s%s", prefix,
+				          guid_guid2str(tl->tags[i]->guid));
 			}
 		}
 		tl = tl->next;

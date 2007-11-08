@@ -4,8 +4,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-void assert_fail(const char *ass, const char *file, const char *func, int line) {
-	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n", ass, func, file, line);
+void assert_fail(const char *ass, const char *file,
+                 const char *func, int line) {
+	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n",
+	        ass, func, file, line);
 	exit(1);
 }
 
@@ -95,7 +97,8 @@ int md5_str2md5(md5_t *res_md5, const char *md5str) {
 
 const char *md5_md52str(md5_t md5) {
 	static char buf[33];
-	static const char digits[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+	static const char digits[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+	                              '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 	int i;
 
 	for (i = 0; i < 16; i++) {
