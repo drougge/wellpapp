@@ -1,7 +1,7 @@
 #include "db.h"
 
-static const unsigned char *alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk"
-                                    "lmnopqrstuvwxyz0123456789_-";
+static const unsigned char alpha[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk"
+                                     "lmnopqrstuvwxyz0123456789_-";
 static const unsigned char rev[] = {
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,

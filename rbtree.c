@@ -73,7 +73,7 @@ rbtree_key_t rbtree_str2key(const char *str) {
 	md5_t   md5;
 
 	MD5Init(&ctx);
-	MD5Update(&ctx, str, strlen(str));
+	MD5Update(&ctx, (const unsigned char *)str, strlen(str));
 	MD5Final(md5.m, &ctx);
 	return md5.key;
 }
