@@ -59,42 +59,6 @@ static id_t cmp_id;
 static const char *cmp_img;
 static int cmp_img_ok;
 
-static int read_db(const char *filename) {
-	FILE *fh;
-	char buf[256];
-	unsigned long id = 0;
-
-	fh = fopen(filename, "r");
-	if (!fh) return 1;
-	of_ids = 1024;
-	ids = malloc(sizeof(id_t) * of_ids);
-	if (!ids) goto err;
-	while (fgets(buf, sizeof(buf), fh)) {
-		if (memcmp(buf, cmp_img, 32)) {
-			if (id == of_ids) {
-				of_ids *= 2;
-				ids = realloc(ids, sizeof(id_t) * of_ids);
-				if (!ids) goto err;
-			}
-			memcpy(ids[id].md5, buf, 32);
-			deser(ids[id].a, buf + 33);
-			id++;
-		} else {
-			memcpy(cmp_id.md5, buf, 32);
-			deser(cmp_id.a, buf + 33);
-			cmp_img_ok = 1;
-		}
-	}
-	if (!feof(fh)) goto err;
-	fclose(fh);
-	of_ids = id;
-	return 0;
-err:
-	fclose(fh);
-	of_ids = 0;
-	return 1;
-}
-
 static int comp_id(const void *a, const void *b) {
 	const id_t *x = a;
 	const id_t *y = b;
@@ -164,6 +128,43 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+#if 0
+static int read_db(const char *filename) {
+	FILE *fh;
+	char buf[256];
+	unsigned long id = 0;
+
+	fh = fopen(filename, "r");
+	if (!fh) return 1;
+	of_ids = 1024;
+	ids = malloc(sizeof(id_t) * of_ids);
+	if (!ids) goto err;
+	while (fgets(buf, sizeof(buf), fh)) {
+		if (memcmp(buf, cmp_img, 32)) {
+			if (id == of_ids) {
+				of_ids *= 2;
+				ids = realloc(ids, sizeof(id_t) * of_ids);
+				if (!ids) goto err;
+			}
+			memcpy(ids[id].md5, buf, 32);
+			deser(ids[id].a, buf + 33);
+			id++;
+		} else {
+			memcpy(cmp_id.md5, buf, 32);
+			deser(cmp_id.a, buf + 33);
+			cmp_img_ok = 1;
+		}
+	}
+	if (!feof(fh)) goto err;
+	fclose(fh);
+	of_ids = id;
+	return 0;
+err:
+	fclose(fh);
+	of_ids = 0;
+	return 1;
+}
+
 int mai__n(int argc, char **argv) {
 	unsigned long i;
 
@@ -205,3 +206,4 @@ int mai_n(void) {
 	}
 	return 0;
 }
+#endif
