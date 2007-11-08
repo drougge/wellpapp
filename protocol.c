@@ -177,53 +177,37 @@ const field_t post_fields[] = {
 	{NULL}
 };
 
-static int put_signed_int_value(post_t *post, const field_t *field, const char *val) {
-	char *end;
-	if (!*val) return 1;
-	errno = 0;
-	long long v = strtoll(val, &end, 10);
-	if (errno || *end) return 1;
-	if (v == LLONG_MAX || v == LLONG_MIN) return 1;
-	if (field->size == 8) {
-		int64_t rv = v;
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 8);
-	} else if (field->size == 4) {
-		int32_t rv = v;
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 4);
-	} else {
-		int16_t rv = v;
-		assert(field->size == 2);
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 2);
-	}
-	return 0;
-}
+/* I need a setter for both signed and unsigned ints. This is mostly *
+ * the same function but with differect types. The magnificent       *
+ * preprocessor comes to the rescue!                                 */
 
-static int put_unsigned_int_value(post_t *post, const field_t *field, const char *val) {
-	char *end;
-	if (!*val) return 1;
-	errno = 0;
-	unsigned long long v = strtoull(val, &end, 10);
-	if (errno || *end) return 1;
-	if (v == ULLONG_MAX) return 1;
-	if (field->size == 8) {
-		uint64_t rv = v;
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 8);
-	} else if (field->size == 4) {
-		uint32_t rv = v;
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 4);
-	} else {
-		uint16_t rv = v;
-		assert(field->size == 2);
-		if (v != rv) return 1;
-		memcpy((char *)post + field->offset, &rv, 2);
+#define PUT_INT_VALUE_INNER(type, bytes)                  \
+	type rv = v;                                      \
+	if (v != rv) return 1;                            \
+	memcpy((char *)post + field->offset, &rv, bytes);
+
+#define PUT_INT_VALUE_FUNC(signed, type, strtot, check_v) \
+	static int put_##signed##_value(post_t *post, const field_t *field, \
+	                                const char *val) {                  \
+		char *end;                                                  \
+		if (!*val) return 1;                                        \
+		errno = 0;                                                  \
+		signed long long v = strtot(val, &end, 10);                 \
+		if (errno || *end) return 1;                                \
+		if (check_v) return 1;                                      \
+		if (field->size == 8) {                                     \
+			PUT_INT_VALUE_INNER(type##64_t, 8);                 \
+		} else if (field->size == 4) {                              \
+			PUT_INT_VALUE_INNER(type##32_t, 4);                 \
+		} else {                                                    \
+			PUT_INT_VALUE_INNER(type##16_t, 2);                 \
+			assert(field->size == 2);                           \
+		}                                                           \
+		return 0;                                                   \
 	}
-	return 0;
-}
+
+PUT_INT_VALUE_FUNC(signed, int, strtoll, v == LLONG_MAX || v == LLONG_MIN)
+PUT_INT_VALUE_FUNC(unsigned, uint, strtoull, v == ULLONG_MAX)
 
 static int put_enum_value_post(post_t *post, const field_t *field, const char *val) {
 	assert(field->size == 2);
@@ -243,8 +227,8 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 static int put_in_post_field(user_t *user, post_t *post, const char *str, int nlen) {
 	const field_t *field = post_fields;
 	int (*func[])(post_t *, const field_t *, const char *) = {
-		put_unsigned_int_value,
-		put_signed_int_value,
+		put_unsigned_value,
+		put_signed_value,
 		put_enum_value_post,
 		put_string_value,
 	};
