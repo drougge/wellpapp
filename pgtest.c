@@ -35,12 +35,12 @@ static void add_tagalias(const char *name, tag_t *tag) {
 }
 
 static time_t time_str2unix(const char *str) {
-	struct tm time;
+	struct tm tm;
 	char *p;
-	memset(&time, 0, sizeof(time));
-	p = strptime(str, "%Y-%m-%d %H:%M:%S", &time);
+	memset(&tm, 0, sizeof(tm));
+	p = strptime(str, "%Y-%m-%d %H:%M:%S", &tm);
 	assert(p && !*p);
-	return mktime(&time);
+	return mktime(&tm);
 }
 
 typedef struct {
@@ -229,9 +229,9 @@ static int populate_from_db(PGconn *conn) {
 	};
 
 	for (i = 0; danboorutype2type_str[i]; i++) {
-		int r = str2id(danboorutype2type_str[i], tagtype_names);
-		assert(r > 0);
-		danboorutype2type[i] = r - 1;
+		int d2t = str2id(danboorutype2type_str[i], tagtype_names);
+		assert(d2t > 0);
+		danboorutype2type[i] = d2t - 1;
 	}
 
 	/* drougge/apa */

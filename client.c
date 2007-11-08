@@ -7,7 +7,7 @@
 #define PROT_ORDERS_PER_SEARCH 4
 
 static int s;
-static user_t *user;
+static user_t *current_user;
 
 typedef enum {
 	E_LINETOOLONG,
@@ -85,10 +85,10 @@ typedef struct search {
 	search_tag_t tags[PROT_TAGS_PER_SEARCH];
 	search_tag_t excluded_tags[PROT_TAGS_PER_SEARCH];
 	post_t       *post;
-	int          of_tags;
-	int          of_excluded_tags;
+	unsigned int of_tags;
+	unsigned int of_excluded_tags;
 	order_t      orders[PROT_ORDERS_PER_SEARCH];
-	int          of_orders;
+	unsigned int of_orders;
 	int          flags;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
@@ -99,14 +99,14 @@ typedef struct result {
 	uint32_t room;
 } result_t;
 
-static int  c_buf_used = 0;
+static unsigned int c_buf_used = 0;
 static char c_buf[PROT_MAXLEN];
 #define BUF_MIN_FREE 1024
 
 static void c_flush(void) {
 	if (c_buf_used) {
-		int w = write(s, c_buf, c_buf_used);
-		assert(w == c_buf_used);
+		ssize_t w = write(s, c_buf, c_buf_used);
+		assert(w > 0 && (unsigned int)w == c_buf_used);
 		c_buf_used = 0;
 	}
 }
@@ -117,10 +117,10 @@ static void c_printf(const char *fmt, ...) {
 
 	va_start(ap, fmt);
 	len = vsnprintf(c_buf + c_buf_used, sizeof(c_buf) - c_buf_used, fmt, ap);
-	if (len >= sizeof(c_buf) - c_buf_used) { // Overflow
+	if (len >= (int)(sizeof(c_buf) - c_buf_used)) { // Overflow
 		c_flush();
 		len = vsnprintf(c_buf, sizeof(c_buf), fmt, ap);
-		assert(len < sizeof(c_buf));
+		assert(len < (int)sizeof(c_buf));
 	}
 	va_end(ap);
 	c_buf_used += len;
@@ -246,7 +246,7 @@ static int build_search_cmd(user_t *user, const char *cmd, void *search_, prot_c
 
 static int build_search(char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(user, cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
+	if (prot_cmd_loop(current_user, cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
 	if (!search->of_tags && !search->post) {
 		return client_error("E Specify at least one included tag");
 	}
@@ -323,10 +323,10 @@ typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
 static sorter_f sorters[] = {sorter_date, sorter_score};
 
 static int sorter(void *_search, const void *_p1, const void *_p2) {
-	const post_t *p1 = *(const post_t **)_p1;
-	const post_t *p2 = *(const post_t **)_p2;
-	search_t *search = _search;
-	int i;
+	const post_t *p1 = *(const post_t * const *)_p1;
+	const post_t *p2 = *(const post_t * const *)_p2;
+	search_t     *search = _search;
+	unsigned int i;
 
 	for (i = 0; i < search->of_orders; i++) {
 		int order = search->orders[i];
@@ -380,7 +380,7 @@ again:
 
 static void do_search(search_t *search) {
 	result_t result;
-	int i;
+	unsigned int i;
 
 	if (search->post) {
 		if (search->of_tags || search->of_excluded_tags) {
@@ -438,8 +438,8 @@ static void modifying_command(int (*func)(user_t *, char *, trans_t *, prot_err_
 	trans_t trans;
 	int ok;
 
-	log_trans_start(&trans, user);
-	ok = !func(user, cmd, &trans, client_error);
+	log_trans_start(&trans, current_user);
+	ok = !func(current_user, cmd, &trans, client_error);
 	log_trans_end(&trans);
 	if (ok) c_printf("OK\n");
 }
@@ -452,7 +452,7 @@ void client_handle(int _s) {
 	s = _s;
 	anonymous.name = "A";
 	anonymous.caps = DEFAULT_CAPS;
-	user = &anonymous;
+	current_user = &anonymous;
 
 	while (42) {
 		c_flush();
@@ -488,12 +488,12 @@ void client_handle(int _s) {
 				exit(0);
 				break;
 			case 'a': // 'a'uthenticate
-				user = prot_auth(buf + 1);
-				if (user) {
+				current_user = prot_auth(buf + 1);
+				if (current_user) {
 					c_printf("OK\n");
 				} else {
 					c_printf("E\n");
-					user = &anonymous;
+					current_user = &anonymous;
 				}
 				break;
 			default:

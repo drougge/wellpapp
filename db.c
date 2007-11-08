@@ -75,7 +75,7 @@ pt_ok:
 	return 0;
 }
 
-static int md5_digit2digit(char digit) {
+static int md5_digit2digit(int digit) {
 	if (digit >= '0' && digit <= '9') return digit - '0';
 	if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
 	if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
@@ -313,7 +313,7 @@ void db_serve(void) {
 	}
 }
 
-static const char *strndup(const char *str, int len) {
+static const char *strndup(const char *str, unsigned int len) {
 	char *res = malloc(len + 1);
 	memcpy(res, str, len);
 	res[len] = '\0';
@@ -321,11 +321,11 @@ static const char *strndup(const char *str, int len) {
 }
 
 static void cfg_parse_list(const char * const **res_list, const char *str) {
-	int        words = 1;
-	int        word;
-	const char **list;
-	const char *p;
-	int        len;
+	int          words = 1;
+	int          word;
+	const char   **list;
+	const char   *p;
+	unsigned int len;
 
 	p = str;
 	while (*p) if (*p++ == ' ') words++;

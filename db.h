@@ -173,11 +173,11 @@ typedef enum {
 typedef uint32_t trans_id_t;
 
 typedef struct trans {
-	off_t      mark_offset;
-	trans_id_t id;
-	int        init_len;
-	int        buf_used;
-	char       buf[4000];
+	off_t        mark_offset;
+	trans_id_t   id;
+	unsigned int init_len;
+	unsigned int buf_used;
+	char         buf[4000];
 } trans_t;
 
 /* OR:able flags */

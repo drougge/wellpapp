@@ -26,8 +26,10 @@ static void trans_sync(void) {
 
 void log_trans_start(trans_t *trans, void *user) {
 	char buf[12];
-	int  len, r;
+	unsigned int len, r;
 	
+	(void)user;
+
 	trans->init_len = 0;
 	trans->buf_used = 0;
 	trans_lock();
@@ -45,6 +47,7 @@ void log_trans_start(trans_t *trans, void *user) {
 static void trans_line_done_(trans_t *trans) {
 	char idbuf[12];
 	struct iovec iov[3];
+	char newline = '\n';
 	int len, wlen;
 
 	if (trans->buf_used == trans->init_len) return;
@@ -53,7 +56,7 @@ static void trans_line_done_(trans_t *trans) {
 	assert(iov[0].iov_len == 10);
 	iov[1].iov_base = trans->buf;
 	iov[1].iov_len  = trans->buf_used;
-	iov[2].iov_base = "\n";
+	iov[2].iov_base = &newline;
 	iov[2].iov_len  = 1;
 char *ptr = trans->buf;
 while (*ptr) assert(*ptr++ != '\n');
@@ -198,7 +201,7 @@ static void log_enum_field(trans_t *trans, int last, const void *data,
 
 static void log_string_field(trans_t *trans, int last, const void *data,
                            const field_t *field) {
-	const char *value = *(const char **)(((const char *)data) + field->offset);
+	const char *value = *(const char * const *)(((const char *)data) + field->offset);
 	if (value) {
 		log_write_nl(trans, last, "%s=%s", field->name, str_str2enc(value));
 	}
@@ -262,7 +265,7 @@ void log_rotate(int force) {
 
 	len = snprintf(filename, sizeof(filename), "%s/%llu.log", logdir,
 	               (unsigned long long)*logindex);
-	assert(len < sizeof(filename));
+	assert(len < (int)sizeof(filename));
 	if (fd != -1) close(fd);
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
 	assert(fd != -1);
@@ -280,10 +283,12 @@ void log_init(const char *dirname) {
  ********************************/
 static trans_t dump_trans;
 static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
+	(void)key;
 	log_write_tag(&dump_trans, (tag_t *)value);
 }
 
 static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
+	(void)key;
 	log_write_tagalias(&dump_trans, (tagalias_t *)value);
 }
 
@@ -303,6 +308,7 @@ static void post_taglist(post_taglist_t *tl, const char *prefix) {
 static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	post_t *post = (post_t *)value;
 
+	(void)key;
 	log_write_post(&dump_trans, post);
 	log_set_init(&dump_trans, "TP%s", md5_md52str(post->md5));
 	post_taglist(&post->tags, "");
@@ -311,6 +317,7 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 }
 
 static void user_iter(rbtree_key_t key, rbtree_value_t value) {
+	(void)key;
 	log_write_user(&dump_trans, (user_t *)value);
 }
 

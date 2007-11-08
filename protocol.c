@@ -10,7 +10,9 @@ static int tag_post_cmd(user_t *user, const char *cmd, void *post_,
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
+	(void)user;
 	(void)flags;
+
 	switch (*cmd) {
 		case 'P': // Which post
 			if (*post) return error(cmd);
@@ -91,6 +93,8 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data,
 	const char *args = cmd + 1;
 	char       *ptr;
 
+	(void)user;
+
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -110,7 +114,7 @@ static int add_tag_cmd(user_t *user, const char *cmd, void *data,
 	}
 	if (flags & CMDFLAG_LAST) {
 		rbtree_key_t key;
-		int i;
+		unsigned int i;
 		ptr = (char *)&tag->guid;
 		for (i = 0; i < sizeof(tag->guid); i++) {
 			if (ptr[i]) break;
@@ -139,6 +143,8 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data,
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
+	(void)user;
+
 	if (!*cmd || !*args) return error(cmd);
 	switch (*cmd) {
 		case 'G':
@@ -166,9 +172,9 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data,
 	return 0;
 }
 
-#define POST_FIELD_DEF(name, type, assignable, array)                   \
-                      {#name, sizeof(((post_t *)0)->name),              \
-                       offsetof(post_t, name), type, assignable, array}
+#define POST_FIELD_DEF(name, type, cap, array)                   \
+                      {#name, sizeof(((post_t *)0)->name),       \
+                       offsetof(post_t, name), type, cap, array}
 
 const field_t post_fields[] = {
 	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
@@ -182,7 +188,7 @@ const field_t post_fields[] = {
 	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , CAP_POST, &rating_names),
 	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , CAP_POST, NULL),
 	POST_FIELD_DEF(title    , FIELDTYPE_STRING  , CAP_POST, NULL),
-	{NULL}
+	{NULL, 0, 0, 0, 0, NULL}
 };
 
 /* I need a setter for both signed and unsigned ints. This is mostly *
@@ -233,7 +239,8 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 	return 0;
 }
 
-static int put_in_post_field(user_t *user, post_t *post, const char *str, int nlen) {
+static int put_in_post_field(user_t *user, post_t *post, const char *str,
+                             unsigned int nlen) {
 	const field_t *field = post_fields;
 	int (*func[])(post_t *, const field_t *, const char *) = {
 		put_unsigned_value,
@@ -266,8 +273,9 @@ static int post_cmd(user_t *user, const char *cmd, void *data,
 
 	eqp = strchr(cmd, '=');
 	if (eqp) {
+		unsigned int len = eqp - cmd;
 		if (!post) return error(cmd);
-		if (put_in_post_field(user, post, cmd, eqp - cmd)) {
+		if (put_in_post_field(user, post, cmd, len)) {
 			return error(cmd);
 		}
 		if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
@@ -384,7 +392,7 @@ int prot_add(user_t *user, char *cmd, trans_t *trans, prot_err_func_t error) {
 			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
 			((post_t *)data)->created  = time(NULL);
-			((post_t *)data)->filetype = ~0;
+			((post_t *)data)->filetype = (uint16_t)~0;
 			break;
 		case 'U':
 			func = user_cmd;

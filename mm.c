@@ -50,16 +50,18 @@ static void *mm_map_segment(int nr, int fd) {
 	uint8_t *addr, *want_addr;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
-	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_NOCORE | MAP_SHARED, fd, 0);
+	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE,
+	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, fd, 0);
 	close(fd);
 	assert(addr == want_addr);
 	return addr;
 }
 
 static void mm_new_segment(void) {
-	char    buf[16384];
-	int     nr, z, fd;
-	uint8_t *addr;
+	char         buf[16384];
+	int          nr, fd;
+	uint8_t      *addr;
+	unsigned int z;
 
 	nr = mm_head ? mm_head->of_segments : 0;
 	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_EXCL);
@@ -97,7 +99,8 @@ int mm_init(const char *filename, int use_existing) {
 	usertree = tagguidtree + 1;
 	if (use_existing) {
 		mm_head_t head;
-		int fd, i;
+		int fd;
+		unsigned int i;
 
 		fd = mm_open_segment(0, O_RDWR);
 		lock_fd = dup(fd);
@@ -172,6 +175,7 @@ void *mm_alloc(unsigned int size) {
 
 void mm_free(void *mem) {
 	assert(0);
+	(void)mem;
 /*
 	uint8_t **ptr = mem;
 	assert(mem);

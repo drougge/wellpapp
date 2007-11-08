@@ -37,7 +37,7 @@ static void do_panic(const char *msg) {
 }
 
 #define efs_allocmem(bs, a, b, c) allocmem(a, b)
-static int allocmem(void *res, int z) {
+static int allocmem(void *res, unsigned int z) {
 	void *ptr;
 	efs_u8_t **res8 = res;
 
