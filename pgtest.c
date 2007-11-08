@@ -254,7 +254,6 @@ static int populate_from_db(PGconn *conn) {
 		if (filetype < 0) continue; // @@
 		post = mm_alloc(sizeof(*post));
 		post->created  = time_str2unix(PQgetvalue(res, i, 1));
-		post->uid      = atol(PQgetvalue(res, i, 2));
 		post->score    = atol(PQgetvalue(res, i, 3));
 		r = md5_str2md5(&post->md5, PQgetvalue(res, i, 5));
 		assert(!r);

@@ -80,7 +80,6 @@ typedef struct post {
 	const char     *source;
 	const char     *title;
 	time_t         created;
-	uint16_t       uid; // Danbooru post-ID. Probably shouldn't be here. Not logged.
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
