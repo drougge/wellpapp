@@ -109,7 +109,7 @@ const char *md5_md52str(md5_t md5) {
 	return buf;
 }
 
-int str2id(const char *str, const char **ids) {
+int str2id(const char *str, const char * const *ids) {
 	int id   = 0;
 	int sign = 1;
 	if (*str == '-') {
@@ -320,7 +320,7 @@ static const char *strndup(const char *str, int len) {
 	return res;
 }
 
-static void cfg_parse_list(const char ***res_list, const char *str) {
+static void cfg_parse_list(const char * const **res_list, const char *str) {
 	int        words = 1;
 	int        word;
 	const char **list;
@@ -346,10 +346,10 @@ static void cfg_parse_list(const char ***res_list, const char *str) {
 	*res_list = list;
 }
 
-const char **tagtype_names = NULL;
-const char **rating_names = NULL;
-const char **filetype_names = NULL;
-const char **cap_names = NULL;
+const char * const *tagtype_names = NULL;
+const char * const *rating_names = NULL;
+const char * const *filetype_names = NULL;
+const char * const *cap_names = NULL;
 
 void db_read_cfg(void) {
 	char buf[1024];

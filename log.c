@@ -191,7 +191,7 @@ static void log_int_field(trans_t *trans, int last, const void *data,
 
 static void log_enum_field(trans_t *trans, int last, const void *data,
                            const field_t *field) {
-	const char **array = *field->array;
+	const char * const *array = *field->array;
 	uint16_t   value = *(const uint16_t *)(((const char *)data) + field->offset);
 	log_write_nl(trans, last, "%s=%s", field->name, array[value]);
 }

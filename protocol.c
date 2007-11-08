@@ -72,7 +72,7 @@ static int error1(char *cmd, prot_err_func_t error) {
 	return error(cmd);
 }
 
-static int put_enum_value_gen(uint16_t *res, const char **array, const char *val) {
+static int put_enum_value_gen(uint16_t *res, const char * const *array, const char *val) {
 	uint16_t i;
 	for (i = 0; array[i]; i++) {
 		if (!strcmp(array[i], val)) {

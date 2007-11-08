@@ -126,7 +126,7 @@ typedef struct field {
 	int          offset;
 	fieldtype_t  type;
 	capability_t modcap; // Capability needed to modify field
-	const char   ***array;
+	const char * const **array;
 } field_t;
 
 extern const field_t post_fields[];
@@ -214,7 +214,7 @@ int md5_str2md5(md5_t *res_md5, const char *md5str);
 void populate_from_log(const char *filename);
 void db_serve(void);
 void db_read_cfg(void);
-int str2id(const char *str, const char **ids);
+int str2id(const char *str, const char * const *ids);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
 void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);
@@ -265,7 +265,7 @@ extern rbtree_head_t *tagaliastree;
 extern rbtree_head_t *tagguidtree;
 extern rbtree_head_t *usertree;
 
-extern const char **filetype_names;
-extern const char **rating_names;
-extern const char **tagtype_names;
-extern const char **cap_names;
+extern const char * const *filetype_names;
+extern const char * const *rating_names;
+extern const char * const *tagtype_names;
+extern const char * const *cap_names;
