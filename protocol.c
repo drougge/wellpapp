@@ -162,7 +162,7 @@ static int add_alias_cmd(user_t *user, const char *cmd, void *data, prot_cmd_fla
                       {#name, sizeof(((post_t *)0)->name),              \
                        offsetof(post_t, name), type, assignable, array}
 
-const post_field_t post_fields[] = {
+const field_t post_fields[] = {
 	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
@@ -177,7 +177,7 @@ const post_field_t post_fields[] = {
 	{NULL}
 };
 
-static int put_signed_int_value(post_t *post, const post_field_t *field, const char *val) {
+static int put_signed_int_value(post_t *post, const field_t *field, const char *val) {
 	char *end;
 	if (!*val) return 1;
 	errno = 0;
@@ -201,7 +201,7 @@ static int put_signed_int_value(post_t *post, const post_field_t *field, const c
 	return 0;
 }
 
-static int put_unsigned_int_value(post_t *post, const post_field_t *field, const char *val) {
+static int put_unsigned_int_value(post_t *post, const field_t *field, const char *val) {
 	char *end;
 	if (!*val) return 1;
 	errno = 0;
@@ -225,12 +225,12 @@ static int put_unsigned_int_value(post_t *post, const post_field_t *field, const
 	return 0;
 }
 
-static int put_enum_value_post(post_t *post, const post_field_t *field, const char *val) {
+static int put_enum_value_post(post_t *post, const field_t *field, const char *val) {
 	assert(field->size == 2);
 	return put_enum_value_gen((uint16_t *)((char *)post + field->offset), *field->array, val);
 }
 
-static int put_string_value(post_t *post, const post_field_t *field, const char *val) {
+static int put_string_value(post_t *post, const field_t *field, const char *val) {
 	const char **res = (const char **)((char *)post + field->offset);
 	const char *decoded;
 
@@ -241,8 +241,8 @@ static int put_string_value(post_t *post, const post_field_t *field, const char 
 }
 
 static int put_in_post_field(user_t *user, post_t *post, const char *str, int nlen) {
-	const post_field_t *field = post_fields;
-	int (*func[])(post_t *, const post_field_t *, const char *) = {
+	const field_t *field = post_fields;
+	int (*func[])(post_t *, const field_t *, const char *) = {
 		put_unsigned_int_value,
 		put_signed_int_value,
 		put_enum_value_post,

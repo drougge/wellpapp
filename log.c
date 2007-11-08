@@ -65,22 +65,24 @@ while (*ptr) assert(*ptr++ != '\n');
 	trans->buf_used = trans->init_len;
 }
 
-static void log_write_(trans_t *trans, const char *fmt, va_list ap) {
+static void log_write_(trans_t *trans, int complete, const char *fmt, va_list ap) {
 	int looped = 0;
 	int len;
 again:
 	if (trans->buf_used) {
+		assert(trans->buf_used < sizeof(trans->buf));
 		trans->buf[trans->buf_used] = ' ';
 		trans->buf_used++;
 	}
 	len = vsnprintf(trans->buf + trans->buf_used, sizeof(trans->buf) - trans->buf_used, fmt, ap);
 	if (trans->buf_used + len >= sizeof(trans->buf)) {
-		assert(!looped);
+		assert(complete && !looped);
 		trans_line_done_(trans);
 		looped = 1;
 		goto again;
 	}
 	trans->buf_used += len;
+	if (!complete) return;
 	if (trans->init_len == 0                         // No init -> lines can't be appended to
 	 || trans->buf_used + 20 > sizeof(trans->buf)) { // Nothing more will fit.
 		trans_line_done_(trans);
@@ -133,7 +135,15 @@ void log_write(trans_t *trans, const char *fmt, ...) {
 	va_list ap;
 	if (!trans) return;
 	va_start(ap, fmt);
-	log_write_(trans, fmt, ap);
+	log_write_(trans, 1, fmt, ap);
+	va_end(ap);
+}
+
+static void log_write_nl(trans_t *trans, int last, const char *fmt, ...) {
+	va_list ap;
+	if (!trans) return;
+	va_start(ap, fmt);
+	log_write_(trans, last, fmt, ap);
 	va_end(ap);
 }
 
@@ -143,7 +153,7 @@ void log_write_single(void *user, const char *fmt, ...) {
 
 	log_trans_start(&trans, user);
 	va_start(ap, fmt);
-	log_write_(&trans, fmt, ap);
+	log_write_(&trans, 1, fmt, ap);
 	va_end(ap);
 	log_trans_end(&trans);
 }
@@ -156,17 +166,52 @@ void log_write_tagalias(trans_t *trans, tagalias_t *tagalias) {
 	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid), tagalias->name);
 }
 
+static void log_int_field(trans_t *trans, int last, const void *data, const field_t *field) {
+	const char        *fp;
+	const char        *fmt;
+	unsigned long long value;
+
+	fp = ((const char *)data) + field->offset;
+	if (field->size == 8) {
+		value = *(const uint64_t *)fp;
+	} else if (field->size == 4) {
+		value = *(const uint32_t *)fp;
+	} else {
+		assert(field->size == 2);
+		value = *(const uint16_t *)fp;
+	}
+	fmt = (field->type == FIELDTYPE_SIGNED ? "%s=%lld" : "%s=%llu");
+	log_write_nl(trans, last, fmt, field->name, value);
+}
+
+static void log_enum_field(trans_t *trans, int last, const void *data, const field_t *field) {
+	const char **array = *field->array;
+	uint16_t   value = *(const uint16_t *)(((const char *)data) + field->offset);
+	log_write_nl(trans, last, "%s=%s", field->name, array[value]);
+}
+
+static void log_string_field(trans_t *trans, int last, const void *data, const field_t *field) {
+	const char *value = *(const char **)(((const char *)data) + field->offset);
+	if (value) {
+		log_write_nl(trans, last, "%s=%s", field->name, str_str2enc(value));
+	}
+}
+
 void log_write_post(trans_t *trans, post_t *post) {
-	const char *md5 = md5_md52str(post->md5);
-	log_write(trans, "AP%s width=%d height=%d created=%llu score=%d filetype=%s rating=%s", md5, post->width, post->height, (unsigned long long)post->created, post->score, filetype_names[post->filetype], rating_names[post->rating]);
-	log_set_init(trans, "MP%s", md5);
-	if (post->source) {
-		log_write(trans, "source=%s", str_str2enc(post->source));
+	const field_t *field = post_fields;
+	const char    *md5 = md5_md52str(post->md5);
+	void (*func[])(trans_t *, int, const void *, const field_t *) = {
+	                log_int_field,
+	                log_int_field,
+	                log_enum_field,
+	                log_string_field,
+	};
+
+	log_write_nl(trans, 0, "AP%s", md5);
+	while (field->name) {
+		func[field->type](trans, !field[1].name, post, field);
+		field++;
 	}
-	if (post->title) {
-		log_write(trans, "title=%s", str_str2enc(post->title));
-	}
-	log_clear_init(trans);
 }
 
 void log_write_user(trans_t *trans, user_t *user) {

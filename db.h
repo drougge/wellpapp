@@ -111,7 +111,8 @@ typedef struct post {
 	post_taglist_t *weak_tags;
 } post_t;
 
-/* Keep this synced with function-array in protocol.c:put_in_post_field() */
+/* Keep this synced with function-arrays in protocol.c:put_in_post_field() *
+ * and log.c:log_write_post()                                              */
 typedef enum {
 	FIELDTYPE_UNSIGNED,
 	FIELDTYPE_SIGNED,
@@ -119,16 +120,16 @@ typedef enum {
 	FIELDTYPE_STRING,
 } fieldtype_t;
 
-typedef struct post_field {
+typedef struct field {
 	const char   *name;
 	int          size;
 	int          offset;
 	fieldtype_t  type;
 	capability_t modcap; // Capability needed to modify field
 	const char   ***array;
-} post_field_t;
+} field_t;
 
-extern const post_field_t post_fields[];
+extern const field_t post_fields[];
 
 #define TAG_POSTLIST_PER_NODE 30
 typedef struct tag_postlist {
