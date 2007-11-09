@@ -31,22 +31,21 @@ typedef struct mm_head {
 #define MM_SEGMENT_SIZE (4 * 1024 * 1024)
 
 static mm_head_t *mm_head;
-static const char *mm_basedir;
 
 uint32_t *tag_guid_last;
 uint64_t *logindex;
 
-static int mm_open_segment(int nr, int flags) {
+static int mm_open_segment(unsigned int nr, int flags) {
 	char fn[1024];
 	int  fd;
 
-	snprintf(fn, sizeof(fn), "%s/%d.db", mm_basedir, nr);
+	snprintf(fn, sizeof(fn), "%s/mm_cache/%08x", basedir, nr);
 	fd = open(fn, flags, 0600);
 	assert(fd >= 0);
 	return fd;
 }
 
-static void *mm_map_segment(int nr, int fd) {
+static void *mm_map_segment(unsigned int nr, int fd) {
 	uint8_t *addr, *want_addr;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
@@ -59,7 +58,8 @@ static void *mm_map_segment(int nr, int fd) {
 
 static void mm_new_segment(void) {
 	char         buf[16384];
-	int          nr, fd;
+	int          fd;
+	unsigned int nr;
 	uint8_t      *addr;
 	unsigned int z;
 
@@ -87,9 +87,7 @@ static void mm_new_segment(void) {
 
 static int lock_fd;
 
-int mm_init(const char *filename, int use_existing) {
-	mm_basedir = strdup(filename);
-	assert(mm_basedir);
+int mm_init(int use_existing) {
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
 	tag_guid_last = (uint32_t *)(MM_BASE_ADDR + sizeof(*mm_head));
 	posttree = (rbtree_head_t *)(tag_guid_last + 2);

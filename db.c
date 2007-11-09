@@ -351,6 +351,8 @@ const char * const *rating_names = NULL;
 const char * const *filetype_names = NULL;
 const char * const *cap_names = NULL;
 
+const char *basedir = NULL;
+
 void db_read_cfg(void) {
 	char buf[1024];
 	FILE *fh = fopen("db.conf", "r");
@@ -363,6 +365,9 @@ void db_read_cfg(void) {
 			cfg_parse_list(&tagtype_names, buf + 9);
 		} else if (!memcmp("ratings=", buf, 8)) {
 			cfg_parse_list(&rating_names, buf + 8);
+		} else if (!memcmp("basedir=", buf, 8)) {
+			basedir = strdup(buf + 8);
+			assert(basedir && *basedir == '/');
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
@@ -371,5 +376,5 @@ void db_read_cfg(void) {
 	fclose(fh);
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
 	cfg_parse_list(&cap_names, CAP_NAMES_STR);
-	assert(tagtype_names && rating_names);
+	assert(tagtype_names && rating_names && basedir);
 }

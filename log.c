@@ -248,7 +248,6 @@ void log_write_user(trans_t *trans, const user_t *user) {
 }
 
 extern uint64_t *logindex;
-static const char *logdir;
 #define LOG_ROTATE_SIZE (1024 * 1024)
 
 void log_rotate(int force) {
@@ -263,8 +262,8 @@ void log_rotate(int force) {
 		if (size < LOG_ROTATE_SIZE) return;
 	}
 
-	len = snprintf(filename, sizeof(filename), "%s/%llu.log", logdir,
-	               (unsigned long long)*logindex);
+	len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
+	               basedir, (unsigned long long)*logindex);
 	assert(len < (int)sizeof(filename));
 	if (fd != -1) close(fd);
 	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
@@ -272,9 +271,7 @@ void log_rotate(int force) {
 	*logindex += 1;
 }
 
-void log_init(const char *dirname) {
-	logdir = strdup(dirname);
-	assert(logdir);
+void log_init(void) {
 	log_rotate(1);
 }
 

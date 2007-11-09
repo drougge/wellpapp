@@ -233,7 +233,7 @@ void rbtree_free(rbtree_head_t *head);
 int rbtree_count(rbtree_head_t *head);
 rbtree_key_t rbtree_str2key(const char *str);
 
-int  mm_init(const char *filename, int use_existing);
+int  mm_init(int use_existing);
 void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);
@@ -249,7 +249,7 @@ void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_write_single(void *user, const char *fmt, ...);
-void log_init(const char *dirname);
+void log_init(void);
 void log_write_tag(trans_t *trans, const tag_t *tag);
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
 void log_write_post(trans_t *trans, const post_t *post);
@@ -276,3 +276,5 @@ extern const char * const *filetype_names;
 extern const char * const *rating_names;
 extern const char * const *tagtype_names;
 extern const char * const *cap_names;
+
+extern const char *basedir;

@@ -382,7 +382,7 @@ int main(int argc, char **argv) {
 	r = guid_str2guid(&server_guid, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
 	assert(!r);
 	printf("initing mm..\n");
-	if (mm_init("/tmp/db.datastore", !access("/tmp/db.datastore/0.db", F_OK))) {
+	if (mm_init(!access("/tmp/db/mm_cache/00000000", F_OK))) {
 		printf("populating from %s..\n", argv[1]);
 		if (!strcmp(argv[1], "db")) {
 			PGconn *conn = PQconnectdb("user=danbooru");
@@ -398,7 +398,7 @@ int main(int argc, char **argv) {
 	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
-	log_init("/tmp/db.log");
+	log_init();
 	signal(SIGUSR1, sig_dump);
 	printf("serving..\n");
 	db_serve();
