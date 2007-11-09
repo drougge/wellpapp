@@ -17,8 +17,6 @@ rbtree_head_t *tagguidtree;
 rbtree_head_t *posttree;
 rbtree_head_t *usertree;
 
-extern user_t *loguser;
-
 // @@TODO: Locking/locklessness.
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	tag_postlist_t *pl, *ppl = NULL;
@@ -297,7 +295,6 @@ void db_serve(void) {
 	r = listen(s, 5);
 	assert(!r);
 	while (1) {
-		log_rotate(0);
 		c = accept(s, NULL, NULL);
 		if (c < 0) {
 			perror("accept");

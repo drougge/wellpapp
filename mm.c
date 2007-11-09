@@ -18,6 +18,7 @@ typedef struct mm_head {
 	uint64_t wasted;
 	uint64_t used_small;
 	uint64_t logindex;
+	uint64_t logdumpindex;
 	uint8_t  *addr;
 	uint8_t  *top;
 	uint8_t  *bottom;
@@ -34,6 +35,7 @@ static mm_head_t *mm_head;
 
 uint32_t *tag_guid_last;
 uint64_t *logindex;
+uint64_t *logdumpindex;
 
 static int mm_open_segment(unsigned int nr, int flags) {
 	char fn[1024];
@@ -109,6 +111,7 @@ int mm_init(int use_existing) {
 		mm_map_segment(0, fd);
 		mm_head = (mm_head_t *)MM_BASE_ADDR;
 		logindex = &mm_head->logindex;
+		logdumpindex = &mm_head->logdumpindex;
 		for (i = 1; i < head.of_segments; i++) {
 			fd = mm_open_segment(i, O_RDWR);
 			mm_map_segment(i, fd);
@@ -119,6 +122,7 @@ int mm_init(int use_existing) {
 		mm_new_segment();
 		mm_head = (mm_head_t *)MM_BASE_ADDR;
 		logindex = &mm_head->logindex;
+		logdumpindex = &mm_head->logdumpindex;
 		mm_head->addr     = MM_BASE_ADDR;
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;

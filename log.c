@@ -3,45 +3,51 @@
 #include <stdarg.h>
 #include <sys/file.h>
 
-static int fd;
+static int log_fd;
 static trans_id_t next_trans_id = 1;
 
-static void trans_lock(void) {
-	int r = flock(fd, LOCK_EX);
+static void trans_lock(trans_t *trans) {
+	int r = flock(trans->fd, LOCK_EX);
 	assert(!r);
 }
 
-static void trans_unlock(void) {
-	int r = flock(fd, LOCK_UN);
+static void trans_unlock(trans_t *trans) {
+	int r = flock(trans->fd, LOCK_UN);
 	assert(!r);
 }
 
-static int do_sync = 1;
-static void trans_sync(void) {
-	if (do_sync) {
-		int r = fsync(fd);
+static void trans_sync(trans_t *trans) {
+	if (trans->flags & TRANSFLAG_SYNC) {
+		int r = fsync(trans->fd);
 		assert(!r);
 	}
 }
 
-void log_trans_start(trans_t *trans, const user_t *user) {
+static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	char buf[12];
 	unsigned int len, r;
 	
-	(void)user;
-
 	trans->init_len = 0;
 	trans->buf_used = 0;
-	trans_lock();
+	trans->flags    = TRANSFLAG_SYNC;
+	trans->user     = user;
+	trans->fd       = fd;
+	mm_lock();
 	trans->id = next_trans_id++;
+	mm_unlock();
 	len = snprintf(buf, sizeof(buf), "T%08xU\n", trans->id);
 	assert(len == 11);
-	r = write(fd, buf, len);
-	trans->mark_offset = lseek(fd, 0, SEEK_CUR);
-	trans_unlock();
+	trans_lock(trans);
+	r = write(trans->fd, buf, len);
+	trans->mark_offset = lseek(trans->fd, 0, SEEK_CUR);
+	trans_unlock(trans);
 	assert(r == len);
 	assert(trans->mark_offset != -1);
 	trans->mark_offset -= 2;
+}
+
+void log_trans_start(trans_t *trans, const user_t *user) {
+	log_trans_start_(trans, user, log_fd);
 }
 
 static void trans_line_done_(trans_t *trans) {
@@ -61,9 +67,9 @@ static void trans_line_done_(trans_t *trans) {
 char *ptr = trans->buf;
 while (*ptr) assert(*ptr++ != '\n');
 	wlen = iov[0].iov_len + iov[1].iov_len + iov[2].iov_len;
-	trans_lock();
-	len = writev(fd, iov, 3);
-	trans_unlock();
+	trans_lock(trans);
+	len = writev(trans->fd, iov, 3);
+	trans_unlock(trans);
 	assert(len == wlen);
 	trans->buf_used = trans->init_len;
 }
@@ -103,19 +109,19 @@ void log_trans_end(trans_t *trans) {
 	trans_line_done_(trans);
 	len = snprintf(buf, sizeof(buf), "E%08x\n", trans->id);
 	assert(len == 10);
-	trans_lock();
-	len = write(fd, buf, 10);
+	trans_lock(trans);
+	len = write(trans->fd, buf, 10);
 	assert(len == 10);
-	trans_unlock();
-	trans_sync();
-	trans_lock();
-	pos = lseek(fd, trans->mark_offset, SEEK_SET);
+	trans_unlock(trans);
+	trans_sync(trans);
+	trans_lock(trans);
+	pos = lseek(trans->fd, trans->mark_offset, SEEK_SET);
 	assert(pos == trans->mark_offset);
-	r = write(fd, "O", 1);
-	r2  = lseek(fd, 0, SEEK_END);
+	r  = write(trans->fd, "O", 1);
+	r2 = lseek(trans->fd, 0, SEEK_END);
 	assert(r == 1);
 	assert(r2 != -1);
-	trans_unlock();
+	trans_unlock(trans);
 }
 
 void log_set_init(trans_t *trans, const char *fmt, ...) {
@@ -152,7 +158,7 @@ static void log_write_nl(trans_t *trans, int last, const char *fmt, ...) {
 	va_end(ap);
 }
 
-void log_write_single(void *user, const char *fmt, ...) {
+void log_write_single(const user_t *user, const char *fmt, ...) {
 	va_list ap;
 	trans_t trans;
 
@@ -248,31 +254,18 @@ void log_write_user(trans_t *trans, const user_t *user) {
 }
 
 extern uint64_t *logindex;
-#define LOG_ROTATE_SIZE (1024 * 1024)
+extern uint64_t *logdumpindex;
 
-void log_rotate(int force) {
+void log_init(void) {
 	char filename[1024];
 	int  len;
-
-	if (!force) {
-		off_t size;
-		trans_lock();
-		size = lseek(fd, 0, SEEK_CUR);
-		trans_unlock();
-		if (size < LOG_ROTATE_SIZE) return;
-	}
 
 	len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
 	               basedir, (unsigned long long)*logindex);
 	assert(len < (int)sizeof(filename));
-	if (fd != -1) close(fd);
-	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
-	assert(fd != -1);
+	log_fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
+	assert(log_fd != -1);
 	*logindex += 1;
-}
-
-void log_init(void) {
-	log_rotate(1);
 }
 
 /********************************
@@ -319,12 +312,22 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 }
 
 void log_dump(void) {
-	log_rotate(1);
-	log_trans_start(&dump_trans, NULL);
+	char filename[1024];
+	int  len;
+	int  fd;
+
+	len = snprintf(filename, sizeof(filename), "%s/dump/%016llx",
+	               basedir, (unsigned long long)*logdumpindex);
+	assert(len < (int)sizeof(filename));
+	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
+	assert(fd != -1);
+	*logdumpindex += 1;
+
+	log_trans_start_(&dump_trans, loguser, fd);
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
 	log_trans_end(&dump_trans);
-	log_rotate(1);
+	close(fd);
 }

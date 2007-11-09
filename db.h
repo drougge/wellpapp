@@ -170,16 +170,6 @@ typedef enum {
 	T_DONTCARE
 } truth_t;
 
-typedef uint32_t trans_id_t;
-
-typedef struct trans {
-	off_t        mark_offset;
-	trans_id_t   id;
-	unsigned int init_len;
-	unsigned int buf_used;
-	char         buf[4000];
-} trans_t;
-
 /* OR:able flags */
 typedef enum {
 	CMDFLAG_NONE   = 0,
@@ -192,6 +182,23 @@ typedef struct user {
 	const char   *password;
 	capability_t caps;
 } user_t;
+
+typedef uint32_t trans_id_t;
+
+typedef enum {
+	TRANSFLAG_SYNC = 1,
+} transflag_t;
+
+typedef struct trans {
+	off_t        mark_offset;
+	trans_id_t   id;
+	unsigned int init_len;
+	unsigned int buf_used;
+	int          fd;
+	transflag_t  flags;
+	const user_t *user;
+	char         buf[4000];
+} trans_t;
 
 typedef int (*prot_err_func_t)(const char *msg);
 typedef int (*prot_cmd_func_t)(const user_t *user, const char *cmd, void *data,
@@ -248,14 +255,13 @@ void log_trans_end(trans_t *trans);
 void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
-void log_write_single(void *user, const char *fmt, ...);
+void log_write_single(const user_t *user, const char *fmt, ...);
 void log_init(void);
 void log_write_tag(trans_t *trans, const tag_t *tag);
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
 void log_write_post(trans_t *trans, const post_t *post);
 void log_write_user(trans_t *trans, const user_t *user);
 void log_dump(void);
-void log_rotate(int force);
 
 guid_t guid_gen_tag_guid(void);
 const char *guid_guid2str(guid_t guid);
@@ -278,3 +284,5 @@ extern const char * const *tagtype_names;
 extern const char * const *cap_names;
 
 extern const char *basedir;
+
+extern const user_t *loguser;

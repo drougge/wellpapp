@@ -11,7 +11,7 @@
 
 guid_t server_guid;
 
-user_t *loguser;
+const user_t *loguser;
 
 static void add_tag(const char *name, tag_t *tag) {
 	tag->name = mm_strdup(name);
