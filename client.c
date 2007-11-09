@@ -38,7 +38,7 @@ typedef enum {
 static const char *orders[] = {"date", "score", NULL};
 
 static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
-                                  "width", "height", NULL};
+                                  "width", "height", "score", NULL};
 
 static void c_printf(const char *fmt, ...);
 static void FLAGPRINT_EXTENSION(post_t *post) {
@@ -53,6 +53,9 @@ static void FLAGPRINT_WIDTH(post_t *post) {
 static void FLAGPRINT_HEIGHT(post_t *post) {
 	c_printf("%u", post->height);
 }
+static void FLAGPRINT_SCORE(post_t *post) {
+	c_printf("%d", post->score);
+}
 
 typedef void (*flag_printer_t)(post_t *);
 static const flag_printer_t flag_printers[] = {
@@ -62,6 +65,7 @@ static const flag_printer_t flag_printers[] = {
 	FLAGPRINT_DATE,
 	FLAGPRINT_WIDTH,
 	FLAGPRINT_HEIGHT,
+	FLAGPRINT_SCORE,
 };
 
 typedef enum {
@@ -71,6 +75,7 @@ typedef enum {
 	FLAG_RETURN_DATE,
 	FLAG_RETURN_WIDTH,
 	FLAG_RETURN_HEIGHT,
+	FLAG_RETURN_SCORE,
 	FLAG_LAST,
 } flag_t;
 #define FLAG(n) (1 << (n))
