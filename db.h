@@ -224,6 +224,7 @@ struct connection {
 	unsigned int    getlen;
 	unsigned int    getpos;
 	unsigned int    outlen;
+	unsigned int    linelen;
 	char            getbuf[256];
 	char            linebuf[PROT_MAXLEN];
 	char            outbuf[PROT_MAXLEN];
@@ -269,6 +270,7 @@ void mm_lock(void);
 void mm_unlock(void);
 
 int client_error(connection_t *conn, const char *what);
+void client_read_data(connection_t *conn);
 int client_get_line(connection_t *conn);
 void client_handle(connection_t *conn);
 

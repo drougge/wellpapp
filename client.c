@@ -139,31 +139,33 @@ static int close_error(connection_t *conn, error_t e) {
 	return 1;
 }
 
+void client_read_data(connection_t *conn) {
+	if (conn->getlen != conn->getpos) return;
+	conn->getpos = 0;
+	conn->getlen = read(conn->sock, conn->getbuf, sizeof(conn->getbuf));
+	if (conn->getlen <= 0) close_error(conn, E_READ);
+}
+
 int client_get_line(connection_t *conn) {
-	int len = 0;
-	int size = sizeof(conn->linebuf);
+	unsigned int size = sizeof(conn->linebuf);
 
 	if (!(conn->flags & CONNFLAG_GOING)) return -1;
-	while (size > len) {
+	while (size > conn->linelen) {
 		if (conn->getlen > conn->getpos) {
 			char c = conn->getbuf[conn->getpos];
 			conn->getpos++;
 			/* \r is ignored, for easier testing with telnet */
 			if (c == '\n') {
-				conn->linebuf[len] = 0;
+				int len = conn->linelen;
+				conn->linebuf[conn->linelen] = 0;
+				conn->linelen = 0;
 				return len;
 			} else if (c != '\r') {
-				conn->linebuf[len] = c;
-				len++;
+				conn->linebuf[conn->linelen] = c;
+				conn->linelen++;
 			}
 		} else {
-			conn->getpos = 0;
-			conn->getlen = read(conn->sock, conn->getbuf,
-			                    sizeof(conn->getbuf));
-			if (conn->getlen <= 0) {
-				close_error(conn, E_READ);
-				return -1;
-			}
+			return 0;
 		}
 	}
 	close_error(conn, E_LINETOOLONG);

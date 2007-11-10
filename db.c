@@ -3,6 +3,7 @@
 #include <time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <poll.h>
 
 void assert_fail(const char *ass, const char *file,
                  const char *func, int line) {
@@ -272,13 +273,48 @@ void populate_from_log(const char *filename) {
 	}
 }
 
+#define MAX_CONNECTIONS 100
+
+struct pollfd fds[MAX_CONNECTIONS + 1];
+connection_t connections[MAX_CONNECTIONS];
+static user_t anonymous;
+
+static void new_connection(void) {
+	int s = accept(fds[MAX_CONNECTIONS].fd, NULL, NULL);
+	if (s < 0) {
+		perror("accept");
+	} else {
+		connection_t *conn;
+		int           i;
+
+		for (i = 0; i < MAX_CONNECTIONS; i++) {
+			if (fds[i].fd == -1) break;
+		}
+		if (i == MAX_CONNECTIONS) {
+			close(s);
+			return;
+		}
+		fds[i].fd = s;
+		fds[i].revents = 0;
+		conn = &connections[i];
+		memset(conn, 0, sizeof(*conn));
+		conn->sock = s;
+		conn->user = &anonymous;
+		conn->flags = CONNFLAG_GOING;
+		conn->error = client_error;
+	}
+}
+
 void db_serve(void) {
-	int s, c, r, one;
+	int s, r, one, i;
 	struct sockaddr_in addr;
-	user_t anonymous;
 
 	anonymous.name = "A";
 	anonymous.caps = DEFAULT_CAPS;
+	for (i = 0; i < MAX_CONNECTIONS + 1; i++) {
+		fds[i].fd = -1;
+		fds[i].events = POLLIN;
+	}
 
 	s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s >= 0);
@@ -293,22 +329,23 @@ void db_serve(void) {
 	assert(!r);
 	r = listen(s, 5);
 	assert(!r);
+	fds[MAX_CONNECTIONS].fd = s;
+
 	while (1) {
-		c = accept(s, NULL, NULL);
-		if (c < 0) {
-			perror("accept");
-		} else {
-			connection_t _tmp;
-			connection_t *conn = &_tmp;
-			memset(conn, 0, sizeof(*conn));
-			conn->sock = c;
-			conn->user = &anonymous;
-			conn->flags = CONNFLAG_GOING;
-			conn->error = client_error;
-			while (client_get_line(conn) > 0) {
-				client_handle(conn);
+		r = poll(fds, MAX_CONNECTIONS + 1, INFTIM);
+		assert(r != -1);
+		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
+		for (i = 0; i < MAX_CONNECTIONS; i++) {
+			if (fds[i].revents & POLLIN) {
+				client_read_data(&connections[i]);
+				if (client_get_line(&connections[i]) > 0) {
+					client_handle(&connections[i]);
+				}
+				if (!(connections[i].flags & CONNFLAG_GOING)) {
+					close(fds[i].fd);
+					fds[i].fd = -1;
+				}
 			}
-			close(conn->sock);
 		}
 	}
 }
