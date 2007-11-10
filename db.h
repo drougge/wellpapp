@@ -183,7 +183,7 @@ typedef struct user {
 	capability_t caps;
 } user_t;
 
-typedef uint32_t trans_id_t;
+typedef uint64_t trans_id_t;
 
 typedef enum {
 	TRANSFLAG_SYNC = 1,

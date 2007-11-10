@@ -24,7 +24,7 @@ static void trans_sync(trans_t *trans) {
 }
 
 static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
-	char buf[12];
+	char buf[20];
 	unsigned int len, r;
 	
 	trans->init_len = 0;
@@ -35,8 +35,9 @@ static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	mm_lock();
 	trans->id = next_trans_id++;
 	mm_unlock();
-	len = snprintf(buf, sizeof(buf), "T%08xU\n", trans->id);
-	assert(len == 11);
+	len = snprintf(buf, sizeof(buf), "T%016llxU\n",
+	               (unsigned long long)trans->id);
+	assert(len == 19);
 	trans_lock(trans);
 	r = write(trans->fd, buf, len);
 	trans->mark_offset = lseek(trans->fd, 0, SEEK_CUR);
@@ -51,15 +52,16 @@ void log_trans_start(trans_t *trans, const user_t *user) {
 }
 
 static void trans_line_done_(trans_t *trans) {
-	char idbuf[12];
+	char idbuf[20];
 	struct iovec iov[3];
 	char newline = '\n';
 	int len, wlen;
 
 	if (trans->buf_used == trans->init_len) return;
 	iov[0].iov_base = idbuf;
-	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%08x ", trans->id);
-	assert(iov[0].iov_len == 10);
+	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%016llx ",
+	                           (unsigned long long)trans->id);
+	assert(iov[0].iov_len == 18);
 	iov[1].iov_base = trans->buf;
 	iov[1].iov_len  = trans->buf_used;
 	iov[2].iov_base = &newline;
@@ -103,15 +105,16 @@ again:
 void log_trans_end(trans_t *trans) {
 	off_t pos, r2;
 	int   r;
-	char  buf[12];
+	char  buf[20];
 	int   len;
 	
 	trans_line_done_(trans);
-	len = snprintf(buf, sizeof(buf), "E%08x\n", trans->id);
-	assert(len == 10);
+	len = snprintf(buf, sizeof(buf), "E%016llx\n",
+	               (unsigned long long)trans->id);
+	assert(len == 18);
 	trans_lock(trans);
-	len = write(trans->fd, buf, 10);
-	assert(len == 10);
+	len = write(trans->fd, buf, 18);
+	assert(len == 18);
 	trans_unlock(trans);
 	trans_sync(trans);
 	trans_lock(trans);
