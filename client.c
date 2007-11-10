@@ -2,12 +2,8 @@
 
 #include <stdarg.h>
 
-#define PROT_MAXLEN            4096
 #define PROT_TAGS_PER_SEARCH   16
 #define PROT_ORDERS_PER_SEARCH 4
-
-static int s;
-static user_t *current_user;
 
 typedef enum {
 	E_LINETOOLONG,
@@ -40,24 +36,24 @@ static const char *orders[] = {"date", "score", NULL};
 static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
                                   "width", "height", "score", NULL};
 
-static void c_printf(const char *fmt, ...);
-static void FLAGPRINT_EXTENSION(post_t *post) {
-	c_printf("%s", filetype_names[post->filetype]);
+static void c_printf(connection_t *conn, const char *fmt, ...);
+static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
+	c_printf(conn, "%s", filetype_names[post->filetype]);
 }
-static void FLAGPRINT_DATE(post_t *post) {
-	c_printf("%llu", (unsigned long long)post->created);
+static void FLAGPRINT_DATE(connection_t *conn, post_t *post) {
+	c_printf(conn, "%llu", (unsigned long long)post->created);
 }
-static void FLAGPRINT_WIDTH(post_t *post) {
-	c_printf("%u", post->width);
+static void FLAGPRINT_WIDTH(connection_t *conn, post_t *post) {
+	c_printf(conn, "%u", post->width);
 }
-static void FLAGPRINT_HEIGHT(post_t *post) {
-	c_printf("%u", post->height);
+static void FLAGPRINT_HEIGHT(connection_t *conn, post_t *post) {
+	c_printf(conn, "%u", post->height);
 }
-static void FLAGPRINT_SCORE(post_t *post) {
-	c_printf("%d", post->score);
+static void FLAGPRINT_SCORE(connection_t *conn, post_t *post) {
+	c_printf(conn, "%d", post->score);
 }
 
-typedef void (*flag_printer_t)(post_t *);
+typedef void (*flag_printer_t)(connection_t *, post_t *);
 static const flag_printer_t flag_printers[] = {
 	NULL,
 	NULL,
@@ -104,72 +100,74 @@ typedef struct result {
 	uint32_t room;
 } result_t;
 
-static unsigned int c_buf_used = 0;
-static char c_buf[PROT_MAXLEN];
-#define BUF_MIN_FREE 1024
+#define OUTBUF_MIN_FREE 1024
 
-static void c_flush(void) {
-	if (c_buf_used) {
-		ssize_t w = write(s, c_buf, c_buf_used);
-		assert(w > 0 && (unsigned int)w == c_buf_used);
-		c_buf_used = 0;
+static void c_flush(connection_t *conn) {
+	if (conn->outlen) {
+		ssize_t w = write(conn->sock, conn->outbuf, conn->outlen);
+		assert(w > 0 && (unsigned int)w == conn->outlen);
+		conn->outlen = 0;
 	}
 }
 
-static void c_printf(const char *fmt, ...) {
+static void c_printf(connection_t *conn, const char *fmt, ...) {
 	va_list ap;
 	int     len;
 
 	va_start(ap, fmt);
-	len = vsnprintf(c_buf + c_buf_used, sizeof(c_buf) - c_buf_used, fmt, ap);
-	if (len >= (int)(sizeof(c_buf) - c_buf_used)) { // Overflow
-		c_flush();
-		len = vsnprintf(c_buf, sizeof(c_buf), fmt, ap);
-		assert(len < (int)sizeof(c_buf));
+	len = vsnprintf(conn->outbuf + conn->outlen,
+	                sizeof(conn->outbuf) - conn->outlen, fmt, ap);
+	if (len >= (int)(sizeof(conn->outbuf) - conn->outlen)) { // Overflow
+		c_flush(conn);
+		len = vsnprintf(conn->outbuf, sizeof(conn->outbuf), fmt, ap);
+		assert(len < (int)sizeof(conn->outbuf));
 	}
 	va_end(ap);
-	c_buf_used += len;
-	if (c_buf_used + BUF_MIN_FREE > sizeof(c_buf)) c_flush();
+	conn->outlen += len;
+	if (conn->outlen + OUTBUF_MIN_FREE > sizeof(conn->outbuf)) c_flush(conn);
 }
 
-static int client_error(const char *what) {
-	c_printf("RE %s\n", what);
+int client_error(connection_t *conn, const char *what) {
+	c_printf(conn, "RE %s\n", what);
 	return 1;
 }
 
-static void close_error(error_t e) {
-	c_printf("E%d %s\n", e, errors[e]);
-	c_flush();
-	close(s);
-	exit(1);
+static int close_error(connection_t *conn, error_t e) {
+	c_printf(conn, "E%d %s\n", e, errors[e]);
+	c_flush(conn);
+	conn->flags &= ~CONNFLAG_GOING;
+	return 1;
 }
 
-static int get_line(char *buf, int size) {
-	static char getbuf[256];
-	static int getlen = 0;
-	static int getpos = 0;
+int client_get_line(connection_t *conn) {
 	int len = 0;
+	int size = sizeof(conn->linebuf);
 
+	if (!(conn->flags & CONNFLAG_GOING)) return -1;
 	while (size > len) {
-		if (getlen > getpos) {
-			char c = getbuf[getpos];
-			getpos++;
+		if (conn->getlen > conn->getpos) {
+			char c = conn->getbuf[conn->getpos];
+			conn->getpos++;
 			/* \r is ignored, for easier testing with telnet */
 			if (c == '\n') {
-				buf[len] = 0;
+				conn->linebuf[len] = 0;
 				return len;
 			} else if (c != '\r') {
-				buf[len] = c;
+				conn->linebuf[len] = c;
 				len++;
 			}
 		} else {
-			getpos = 0;
-			getlen = read(s, getbuf, sizeof(getbuf));
-			if (getlen <= 0) close_error(E_READ);
+			conn->getpos = 0;
+			conn->getlen = read(conn->sock, conn->getbuf,
+			                    sizeof(conn->getbuf));
+			if (conn->getlen <= 0) {
+				close_error(conn, E_READ);
+				return -1;
+			}
 		}
 	}
-	close_error(E_LINETOOLONG);
-	return -1; /* NOTREACHED */
+	close_error(conn, E_LINETOOLONG);
+	return -1;
 }
 
 static int sort_search(const void *_t1, const void *_t2) {
@@ -180,9 +178,8 @@ static int sort_search(const void *_t1, const void *_t2) {
 	return 0;
 }
 
-static int build_search_cmd(const user_t *user, const char *cmd, void *search_,
-                            prot_cmd_flag_t flags, trans_t *trans,
-                            prot_err_func_t error) {
+static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
+                            prot_cmd_flag_t flags) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -190,9 +187,7 @@ static int build_search_cmd(const user_t *user, const char *cmd, void *search_,
 	int        i;
 	int        r;
 
-	(void)user;
 	(void)flags;
-	(void)trans;
 
 	switch(*cmd) {
 		case 'T': // Tag
@@ -209,93 +204,113 @@ static int build_search_cmd(const user_t *user, const char *cmd, void *search_,
 			} else if (*args == 'N') {
 				tag = tag_find_name(args + 1);
 			} else {
-				return error(cmd);
+				return conn->error(conn, cmd);
 			}
-			if (!tag) return error(cmd);
+			if (!tag) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
-				if (search->of_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+				if (search->of_tags == PROT_TAGS_PER_SEARCH) {
+					return close_error(conn, E_OVERFLOW);
+				}
 				search->tags[search->of_tags].tag  = tag;
 				search->tags[search->of_tags].weak = weak;
 				search->of_tags++;
 			} else {
-				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) close_error(E_OVERFLOW);
+				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) {
+					return close_error(conn, E_OVERFLOW);
+				}
 				search->excluded_tags[search->of_excluded_tags].tag  = tag;
 				search->excluded_tags[search->of_excluded_tags].weak = weak;
 				search->of_excluded_tags++;
 			}
 			break;
 		case 'O': // Ordering
-			if (search->of_orders == PROT_ORDERS_PER_SEARCH) close_error(E_OVERFLOW);
+			if (search->of_orders == PROT_ORDERS_PER_SEARCH) {
+				return close_error(conn, E_OVERFLOW);
+			}
 			search->orders[search->of_orders] = str2id(args, orders);
-			if (!search->orders[search->of_orders]) return error(cmd);
+			if (!search->orders[search->of_orders]) {
+				return conn->error(conn, cmd);
+			}
 			search->of_orders++;
 			break;
 		case 'F': // Flag (option)
 			i = str2id(args, flagnames);
-			if (i < 1) return error(cmd);
+			if (i < 1) return conn->error(conn, cmd);
 			search->flags |= FLAG(i - 1);
 			break;
 		case 'M': // md5 (specific post)
-			if (search->post) return error(cmd);
+			if (search->post) return conn->error(conn, cmd);
 			r = post_find_md5str(&search->post, args);
-			if (r < 0) return error(cmd);
+			if (r < 0) return conn->error(conn, cmd);
 			if (r > 0) { /* Not found */
 				search->post = &null_post;
 			}
 			break;
 		default:
-			close_error(E_SYNTAX);
-			return 1; /* NOTREACHED */
+			return close_error(conn, E_SYNTAX);
 			break;
 	}
 	return 0;
 }
 
-static int build_search(char *cmd, search_t *search) {
+static int build_search(connection_t *conn, char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(current_user, cmd, search, build_search_cmd, CMDFLAG_NONE, NULL, client_error)) return 1;
+	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
 	if (!search->of_tags && !search->post) {
-		return client_error("E Specify at least one included tag");
+		return conn->error(conn, "E Specify at least one included tag");
 	}
 	/* Searching is faster if ordered by post-count */
 	qsort(search->tags, search->of_tags, sizeof(search_tag_t), sort_search);
 	return 0;
 }
 
-static void add_post_to_result(post_t *post, result_t *result) {
+static void result_free(result_t *result) {
+	if (result->posts) free(result->posts);
+}
+
+static int add_post_to_result(post_t *post, result_t *result) {
 	if (result->room == result->of_posts) {
-		result->room += 50;
+		if (result->room == 0) {
+			result->room = 64;
+		} else {
+			result->room *= 2;
+		}
 		post_t **p = realloc(result->posts, result->room * sizeof(post_t *));
-		if (!p) close_error(E_MEM);
+		if (!p) return 1;
 		result->posts = p;
 	}
 	result->posts[result->of_posts] = post;
 	result->of_posts++;
+	return 0;
 }
 
-static result_t remove_tag(result_t old_result, tag_t *tag, truth_t weak) {
+static int remove_tag(result_t *result, tag_t *tag, truth_t weak) {
 	result_t new_result;
 	uint32_t i;
 
 	memset(&new_result, 0, sizeof(new_result));
-	for (i = 0; i < old_result.of_posts; i++) {
-		post_t *post = old_result.posts[i];
+	for (i = 0; i < result->of_posts; i++) {
+		post_t *post = result->posts[i];
 		if (!post_has_tag(post, tag, weak)) {
-			add_post_to_result(post, &new_result);
+			if (add_post_to_result(post, &new_result)) return 1;
 		}
 	}
-	return new_result;
+	result_free(result);
+	*result = new_result;
+	return 0;
 }
 
-static result_t intersect(result_t old_result, tag_t *tag, truth_t weak) {
+static int intersect(result_t *result, tag_t *tag, truth_t weak) {
 	result_t new_result;
 	memset(&new_result, 0, sizeof(new_result));
-	if (old_result.of_posts) {
+	if (result->of_posts) {
 		uint32_t i;
-		for (i = 0; i < old_result.of_posts; i++) {
-			post_t *post = old_result.posts[i];
+		for (i = 0; i < result->of_posts; i++) {
+			post_t *post = result->posts[i];
 			if (post_has_tag(post, tag, weak)) {
-				add_post_to_result(post, &new_result);
+				if (add_post_to_result(post, &new_result)) {
+					return 1;
+				}
 			}
 		}
 	} else {
@@ -305,13 +320,17 @@ static result_t intersect(result_t old_result, tag_t *tag, truth_t weak) {
 			uint32_t i;
 			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
 				if (pl->posts[i]) {
-					add_post_to_result(pl->posts[i], &new_result);
+					int r = add_post_to_result(pl->posts[i],
+					                           &new_result);
+					if (r) return 1;
 				}
 			}
 			pl = pl->next;
 		}
 	}
-	return new_result;
+	result_free(result);
+	*result = new_result;
+	return 0;
 }
 
 static int sorter_date(const post_t *p1, const post_t *p2) {
@@ -350,9 +369,9 @@ static int sorter(void *_search, const void *_p1, const void *_p2) {
 	return 0;
 }
 
-static void return_post(post_t *post, int flags) {
+static void return_post(connection_t *conn, post_t *post, int flags) {
 	int i;
-	c_printf("RP%s", md5_md52str(post->md5));
+	c_printf(conn, "RP%s", md5_md52str(post->md5));
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
 		post_taglist_t *tags = &post->tags;
 		const char     *prefix = "";
@@ -361,10 +380,10 @@ again:
 			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 				if (tags->tags[i]) {
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
-						c_printf(" T%s%s", prefix, tags->tags[i]->name);
+						c_printf(conn, " T%s%s", prefix, tags->tags[i]->name);
 					}
 					if (flags & FLAG(FLAG_RETURN_TAGIDS)) {
-						c_printf(" G%s%s", prefix, guid_guid2str(tags->tags[i]->guid));
+						c_printf(conn, " G%s%s", prefix, guid_guid2str(tags->tags[i]->guid));
 					}
 				}
 			}
@@ -378,54 +397,61 @@ again:
 	}
 	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
 		if (flags & FLAG(i)) {
-			c_printf(" F%s=", flagnames[i]);
-			flag_printers[i](post);
+			c_printf(conn, " F%s=", flagnames[i]);
+			flag_printers[i](conn, post);
 		}
 	}
-	c_printf("\n");
+	c_printf(conn, "\n");
 }
 
-static void do_search(search_t *search) {
+static void do_search(connection_t *conn, search_t *search) {
 	result_t result;
 	unsigned int i;
 
 	if (search->post) {
 		if (search->of_tags || search->of_excluded_tags) {
-			client_error("E mutually exclusive options specified");
+			conn->error(conn, "E mutually exclusive options specified");
 			return;
 		}
 		if (search->post != &null_post) {
-			return_post(search->post, search->flags);
+			return_post(conn, search->post, search->flags);
 		}
 		goto done;
 	}
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
-		result = intersect(result, t->tag, t->weak);
+		if (intersect(&result, t->tag, t->weak)) {
+			close_error(conn, E_MEM);
+			return;
+		}
 		if (!result.of_posts) goto done;
 	}
 	for (i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
-		result = remove_tag(result, t->tag, t->weak);
+		if (remove_tag(&result, t->tag, t->weak)) {
+			close_error(conn, E_MEM);
+			return;
+		}
 		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
 		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
 		for (i = 0; i < result.of_posts; i++) {
-			return_post(result.posts[i], search->flags);
+			return_post(conn, result.posts[i], search->flags);
 		}
 	}
 done:
-	c_printf("OK\n");
+	c_printf(conn, "OK\n");
+	result_free(&result);
 }
 
-static void tag_search(const char *spec) {
+static void tag_search(connection_t *conn, const char *spec) {
 	tag_t *tag = NULL;
 	if (*spec == 'G') {
 		guid_t guid;
 		if (guid_str2guid(&guid, spec + 1, GUIDTYPE_TAG)) {
-			client_error(spec);
+			conn->error(conn, spec);
 			return;
 		}
 		tag = tag_find_guid(guid);
@@ -433,79 +459,68 @@ static void tag_search(const char *spec) {
 		tag = tag_find_name(spec + 1);
 	}
 	if (tag) {
-		c_printf("RG%s ", guid_guid2str(tag->guid));
-		c_printf("N%s ", tag->name);
-		c_printf("T%s ", tagtype_names[tag->type]);
-		c_printf("P%u\n", tag->of_posts);
+		c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
+		c_printf(conn, "N%s ", tag->name);
+		c_printf(conn, "T%s ", tagtype_names[tag->type]);
+		c_printf(conn, "P%u\n", tag->of_posts);
 	}
-	c_printf("OK\n");
+	c_printf(conn, "OK\n");
 }
 
-static void modifying_command(int (*func)(const user_t *, char *, trans_t *, prot_err_func_t), char *cmd) {
-	trans_t trans;
+static void modifying_command(connection_t *conn,
+                              int (*func)(connection_t *, char *), char *cmd) {
 	int ok;
 
-	log_trans_start(&trans, current_user);
-	ok = !func(current_user, cmd, &trans, client_error);
-	log_trans_end(&trans);
-	if (ok) c_printf("OK\n");
+	log_trans_start(conn);
+	ok = !func(conn, cmd);
+	log_trans_end(conn);
+	if (ok) c_printf(conn, "OK\n");
 }
 
-void client_handle(int _s) {
-	char   buf[PROT_MAXLEN];
-	int    len;
-	user_t anonymous;
-
-	s = _s;
-	anonymous.name = "A";
-	anonymous.caps = DEFAULT_CAPS;
-	current_user = &anonymous;
-
-	while (42) {
-		c_flush();
-		len = get_line(buf, sizeof(buf));
-		switch (*buf) {
-			case 'S': // 'S'earch
-				if (buf[1] == 'P') {
-					search_t search;
-					int r = build_search(buf + 2, &search);
-					if (!r) do_search(&search);
-				} else if (buf[1] == 'T') {
-					tag_search(buf + 2);
+void client_handle(connection_t *conn) {
+	char *buf = conn->linebuf;
+	switch (*buf) {
+		case 'S': // 'S'earch
+			if (buf[1] == 'P') {
+				search_t search;
+				int r = build_search(conn, buf + 2, &search);
+				if (!r) do_search(conn, &search);
+			} else if (buf[1] == 'T') {
+				tag_search(conn, buf + 2);
+			} else {
+				close_error(conn, E_COMMAND);
+			}
+			break;
+		case 'T': // 'T'ag post
+			modifying_command(conn, prot_tag_post, buf + 1);
+			break;
+		case 'A': // 'A'dd something
+			modifying_command(conn, prot_add, buf + 1);
+			break;
+		case 'M': // 'M'odify something
+			modifying_command(conn, prot_modify, buf + 1);
+			break;
+		case 'N': // 'N'OP
+			c_printf(conn, "OK\n");
+			break;
+		case 'Q': // 'Q'uit
+			c_printf(conn, "Q bye bye\n");
+			conn->flags &= ~CONNFLAG_GOING;
+			break;
+		case 'a': // 'a'uthenticate
+			do {
+				user_t *user = prot_auth(buf + 1);
+				if (user) {
+					c_printf(conn, "OK\n");
+					conn->user = user;
 				} else {
-					close_error(E_COMMAND);
+					c_printf(conn, "E\n");
 				}
-				break;
-			case 'T': // 'T'ag post
-				modifying_command(prot_tag_post, buf + 1);
-				break;
-			case 'A': // 'A'dd something
-				modifying_command(prot_add, buf + 1);
-				break;
-			case 'M': // 'M'odify something
-				modifying_command(prot_modify, buf + 1);
-				break;
-			case 'N': // 'N'OP
-				c_printf("OK\n");
-				break;
-			case 'Q': // 'Q'uit
-				c_printf("Q bye bye\n");
-				c_flush();
-				close(s);
-				exit(0);
-				break;
-			case 'a': // 'a'uthenticate
-				current_user = prot_auth(buf + 1);
-				if (current_user) {
-					c_printf("OK\n");
-				} else {
-					c_printf("E\n");
-					current_user = &anonymous;
-				}
-				break;
-			default:
-				close_error(E_COMMAND);
-				break;
-		}
+			} while (0);
+			break;
+		default:
+			close_error(conn, E_COMMAND);
+			break;
 	}
+	c_flush(conn);
 }

@@ -4,50 +4,47 @@
 #include <errno.h>
 #include <time.h>
 
-static int tag_post_cmd(const user_t *user, const char *cmd, void *post_,
-                        prot_cmd_flag_t flags, trans_t *trans,
-                        prot_err_func_t error) {
+static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
+                        prot_cmd_flag_t flags) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
-	(void)user;
 	(void)flags;
 
 	switch (*cmd) {
 		case 'P': // Which post
-			if (*post) return error(cmd);
+			if (*post) return conn->error(conn, cmd);
 			post_find_md5str(post, args);
-			if (!*post) return error(cmd);
-			log_set_init(trans, "TP%s", args);
+			if (!*post) return conn->error(conn, cmd);
+			log_set_init(&conn->trans, "TP%s", args);
 			break;
 		case 'T': // Add tag
 		case 't': // Remove tag
-			if (!*post) return error(cmd);
+			if (!*post) return conn->error(conn, cmd);
 			truth_t weak = T_NO;
 			if (*args == '~') { // Weak tag
 				args++;
 				weak = T_YES;
 			}
 			tag_t *tag = tag_find_guidstr(args);
-			if (!tag) return error(cmd);
+			if (!tag) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
 				int r = post_tag_add(*post, tag, weak);
-				if (r) return error(cmd);
-				log_write(trans, "%s", cmd);
+				if (r) return conn->error(conn, cmd);
+				log_write(&conn->trans, "%s", cmd);
 			} else {
-				return error(cmd); // @@TODO: Implement removal
+				return conn->error(conn, cmd); // @@TODO: Implement removal
 			}
 			break;
 		default:
-			return error(cmd);
+			return conn->error(conn, cmd);
 			break;
 	}
 	return 0;
 }
 
-int prot_cmd_loop(const user_t *user, char *cmd, void *data,
-                  prot_cmd_func_t func, prot_cmd_flag_t flags,
-                  trans_t *trans, prot_err_func_t error) {
+int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
+                  prot_cmd_func_t func, prot_cmd_flag_t flags) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -56,24 +53,22 @@ int prot_cmd_loop(const user_t *user, char *cmd, void *data,
 			len++;
 		}
 		if (!cmd[len]) flags |= CMDFLAG_LAST;
-		if (func(user, cmd, data, flags, trans, error)) return 1;
+		if (func(conn, cmd, data, flags)) return 1;
 		cmd += len;
 	}
 	return 0;
 }
 
-int prot_tag_post(const user_t *user, char *cmd, trans_t *trans,
-                  prot_err_func_t error) {
+int prot_tag_post(connection_t *conn, char *cmd) {
 	post_t *post = NULL;
-	return prot_cmd_loop(user, cmd, &post, tag_post_cmd,
-	                     CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(conn, cmd, &post, tag_post_cmd, CMDFLAG_NONE);
 }
 
-static int error1(char *cmd, prot_err_func_t error) {
+static int error1(connection_t *conn, char *cmd) {
 	int len = 0;
 	while (cmd[len] && cmd[len] != ' ') len++;
 	cmd[len] = 0;
-	return error(cmd);
+	return conn->error(conn, cmd);
 }
 
 static int put_enum_value_gen(uint16_t *res, const char * const *array,
@@ -88,32 +83,29 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array,
 	return 1;
 }
 
-static int add_tag_cmd(const user_t *user, const char *cmd, void *data,
-                       prot_cmd_flag_t flags, trans_t *trans,
-                       prot_err_func_t error) {
+static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
+                       prot_cmd_flag_t flags) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
 	char       *ptr;
 
-	(void)user;
-
-	if (!*cmd || !*args) return error(cmd);
+	if (!*cmd || !*args) return conn->error(conn, cmd);
 	switch (*cmd) {
 		case 'G':
 			r = guid_str2guid(&tag->guid, args, GUIDTYPE_TAG);
-			if (r) return error(cmd);
+			if (r) return conn->error(conn, cmd);
 			break;
 		case 'N':
 			tag->name = mm_strdup(args);
 			break;
 		case 'T':
 			if (put_enum_value_gen(&tag->type, tagtype_names, args)) {
-				return error(cmd);
+				return conn->error(conn, cmd);
 			}
 			break;
 		default:
-			return error(cmd);
+			return conn->error(conn, cmd);
 	}
 	if (flags & CMDFLAG_LAST) {
 		rbtree_key_t key;
@@ -122,33 +114,32 @@ static int add_tag_cmd(const user_t *user, const char *cmd, void *data,
 		for (i = 0; i < sizeof(tag->guid); i++) {
 			if (ptr[i]) break;
 		}
-		if (i == sizeof(tag->guid) || !tag->name) return error(cmd);
+		if (i == sizeof(tag->guid) || !tag->name) {
+			return conn->error(conn, cmd);
+		}
 		key = rbtree_str2key(tag->name);
 		mm_lock();
 		if (rbtree_insert(tagtree, tag, key)) {
 			mm_unlock();
-			return error(cmd);
+			return conn->error(conn, cmd);
 		}
 		if (rbtree_insert(tagguidtree, tag, tag->guid.key)) {
 			rbtree_delete(tagtree, key);
 			mm_unlock();
-			return error(cmd);
+			return conn->error(conn, cmd);
 		}
-		log_write_tag(trans, tag);
+		log_write_tag(&conn->trans, tag);
 		mm_unlock();
 	}
 	return 0;
 }
 
-static int add_alias_cmd(const user_t *user, const char *cmd, void *data,
-                         prot_cmd_flag_t flags, trans_t *trans,
-                         prot_err_func_t error) {
+static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
+                         prot_cmd_flag_t flags) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
-	(void)user;
-
-	if (!*cmd || !*args) return error(cmd);
+	if (!*cmd || !*args) return conn->error(conn, cmd);
 	switch (*cmd) {
 		case 'G':
 			tagalias->tag = tag_find_guidstr(args);
@@ -157,19 +148,21 @@ static int add_alias_cmd(const user_t *user, const char *cmd, void *data,
 			tagalias->name = mm_strdup(args);
 			break;
 		default:
-			return error(cmd);
+			return conn->error(conn, cmd);
 	}
 	if (flags & CMDFLAG_LAST) {
 		rbtree_key_t key;
-		if (!tagalias->tag || !tagalias->name) return error(cmd);
+		if (!tagalias->tag || !tagalias->name) {
+			return conn->error(conn, cmd);
+		}
 		key = rbtree_str2key(tagalias->name);
 		mm_lock();
 		if (!rbtree_find(tagaliastree, NULL, key)
 		 || rbtree_insert(tagaliastree, tagalias, key)) {
 		 	mm_unlock();
-		 	return error(cmd);
+		 	return conn->error(conn, cmd);
 		}
-		log_write_tagalias(trans, tagalias);
+		log_write_tagalias(&conn->trans, tagalias);
 		mm_unlock();
 	}
 	return 0;
@@ -268,31 +261,30 @@ static int put_in_post_field(const user_t *user, post_t *post, const char *str,
 	return 1;
 }
 
-static int post_cmd(const user_t *user, const char *cmd, void *data,
-                    prot_cmd_flag_t flags, trans_t *trans,
-                    prot_err_func_t error) {
+static int post_cmd(connection_t *conn, const char *cmd, void *data,
+                    prot_cmd_flag_t flags) {
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
 	eqp = strchr(cmd, '=');
 	if (eqp) {
 		unsigned int len = eqp - cmd;
-		if (!post) return error(cmd);
-		if (put_in_post_field(user, post, cmd, len)) {
-			return error(cmd);
+		if (!post) return conn->error(conn, cmd);
+		if (put_in_post_field(conn->user, post, cmd, len)) {
+			return conn->error(conn, cmd);
 		}
-		if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
+		if (flags & CMDFLAG_MODIFY) log_write(&conn->trans, "%s", cmd);
 	} else { // This is the md5
 		if (flags & CMDFLAG_MODIFY) {
 			post_t **postp = data;
 			int r = post_find_md5str(&post, cmd);
-			if (r) return error(cmd);
-			if (*postp) return error(cmd);
+			if (r) return conn->error(conn, cmd);
+			if (*postp) return conn->error(conn, cmd);
 			*postp = post;
-			log_set_init(trans, "MP%s", cmd);
+			log_set_init(&conn->trans, "MP%s", cmd);
 		} else {
 			int r = md5_str2md5(&post->md5, cmd);
-			if (r) return error(cmd);
+			if (r) return conn->error(conn, cmd);
 		}
 	}
 	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
@@ -302,15 +294,15 @@ static int post_cmd(const user_t *user, const char *cmd, void *data,
 		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))
 		    || !post->height || !post->width
 		    || post->filetype == (uint16_t)~0) {
-			return error(cmd);
+			return conn->error(conn, cmd);
 		}
 		mm_lock();
 		r = rbtree_insert(posttree, post, post->md5.key);
 		if (r) {
 			mm_unlock();
-			return error(cmd);
+			return conn->error(conn, cmd);
 		}
-		log_write_post(trans, post);
+		log_write_post(&conn->trans, post);
 		mm_unlock();
 	}
 	return 0;
@@ -323,25 +315,24 @@ static user_t *user_find(const char *name) {
 	return (user_t *)user;
 }
 
-static int user_cmd(const user_t *user, const char *cmd, void *data,
-                    prot_cmd_flag_t flags, trans_t *trans,
-                    prot_err_func_t error) {
+static int user_cmd(connection_t *conn, const char *cmd, void *data,
+                    prot_cmd_flag_t flags) {
 	user_t     *moduser = *(user_t **)data;
 	const char *args = cmd + 1;
 	const char *name;
 	uint16_t   u16;
 	int        r;
 
-	if (!*cmd || !*args) return error(cmd);
+	if (!*cmd || !*args) return conn->error(conn, cmd);
 	switch (*cmd) {
 		case 'N':
 			name = str_enc2str(args);
 			if (flags & CMDFLAG_MODIFY) {
 				user_t **userp = data;
-				if (moduser) return error(cmd);
+				if (moduser) return conn->error(conn, cmd);
 				moduser = user_find(name);
 				*userp = moduser;
-				log_set_init(trans, "MUN%s", args);
+				log_set_init(&conn->trans, "MUN%s", args);
 			} else {
 				moduser->name = mm_strdup(name);
 			}
@@ -349,37 +340,42 @@ static int user_cmd(const user_t *user, const char *cmd, void *data,
 		case 'C': // Set cap
 		case 'c': // Remove cap
 			r = put_enum_value_gen(&u16, cap_names, args);
-			if (r || !moduser) return error(cmd);
+			if (r || !moduser) return conn->error(conn, cmd);
 			if (*cmd == 'C') {
 				moduser->caps |= 1 << u16;
 			} else {
 				moduser->caps &= ~(1 << u16);
 			}
-			if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
+			if (flags & CMDFLAG_MODIFY) {
+				log_write(&conn->trans, "%s", cmd);
+			}
 			break;
 		case 'P':
-			if (!moduser) return error(cmd);
+			if (!moduser) return conn->error(conn, cmd);
 			moduser->password = mm_strdup(str_enc2str(args));
-			if (flags & CMDFLAG_MODIFY) log_write(trans, "%s", cmd);
+			if (flags & CMDFLAG_MODIFY) {
+				log_write(&conn->trans, "%s", cmd);
+			}
 			break;
 		default:
-			return error(cmd);
+			return conn->error(conn, cmd);
 	}
 	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
 		rbtree_key_t key;
-		if (!moduser->name || !moduser->password) return error(cmd);
+		if (!moduser->name || !moduser->password) {
+			return conn->error(conn, cmd);
+		}
 		key = rbtree_str2key(moduser->name);
 		mm_lock();
 		r = rbtree_insert(usertree, moduser, key);
 		mm_unlock();
-		if (r) return error(cmd);
-		log_write_user(trans, user);
+		if (r) return conn->error(conn, cmd);
+		log_write_user(&conn->trans, moduser);
 	}
 	return 0;
 }
 
-int prot_add(const user_t *user, char *cmd, trans_t *trans,
-             prot_err_func_t error) {
+int prot_add(connection_t *conn, char *cmd) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -404,14 +400,12 @@ int prot_add(const user_t *user, char *cmd, trans_t *trans,
 			((user_t *)data)->caps = DEFAULT_CAPS;
 			break;
 		default:
-			return error1(cmd, error);
+			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(user, cmd + 1, &data, func,
-	                     CMDFLAG_NONE, trans, error);
+	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_NONE);
 }
 
-int prot_modify(const user_t *user, char *cmd, trans_t *trans,
-                prot_err_func_t error) {
+int prot_modify(connection_t *conn, char *cmd) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -423,10 +417,9 @@ int prot_modify(const user_t *user, char *cmd, trans_t *trans,
 			func = user_cmd;
 			break;
 		default:
-			return error1(cmd, error);
+			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(user, cmd + 1, &data, func,
-	                     CMDFLAG_MODIFY, trans, error);
+	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_MODIFY);
 }
 
 user_t *prot_auth(char *cmd) {

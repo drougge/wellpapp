@@ -189,6 +189,9 @@ typedef enum {
 	TRANSFLAG_SYNC = 1,
 } transflag_t;
 
+struct connection;
+typedef struct connection connection_t;
+
 typedef struct trans {
 	off_t        mark_offset;
 	trans_id_t   id;
@@ -197,24 +200,41 @@ typedef struct trans {
 	int          fd;
 	transflag_t  flags;
 	const user_t *user;
+	connection_t *conn;
 	char         buf[4000];
 } trans_t;
 
-typedef int (*prot_err_func_t)(const char *msg);
-typedef int (*prot_cmd_func_t)(const user_t *user, const char *cmd, void *data,
-                               prot_cmd_flag_t flags, trans_t *trans,
-                               prot_err_func_t error);
+#define PROT_MAXLEN 4096
+
+typedef int (*prot_err_func_t)(connection_t *conn, const char *msg);
+typedef int (*prot_cmd_func_t)(connection_t *conn, const char *cmd,
+                               void *data, prot_cmd_flag_t flags);
+
+typedef enum {
+	CONNFLAG_GOING = 1, // Connection is still in use
+	CONNFLAG_LOG   = 2, // This is the log-reader.
+} connflag_t;
+
+struct connection {
+	const user_t    *user;
+	prot_err_func_t error;
+	trans_t         trans;
+	int             sock;
+	connflag_t      flags;
+	unsigned int    getlen;
+	unsigned int    getpos;
+	unsigned int    outlen;
+	char            getbuf[256];
+	char            linebuf[PROT_MAXLEN];
+	char            outbuf[PROT_MAXLEN];
+};
 
 /* Note that these modify *cmd. */
-int prot_cmd_loop(const user_t *user, char *cmd, void *data,
-                  prot_cmd_func_t func, prot_cmd_flag_t flags,
-                  trans_t *trans, prot_err_func_t error);
-int prot_tag_post(const user_t *user, char *cmd, trans_t *trans,
-                  prot_err_func_t error);
-int prot_add(const user_t *user, char *cmd, trans_t *trans,
-             prot_err_func_t error);
-int prot_modify(const user_t *user, char *cmd, trans_t *trans,
-                prot_err_func_t error);
+int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
+                  prot_cmd_func_t func, prot_cmd_flag_t flags);
+int prot_tag_post(connection_t *conn, char *cmd);
+int prot_add(connection_t *conn, char *cmd);
+int prot_modify(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
@@ -248,14 +268,15 @@ void mm_print(void);
 void mm_lock(void);
 void mm_unlock(void);
 
-void client_handle(int s);
+int client_error(connection_t *conn, const char *what);
+int client_get_line(connection_t *conn);
+void client_handle(connection_t *conn);
 
-void log_trans_start(trans_t *trans, const user_t *user);
-void log_trans_end(trans_t *trans);
+void log_trans_start(connection_t *conn);
+void log_trans_end(connection_t *conn);
 void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
-void log_write_single(const user_t *user, const char *fmt, ...);
 void log_init(void);
 void log_write_tag(trans_t *trans, const tag_t *tag);
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
@@ -285,4 +306,4 @@ extern const char * const *cap_names;
 
 extern const char *basedir;
 
-extern const user_t *loguser;
+extern connection_t *logconn;

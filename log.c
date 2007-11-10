@@ -32,6 +32,7 @@ static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	trans->flags    = TRANSFLAG_SYNC;
 	trans->user     = user;
 	trans->fd       = fd;
+	trans->conn     = NULL;
 	mm_lock();
 	trans->id = next_trans_id++;
 	mm_unlock();
@@ -47,8 +48,9 @@ static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	trans->mark_offset -= 2;
 }
 
-void log_trans_start(trans_t *trans, const user_t *user) {
-	log_trans_start_(trans, user, log_fd);
+void log_trans_start(connection_t *conn) {
+	log_trans_start_(&conn->trans, conn->user, log_fd);
+	conn->trans.conn = conn;
 }
 
 static void trans_line_done_(trans_t *trans) {
@@ -57,6 +59,9 @@ static void trans_line_done_(trans_t *trans) {
 	char newline = '\n';
 	int len, wlen;
 
+	if (trans->conn && trans->conn->flags & CONNFLAG_LOG) {
+		return; // Log-reader doesn't log
+	}
 	if (trans->buf_used == trans->init_len) return;
 	iov[0].iov_base = idbuf;
 	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%016llx ",
@@ -102,7 +107,7 @@ again:
 	}
 }
 
-void log_trans_end(trans_t *trans) {
+static void log_trans_end_(trans_t *trans) {
 	off_t pos, r2;
 	int   r;
 	char  buf[20];
@@ -125,6 +130,10 @@ void log_trans_end(trans_t *trans) {
 	assert(r == 1);
 	assert(r2 != -1);
 	trans_unlock(trans);
+}
+
+void log_trans_end(connection_t *conn) {
+	log_trans_end_(&conn->trans);
 }
 
 void log_set_init(trans_t *trans, const char *fmt, ...) {
@@ -159,17 +168,6 @@ static void log_write_nl(trans_t *trans, int last, const char *fmt, ...) {
 	va_start(ap, fmt);
 	log_write_(trans, last, fmt, ap);
 	va_end(ap);
-}
-
-void log_write_single(const user_t *user, const char *fmt, ...) {
-	va_list ap;
-	trans_t trans;
-
-	log_trans_start(&trans, user);
-	va_start(ap, fmt);
-	log_write_(&trans, 1, fmt, ap);
-	va_end(ap);
-	log_trans_end(&trans);
 }
 
 void log_write_tag(trans_t *trans, const tag_t *tag) {
@@ -326,11 +324,11 @@ void log_dump(void) {
 	assert(fd != -1);
 	*logdumpindex += 1;
 
-	log_trans_start_(&dump_trans, loguser, fd);
+	log_trans_start_(&dump_trans, logconn->user, fd);
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
-	log_trans_end(&dump_trans);
+	log_trans_end_(&dump_trans);
 	close(fd);
 }

@@ -203,22 +203,17 @@ static int read_log_line(FILE *fh, char *buf, int len) {
 	return len;
 }
 
-static int dummy_error(const char *msg) {
-	(void)msg;
-	return 1;
-}
-
 static void populate_from_log_line(char *line) {
 	int r;
 	switch (*line) {
 		case 'A': // 'A'dd something
-			r = prot_add(loguser, line + 1, NULL, dummy_error);
+			r = prot_add(logconn, line + 1);
 			break;
 		case 'T': // 'T'ag post
-			r = prot_tag_post(loguser, line + 1, NULL, dummy_error);
+			r = prot_tag_post(logconn, line + 1);
 			break;
 		case 'M': // 'M'odify post
-			r = prot_modify(loguser, line + 1, NULL, dummy_error);
+			r = prot_modify(logconn, line + 1);
 			break;
 		default:
 			printf("Log: What? %s\n", line);
@@ -280,6 +275,10 @@ void populate_from_log(const char *filename) {
 void db_serve(void) {
 	int s, c, r, one;
 	struct sockaddr_in addr;
+	user_t anonymous;
+
+	anonymous.name = "A";
+	anonymous.caps = DEFAULT_CAPS;
 
 	s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s >= 0);
@@ -299,13 +298,17 @@ void db_serve(void) {
 		if (c < 0) {
 			perror("accept");
 		} else {
-			pid_t pid;
-			pid = rfork(RFFDG | RFPROC | RFNOWAIT);
-			if (pid == -1) {
-				perror("rfork");
+			connection_t _tmp;
+			connection_t *conn = &_tmp;
+			memset(conn, 0, sizeof(*conn));
+			conn->sock = c;
+			conn->user = &anonymous;
+			conn->flags = CONNFLAG_GOING;
+			conn->error = client_error;
+			while (client_get_line(conn) > 0) {
+				client_handle(conn);
 			}
-			if (!pid) client_handle(c);
-			close(c);
+			close(conn->sock);
 		}
 	}
 }

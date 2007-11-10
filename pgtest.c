@@ -11,7 +11,7 @@
 
 guid_t server_guid;
 
-const user_t *loguser;
+connection_t *logconn;
 
 static void add_tag(const char *name, tag_t *tag) {
 	tag->name = mm_strdup(name);
@@ -206,7 +206,8 @@ static void fix_broken_post(const char *md5str, post_t *post) {
 	assert(post->width && post->height);
 }
 
-static int dummy_error(const char *msg) {
+static int dummy_error(connection_t *conn, const char *msg) {
+	(void)conn;
 	(void)msg;
 	return 1;
 }
@@ -235,7 +236,7 @@ static int populate_from_db(PGconn *conn) {
 	}
 
 	/* drougge/apa */
-	r = prot_add(loguser, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), NULL, dummy_error);
+	r = prot_add(logconn, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"));
 	assert(!r);
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));
@@ -369,12 +370,19 @@ static void sig_dump(int sig) {
 }
 
 int main(int argc, char **argv) {
-	int    r = 0;
-	user_t user;
+	int          r = 0;
+	user_t       loguser_;
+	connection_t logconn_;
 
-	user.name = "LOG-READER";
-	user.caps = ~0;
-	loguser = &user;
+	loguser_.name = "LOG-READER";
+	loguser_.caps = ~0;
+	logconn = &logconn_;
+	memset(logconn, 0, sizeof(*logconn));
+	logconn->user  = &loguser_;
+	logconn->error = dummy_error;
+	logconn->sock  = -1;
+	logconn->flags = CONNFLAG_LOG;
+	logconn->trans.conn = logconn;
 
 	assert(argc == 2);
 	db_read_cfg();
