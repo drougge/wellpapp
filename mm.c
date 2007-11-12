@@ -95,6 +95,52 @@ static void mm_new_segment(void) {
 
 static int lock_fd;
 
+static void mm_init_new(void) {
+	int r;
+
+	mm_head = NULL;
+	mm_new_segment();
+	mm_head = (mm_head_t *)MM_BASE_ADDR;
+	mm_head->addr     = MM_BASE_ADDR;
+	mm_head->magic0   = MM_MAGIC0;
+	mm_head->magic1   = MM_MAGIC1;
+	mm_head->size     = MM_SEGMENT_SIZE;
+	mm_head->used     = sizeof(*mm_head);
+	mm_head->free     = mm_head->size - mm_head->used;
+	mm_head->bottom   = mm_head->addr + mm_head->used;
+	mm_head->top      = mm_head->addr + mm_head->size;
+	mm_head->segment_size = MM_SEGMENT_SIZE;
+	mm_head->of_segments  = 1;
+	r  = rbtree_init(posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	r |= rbtree_init(usertree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	assert(!r);
+	lock_fd = mm_open_segment(0, O_RDWR);
+}
+
+static int mm_init_old(void) {
+	mm_head_t    head;
+	int          fd;
+	unsigned int i;
+
+	fd = mm_open_segment(0, O_RDWR);
+	if (fd == -1) return 1;
+	lock_fd = dup(fd);
+	assert(lock_fd != -1);
+	read(fd, &head, sizeof(head));
+	assert(head.magic0 == MM_MAGIC0);
+	assert(head.magic1 == MM_MAGIC1);
+	mm_map_segment(0, fd);
+	for (i = 1; i < head.of_segments; i++) {
+		fd = mm_open_segment(i, O_RDWR);
+		mm_map_segment(i, fd);
+	}
+	return 0;
+}
+
+/* Note that this returns whether it succeeded in using the old cache. */
 int mm_init(int use_existing) {
 	mm_head = (mm_head_t *)MM_BASE_ADDR;
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
@@ -107,47 +153,10 @@ int mm_init(int use_existing) {
 	logindex      = &mm_head->logindex;
 	logdumpindex  = &mm_head->logdumpindex;
 	if (use_existing) {
-		mm_head_t head;
-		int fd;
-		unsigned int i;
-
-		fd = mm_open_segment(0, O_RDWR);
-		lock_fd = dup(fd);
-		assert(lock_fd != -1);
-		read(fd, &head, sizeof(head));
-		assert(head.magic0 == MM_MAGIC0);
-		assert(head.magic1 == MM_MAGIC1);
-		mm_map_segment(0, fd);
-		for (i = 1; i < head.of_segments; i++) {
-			fd = mm_open_segment(i, O_RDWR);
-			mm_map_segment(i, fd);
-		}
-		return 0;
-	} else {
-		int r;
-		mm_head = NULL;
-		mm_new_segment();
-		mm_head = (mm_head_t *)MM_BASE_ADDR;
-		mm_head->addr     = MM_BASE_ADDR;
-		mm_head->magic0   = MM_MAGIC0;
-		mm_head->magic1   = MM_MAGIC1;
-		mm_head->size     = MM_SEGMENT_SIZE;
-		/* mm_head, tag_guid_last[2] (posttree, tagtree, tagaliastree, tagguidtree, usertree) */
-		mm_head->used     = sizeof(*mm_head) + 8 + (sizeof(rbtree_head_t) * 5);
-		mm_head->free     = mm_head->size - mm_head->used;
-		mm_head->bottom   = mm_head->addr + mm_head->used;
-		mm_head->top      = mm_head->addr + mm_head->size;
-		mm_head->segment_size = MM_SEGMENT_SIZE;
-		mm_head->of_segments  = 1;
-		r  = rbtree_init(posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		r |= rbtree_init(usertree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-		assert(!r);
-		lock_fd = mm_open_segment(0, O_RDWR);
-		return 1;
+		if (!mm_init_old()) return 0;
 	}
+	mm_init_new();
+	return 1;
 }
 
 static void *mm_alloc_(unsigned int size, int unaligned) {
