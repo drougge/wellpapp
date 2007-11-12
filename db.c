@@ -390,6 +390,9 @@ const char * const *cap_names = NULL;
 
 const char *basedir = NULL;
 
+const guid_t *server_guid = NULL;
+static guid_t server_guid_;
+
 void db_read_cfg(void) {
 	char buf[1024];
 	FILE *fh = fopen("db.conf", "r");
@@ -405,6 +408,10 @@ void db_read_cfg(void) {
 		} else if (!memcmp("basedir=", buf, 8)) {
 			basedir = strdup(buf + 8);
 			assert(basedir && *basedir == '/');
+		} else if (!memcmp("guid=", buf, 5)) {
+			int r = guid_str2guid(&server_guid_, buf + 5, GUIDTYPE_SERVER);
+			assert(!r);
+			server_guid = &server_guid_;
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
@@ -413,5 +420,5 @@ void db_read_cfg(void) {
 	fclose(fh);
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
 	cfg_parse_list(&cap_names, CAP_NAMES_STR);
-	assert(tagtype_names && rating_names && basedir);
+	assert(tagtype_names && rating_names && basedir && server_guid);
 }

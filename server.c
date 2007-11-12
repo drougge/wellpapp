@@ -2,8 +2,6 @@
 
 #include <signal.h>
 
-guid_t server_guid;
-
 connection_t *logconn;
 
 static int dummy_error(connection_t *conn, const char *msg) {
@@ -20,7 +18,6 @@ static void sig_dump(int sig) {
 }
 
 int main(int argc, char **argv) {
-	int          r = 0;
 	user_t       loguser_;
 	connection_t logconn_;
 
@@ -35,8 +32,6 @@ int main(int argc, char **argv) {
 	logconn->trans.conn = logconn;
 
 	db_read_cfg();
-	r = guid_str2guid(&server_guid, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
-	assert(!r);
 	printf("initing mm..\n");
 	if (mm_init(!access("/tmp/db/mm_cache/00000000", F_OK))) {
 		assert(argc == 2);

@@ -9,8 +9,6 @@
 #define MAX_TAGS  409600
 #define MAX_POSTS 204800
 
-guid_t server_guid;
-
 connection_t *logconn;
 
 static void add_tag(const char *name, tag_t *tag) {
@@ -386,9 +384,6 @@ int main(int argc, char **argv) {
 
 	assert(argc == 2);
 	db_read_cfg();
-	// r = guid_str2guid(&server_guid, "eTBfgp-qto48a-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
-	r = guid_str2guid(&server_guid, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
-	assert(!r);
 	printf("initing mm..\n");
 	if (mm_init(!access("/tmp/db/mm_cache/00000000", F_OK))) {
 		printf("populating from %s..\n", argv[1]);

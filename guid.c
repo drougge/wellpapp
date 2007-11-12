@@ -5,7 +5,7 @@
 static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
 #define GUID_BASE 41
 
-extern const guid_t server_guid;
+extern const guid_t *server_guid;
 extern uint32_t     *tag_guid_last;
 
 static uint8_t guid_checksum(const guid_t guid, const guidtype_t what) {
@@ -19,7 +19,7 @@ static uint8_t guid_checksum(const guid_t guid, const guidtype_t what) {
 
 guid_t guid_gen_tag_guid(void) {
 	guid_t guid;
-	guid = server_guid;
+	guid = *server_guid;
 	tag_guid_last[1]++;
 	if (tag_guid_last[1] == 0) {
 		tag_guid_last[0]++;
@@ -112,7 +112,7 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local) {
 	if (must_be_local) {
 		int i;
 		for (i = 0; i < 7; i++) {
-			if (guid.data_u8[i] != server_guid.data_u8[i]) return 0;
+			if (guid.data_u8[i] != server_guid->data_u8[i]) return 0;
 		}
 	}
 	return 1;
