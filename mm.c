@@ -8,22 +8,28 @@
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */
 #define MM_FLAG_CLEAN 1
 typedef struct mm_head {
-	uint32_t magic0;
-	uint32_t flags;
-	uint64_t size;
-	uint32_t segment_size;
-	uint32_t of_segments;
-	uint64_t used;
-	uint64_t free;
-	uint64_t wasted;
-	uint64_t used_small;
-	uint64_t logindex;
-	uint64_t logdumpindex;
-	uint8_t  *addr;
-	uint8_t  *top;
-	uint8_t  *bottom;
-	uint32_t pad0;
-	uint32_t magic1;
+	uint32_t      magic0;
+	uint32_t      flags;
+	uint64_t      size;
+	uint32_t      segment_size;
+	uint32_t      of_segments;
+	uint64_t      used;
+	uint64_t      free;
+	uint64_t      wasted;
+	uint64_t      used_small;
+	uint64_t      logindex;
+	uint64_t      logdumpindex;
+	uint32_t      tag_guid_last[2];
+	rbtree_head_t posttree;
+	rbtree_head_t tagtree;
+	rbtree_head_t tagaliastree;
+	rbtree_head_t tagguidtree;
+	rbtree_head_t usertree;
+	uint8_t       *addr;
+	uint8_t       *top;
+	uint8_t       *bottom;
+	uint32_t      pad0;
+	uint32_t      magic1;
 } mm_head_t;
 
 #define MM_ALIGN 4
@@ -90,13 +96,16 @@ static void mm_new_segment(void) {
 static int lock_fd;
 
 int mm_init(int use_existing) {
+	mm_head = (mm_head_t *)MM_BASE_ADDR;
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
-	tag_guid_last = (uint32_t *)(MM_BASE_ADDR + sizeof(*mm_head));
-	posttree = (rbtree_head_t *)(tag_guid_last + 2);
-	tagtree  = posttree + 1;
-	tagaliastree = tagtree + 1;
-	tagguidtree = tagaliastree + 1;
-	usertree = tagguidtree + 1;
+	tag_guid_last = mm_head->tag_guid_last;
+	posttree      = &mm_head->posttree;
+	tagtree       = &mm_head->tagtree;
+	tagaliastree  = &mm_head->tagaliastree;
+	tagguidtree   = &mm_head->tagguidtree;
+	usertree      = &mm_head->usertree;
+	logindex      = &mm_head->logindex;
+	logdumpindex  = &mm_head->logdumpindex;
 	if (use_existing) {
 		mm_head_t head;
 		int fd;
@@ -109,9 +118,6 @@ int mm_init(int use_existing) {
 		assert(head.magic0 == MM_MAGIC0);
 		assert(head.magic1 == MM_MAGIC1);
 		mm_map_segment(0, fd);
-		mm_head = (mm_head_t *)MM_BASE_ADDR;
-		logindex = &mm_head->logindex;
-		logdumpindex = &mm_head->logdumpindex;
 		for (i = 1; i < head.of_segments; i++) {
 			fd = mm_open_segment(i, O_RDWR);
 			mm_map_segment(i, fd);
@@ -119,10 +125,9 @@ int mm_init(int use_existing) {
 		return 0;
 	} else {
 		int r;
+		mm_head = NULL;
 		mm_new_segment();
 		mm_head = (mm_head_t *)MM_BASE_ADDR;
-		logindex = &mm_head->logindex;
-		logdumpindex = &mm_head->logdumpindex;
 		mm_head->addr     = MM_BASE_ADDR;
 		mm_head->magic0   = MM_MAGIC0;
 		mm_head->magic1   = MM_MAGIC1;
