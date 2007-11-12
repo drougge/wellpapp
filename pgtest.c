@@ -2,9 +2,6 @@
 
 #include <time.h>
 #include <libpq-fe.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <signal.h>
 
 #define MAX_TAGS  409600
 #define MAX_POSTS 204800
@@ -360,14 +357,7 @@ err:
 	return r;
 }
 
-static void sig_dump(int sig) {
-	(void)sig;
-	printf("Dumping complete log..\n");
-	log_dump();
-	printf("Dump done.\n");
-}
-
-int main(int argc, char **argv) {
+int main(void) {
 	int          r = 0;
 	user_t       loguser_;
 	connection_t logconn_;
@@ -382,29 +372,18 @@ int main(int argc, char **argv) {
 	logconn->flags = CONNFLAG_LOG;
 	logconn->trans.conn = logconn;
 
-	assert(argc == 2);
 	db_read_cfg();
 	printf("initing mm..\n");
-	if (mm_init(!access("/tmp/db/mm_cache/00000000", F_OK))) {
-		printf("populating from %s..\n", argv[1]);
-		if (!strcmp(argv[1], "db")) {
-			PGconn *conn = PQconnectdb("user=danbooru");
-			// conn = PQconnectdb("user=danbooru password=db host=db");
-			err(!conn, 2);
-			err(PQstatus(conn) != CONNECTION_OK, 2);
-			err(populate_from_db(conn), 3);
-		} else {
-			populate_from_log(argv[1]);
-		}
-	}
+	mm_init(0);
+	printf("populating from db..\n");
+	PGconn *conn = PQconnectdb("user=danbooru");
+	err(!conn, 2);
+	err(PQstatus(conn) != CONNECTION_OK, 2);
+	err(populate_from_db(conn), 3);
 	mm_print();
 	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
-	log_init();
-	signal(SIGUSR1, sig_dump);
-	printf("serving..\n");
-	db_serve();
 err:
 	return r;
 }
