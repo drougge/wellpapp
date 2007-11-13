@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <errno.h>
 
 void assert_fail(const char *ass, const char *file,
                  const char *func, int line) {
@@ -232,14 +233,17 @@ static int find_trans(uint32_t *trans, uint32_t needle) {
 	return -1;
 }
 
-void populate_from_log(const char *filename) {
+int populate_from_log(const char *filename, void (*callback)(const char *line)) {
 	FILE     *fh;
 	char     buf[4096];
 	uint32_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
 	int      len;
 
 	fh = fopen(filename, "r");
-	assert(fh);
+	if (!fh) {
+		assert(errno == ENOENT);
+		return 1;
+	}
 	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
 		char     *end;
 		uint32_t tid = strtoul(buf + 1, &end, 16);
@@ -268,9 +272,11 @@ void populate_from_log(const char *filename) {
 			pos = find_trans(trans, tid);
 			if (pos != -1) trans[pos] = 0;
 		} else { // What?
-			assert(0);
+			assert(callback);
+			callback(buf);
 		}
 	}
+	return 0;
 }
 
 #define MAX_CONNECTIONS 100

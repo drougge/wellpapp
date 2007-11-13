@@ -314,8 +314,9 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 
 void log_dump(void) {
 	char filename[1024];
-	int  len;
+	int  len, w;
 	int  fd;
+	char buf[20];
 
 	len = snprintf(filename, sizeof(filename), "%s/dump/%016llx",
 	               basedir, (unsigned long long)*logdumpindex);
@@ -330,5 +331,11 @@ void log_dump(void) {
 	rbtree_iterate(tagaliastree, tagalias_iter);
 	rbtree_iterate(posttree, post_iter);
 	log_trans_end_(&dump_trans);
+
+	len = snprintf(buf, sizeof(buf), "L%016llx\n",
+	               (unsigned long long)*logindex);
+	assert(len == 18);
+	w = write(fd, buf, len);
+	assert(len == w);
 	close(fd);
 }

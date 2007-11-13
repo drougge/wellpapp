@@ -246,7 +246,7 @@ int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
 const char *md5_md52str(const md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
-void populate_from_log(const char *filename);
+int populate_from_log(const char *filename, void (*callback)(const char *line));
 void db_serve(void);
 void db_read_cfg(void);
 int str2id(const char *str, const char * const *ids);
