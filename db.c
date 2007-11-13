@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <errno.h>
+#include <md5.h>
 
 void assert_fail(const char *ass, const char *file,
                  const char *func, int line) {
@@ -406,13 +407,20 @@ const char *basedir = NULL;
 const guid_t *server_guid = NULL;
 static guid_t server_guid_;
 
+md5_t config_md5;
+
 void db_read_cfg(void) {
-	char buf[1024];
-	FILE *fh = fopen("db.conf", "r");
+	char    buf[1024];
+	FILE    *fh;
+	MD5_CTX ctx;
+
+	MD5Init(&ctx);
+	fh = fopen("db.conf", "r");
 	assert(fh);
 	while (fgets(buf, sizeof(buf), fh)) {
 		int len = strlen(buf);
 		assert(len && buf[len - 1] == '\n');
+		MD5Update(&ctx, (unsigned char *)buf, len);
 		buf[len - 1] = '\0';
 		if (!memcmp("tagtypes=", buf, 9)) {
 			cfg_parse_list(&tagtype_names, buf + 9);
@@ -434,4 +442,5 @@ void db_read_cfg(void) {
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
 	cfg_parse_list(&cap_names, CAP_NAMES_STR);
 	assert(tagtype_names && rating_names && basedir && server_guid);
+	MD5Final(config_md5.m, &ctx);
 }

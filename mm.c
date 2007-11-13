@@ -28,6 +28,7 @@ typedef struct mm_head {
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
+	md5_t         config_md5;
 	uint32_t      clean;
 	uint32_t      magic1;
 } mm_head_t;
@@ -122,6 +123,7 @@ static void mm_init_new(void) {
 	mm_head->top      = mm_head->addr + mm_head->size;
 	mm_head->segment_size = MM_SEGMENT_SIZE;
 	mm_head->of_segments  = 1;
+	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
 	r  = rbtree_init(posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 	r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 	r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
@@ -138,11 +140,16 @@ static int mm_init_old(void) {
 	fd = mm_open_segment(0, O_RDWR);
 	if (fd == -1) return 1;
 	read(fd, &head, sizeof(head));
-	assert(head.magic0 == MM_MAGIC0);
-	assert(head.magic1 == MM_MAGIC1);
-	assert(head.addr == MM_BASE_ADDR);
-	assert(head.segment_size == MM_SEGMENT_SIZE);
-	assert(head.clean);
+	if ((head.magic0 != MM_MAGIC0)
+	    || (head.magic1 != MM_MAGIC1)
+	    || (head.addr != MM_BASE_ADDR)
+	    || (head.segment_size != MM_SEGMENT_SIZE)
+	    || (!head.clean)
+	    || memcmp(head.config_md5.m, config_md5.m, sizeof(config_md5.m))) {
+		close(fd);
+		mm_fd[0] = -1;
+		return 1;
+	}
 	mm_map_segment(0);
 	mm_head->clean = 0;
 	for (i = 1; i < head.of_segments; i++) {

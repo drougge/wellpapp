@@ -306,6 +306,7 @@ extern const char * const *filetype_names;
 extern const char * const *rating_names;
 extern const char * const *tagtype_names;
 extern const char * const *cap_names;
+extern md5_t config_md5;
 
 extern const char *basedir;
 
