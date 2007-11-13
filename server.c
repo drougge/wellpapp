@@ -1,20 +1,11 @@
 #include "db.h"
 
-#include <signal.h>
-
 connection_t *logconn;
 
 static int dummy_error(connection_t *conn, const char *msg) {
 	(void)conn;
 	(void)msg;
 	return 1;
-}
-
-static void sig_dump(int sig) {
-	(void)sig;
-	printf("Dumping complete log..\n");
-	log_dump();
-	printf("Dump done.\n");
 }
 
 int main(int argc, char **argv) {
@@ -39,7 +30,6 @@ int main(int argc, char **argv) {
 	}
 	mm_print();
 	log_init();
-	signal(SIGUSR1, sig_dump);
 	printf("serving..\n");
 	db_serve();
 	printf("Cleaning up mm..\n");

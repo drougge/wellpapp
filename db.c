@@ -277,6 +277,8 @@ void populate_from_log(const char *filename) {
 
 struct pollfd fds[MAX_CONNECTIONS + 1];
 connection_t connections[MAX_CONNECTIONS];
+int connection_count = 0;
+int server_running = 1;
 static user_t anonymous;
 
 static void new_connection(void) {
@@ -302,6 +304,7 @@ static void new_connection(void) {
 		conn->user = &anonymous;
 		conn->flags = CONNFLAG_GOING;
 		conn->error = client_error;
+		connection_count++;
 	}
 }
 
@@ -331,7 +334,7 @@ void db_serve(void) {
 	assert(!r);
 	fds[MAX_CONNECTIONS].fd = s;
 
-	while (1) {
+	while (server_running) {
 		r = poll(fds, MAX_CONNECTIONS + 1, INFTIM);
 		assert(r != -1);
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
@@ -344,6 +347,7 @@ void db_serve(void) {
 				if (!(connections[i].flags & CONNFLAG_GOING)) {
 					close(fds[i].fd);
 					fds[i].fd = -1;
+					connection_count--;
 				}
 			}
 		}

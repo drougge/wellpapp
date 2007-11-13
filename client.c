@@ -479,6 +479,9 @@ static void modifying_command(connection_t *conn,
 	if (ok) c_printf(conn, "OK\n");
 }
 
+extern int connection_count;
+extern int server_running;
+
 void client_handle(connection_t *conn) {
 	char *buf = conn->linebuf;
 	switch (*buf) {
@@ -519,6 +522,21 @@ void client_handle(connection_t *conn) {
 					c_printf(conn, "E\n");
 				}
 			} while (0);
+			break;
+		case ' ': // Special commands. Hopefully tmp.
+			if (connection_count > 1) {
+				c_printf(conn, "E other connections\n");
+				break;
+			}
+			if (!strcmp(buf, " dump")) {
+				c_printf(conn, "...\n");
+				c_flush(conn);
+				log_dump();
+				c_printf(conn, "OK\n");
+			} else if (!strcmp(buf, " quit")) {
+				server_running = 0;
+				c_printf(conn, "poof!\n");
+			}
 			break;
 		default:
 			close_error(conn, E_COMMAND);
