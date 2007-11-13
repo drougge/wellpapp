@@ -185,6 +185,7 @@ broken_post_data_t broken_post_data[] = {
 	{"76b17546d3406da390f47943b768e985", 533, 400},
 	{"4320ee3c21b4e57e5d37773abb4a2e91", 482, 700},
 	{"543f3e21e9a48062c6ab2c57357b4e20", 900, 634},
+	{NULL, 0, 0}
 };
 
 static void fix_broken_post(const char *md5str, post_t *post) {
@@ -361,6 +362,7 @@ int main(void) {
 	int          r = 0;
 	user_t       loguser_;
 	connection_t logconn_;
+	int          mm_r;
 
 	loguser_.name = "LOG-READER";
 	loguser_.caps = ~0;
@@ -374,7 +376,8 @@ int main(void) {
 
 	db_read_cfg();
 	printf("initing mm..\n");
-	mm_init(0);
+	mm_r = mm_init();
+	assert(mm_r == 1);
 	printf("populating from db..\n");
 	PGconn *conn = PQconnectdb("user=danbooru");
 	err(!conn, 2);
@@ -384,6 +387,8 @@ int main(void) {
 	/*
 	printf("mapd   %p\nstackd %p\nheapd  %p.\n", (void *)posttree, (void *)&conn, (void *)malloc(4));
 	*/
+	printf("Cleaning up mm..\n");
+	mm_cleanup();
 err:
 	return r;
 }

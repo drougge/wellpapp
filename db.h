@@ -261,7 +261,8 @@ void rbtree_free(rbtree_head_t *head);
 int rbtree_count(rbtree_head_t *head);
 rbtree_key_t rbtree_str2key(const char *str);
 
-int  mm_init(int use_existing);
+int  mm_init(void);
+void mm_cleanup(void);
 void *mm_alloc(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);

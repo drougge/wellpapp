@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
 	db_read_cfg();
 	printf("initing mm..\n");
-	if (mm_init(!access("/tmp/db/mm_cache/00000000", F_OK))) {
+	if (mm_init()) {
 		assert(argc == 2);
 		populate_from_log(argv[1]);
 	}
@@ -42,5 +42,7 @@ int main(int argc, char **argv) {
 	signal(SIGUSR1, sig_dump);
 	printf("serving..\n");
 	db_serve();
-	return 1;
+	printf("Cleaning up mm..\n");
+	mm_cleanup();
+	return 0;
 }

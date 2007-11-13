@@ -28,7 +28,7 @@ typedef struct mm_head {
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
-	uint32_t      pad0;
+	uint32_t      clean;
 	uint32_t      magic1;
 } mm_head_t;
 
@@ -36,6 +36,9 @@ typedef struct mm_head {
 
 #define MM_BASE_ADDR ((uint8_t *)(1024 * 1024 * 1024))
 #define MM_SEGMENT_SIZE (4 * 1024 * 1024)
+#define MM_MAX_SEGMENTS 1024
+
+static int mm_fd[MM_MAX_SEGMENTS];
 
 static mm_head_t *mm_head;
 
@@ -46,22 +49,30 @@ uint64_t *logdumpindex;
 static int mm_open_segment(unsigned int nr, int flags) {
 	char fn[1024];
 	int  fd;
+	int  len;
 
-	snprintf(fn, sizeof(fn), "%s/mm_cache/%08x", basedir, nr);
+	assert(nr < MM_MAX_SEGMENTS && mm_fd[nr] == -1);
+	len = snprintf(fn, sizeof(fn), "%s/mm_cache/%08x", basedir, nr);
+	assert(len < (int)sizeof(fn));
 	fd = open(fn, flags, 0600);
-	assert(fd >= 0);
+	mm_fd[nr] = fd;
 	return fd;
 }
 
-static void *mm_map_segment(unsigned int nr, int fd) {
+static void *mm_map_segment(unsigned int nr) {
 	uint8_t *addr, *want_addr;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
 	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE,
-	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, fd, 0);
-	close(fd);
+	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, mm_fd[nr], 0);
 	assert(addr == want_addr);
 	return addr;
+}
+
+static void mm_unmap_segment(unsigned int nr) {
+	uint8_t *addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
+	int r = munmap(addr, MM_SEGMENT_SIZE);
+	assert(!r);
 }
 
 static void mm_new_segment(void) {
@@ -72,7 +83,8 @@ static void mm_new_segment(void) {
 	unsigned int z;
 
 	nr = mm_head ? mm_head->of_segments : 0;
-	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_EXCL);
+	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_TRUNC | O_EXLOCK);
+	assert(fd >= 0);
 	memset(buf, 0, sizeof(buf));
 	z = MM_SEGMENT_SIZE;
 	while (z) {
@@ -81,8 +93,7 @@ static void mm_new_segment(void) {
 		assert(len > 0);
 		z -= len;
 	}
-	addr = mm_map_segment(nr, fd);
-	close(fd);
+	addr = mm_map_segment(nr);
 	if (mm_head) {
 		mm_head->size   += MM_SEGMENT_SIZE;
 		mm_head->wasted += mm_head->free;
@@ -93,7 +104,7 @@ static void mm_new_segment(void) {
 	}
 }
 
-static int lock_fd;
+static int mm_lock_fd = -1;
 
 static void mm_init_new(void) {
 	int r;
@@ -117,7 +128,6 @@ static void mm_init_new(void) {
 	r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 	r |= rbtree_init(usertree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 	assert(!r);
-	lock_fd = mm_open_segment(0, O_RDWR);
 }
 
 static int mm_init_old(void) {
@@ -127,21 +137,32 @@ static int mm_init_old(void) {
 
 	fd = mm_open_segment(0, O_RDWR);
 	if (fd == -1) return 1;
-	lock_fd = dup(fd);
-	assert(lock_fd != -1);
 	read(fd, &head, sizeof(head));
 	assert(head.magic0 == MM_MAGIC0);
 	assert(head.magic1 == MM_MAGIC1);
-	mm_map_segment(0, fd);
+	assert(head.addr == MM_BASE_ADDR);
+	assert(head.segment_size == MM_SEGMENT_SIZE);
+	assert(head.clean);
+	mm_map_segment(0);
+	mm_head->clean = 0;
 	for (i = 1; i < head.of_segments; i++) {
 		fd = mm_open_segment(i, O_RDWR);
-		mm_map_segment(i, fd);
+		assert(fd >= 0);
+		mm_map_segment(i);
 	}
 	return 0;
 }
 
-/* Note that this returns whether it succeeded in using the old cache. */
-int mm_init(int use_existing) {
+/* Note that this returns 1 for a new cache, not failure as such. */
+int mm_init(void) {
+	char  fn[1024];
+	int   i;
+	int   len;
+	char  clean;
+	int   r;
+	off_t pos;
+
+	for (i = 0; i < MM_MAX_SEGMENTS; i++) mm_fd[i] = -1;
 	mm_head = (mm_head_t *)MM_BASE_ADDR;
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
 	tag_guid_last = mm_head->tag_guid_last;
@@ -152,11 +173,47 @@ int mm_init(int use_existing) {
 	usertree      = &mm_head->usertree;
 	logindex      = &mm_head->logindex;
 	logdumpindex  = &mm_head->logdumpindex;
-	if (use_existing) {
+
+	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
+	assert(len < (int)sizeof(fn));
+	mm_lock_fd = open(fn, O_RDWR | O_CREAT | O_EXLOCK, 0600);
+	assert(mm_lock_fd != -1);
+	len = read(mm_lock_fd, &clean, 1);
+	if (len != 1) clean = 'U';
+	pos = lseek(mm_lock_fd, 0, SEEK_SET);
+	assert(pos == 0);
+	len = write(mm_lock_fd, "U", 1);
+	assert(len == 1);
+	r = fsync(mm_lock_fd);
+	assert(!r);
+	if (clean == 'C') {
 		if (!mm_init_old()) return 0;
 	}
 	mm_init_new();
 	return 1;
+}
+
+static void mm_sync(unsigned int nr) {
+	int r = fsync(mm_fd[nr]);
+	assert(!r);
+}
+
+void mm_cleanup(void) {
+	int   i;
+	off_t pos;
+
+	for (i = mm_head->of_segments - 1; i >= 0; i--) {
+		if (i == 0) {
+			mm_sync(0);
+			mm_head->clean = 1;
+		}
+		mm_unmap_segment(i);
+		mm_sync(i);
+	}
+	pos = lseek(mm_lock_fd, 0, SEEK_SET);
+	assert(pos == 0);
+	write(mm_lock_fd, "C", 1);
+	close(mm_lock_fd);
 }
 
 static void *mm_alloc_(unsigned int size, int unaligned) {
@@ -218,11 +275,11 @@ void mm_print(void) {
 }
 
 void mm_lock(void) {
-	int r = flock(lock_fd, LOCK_EX);
+	int r = flock(mm_fd[0], LOCK_EX);
 	assert(!r);
 }
 
 void mm_unlock(void) {
-	int r = flock(lock_fd, LOCK_UN);
+	int r = flock(mm_fd[0], LOCK_UN);
 	assert(!r);
 }
