@@ -59,9 +59,6 @@ static void trans_line_done_(trans_t *trans) {
 	char newline = '\n';
 	int len, wlen;
 
-	if (trans->conn && trans->conn->flags & CONNFLAG_LOG) {
-		return; // Log-reader doesn't log
-	}
 	if (trans->buf_used == trans->init_len) return;
 	iov[0].iov_base = idbuf;
 	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%016llx ",
@@ -85,6 +82,10 @@ static void log_write_(trans_t *trans, int complete,
                        const char *fmt, va_list ap) {
 	int looped = 0;
 	int len;
+
+	if (trans->conn && trans->conn->flags & CONNFLAG_LOG) {
+		return; // Log-reader doesn't log
+	}
 again:
 	if (trans->buf_used) {
 		assert(trans->buf_used < sizeof(trans->buf));
@@ -180,24 +181,26 @@ void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias) {
 	          tagalias->name);
 }
 
-static void log_int_field(trans_t *trans, int last, const void *data,
-                          const field_t *field) {
-	const char         *fp;
-	const char         *fmt;
-	unsigned long long value;
-
-	fp = ((const char *)data) + field->offset;
-	if (field->size == 8) {
-		value = *(const uint64_t *)fp;
-	} else if (field->size == 4) {
-		value = *(const uint32_t *)fp;
-	} else {
-		assert(field->size == 2);
-		value = *(const uint16_t *)fp;
+#define LOG_INT_FIELD_FUNC(signed, type, fmt)                       \
+	static void log_##signed##_field(trans_t *trans, int last,  \
+	                                 const void *data,          \
+	                                 const field_t *field) {    \
+		const char         *fp;                             \
+		signed long long   value;                           \
+		fp = ((const char *)data) + field->offset;          \
+		if (field->size == 8) {                             \
+			value = *(const type##64_t *)fp;            \
+		} else if (field->size == 4) {                      \
+			value = *(const type##32_t *)fp;            \
+		} else {                                            \
+			assert(field->size == 2);                   \
+			value = *(const type##16_t *)fp;            \
+		}                                                   \
+		log_write_nl(trans, last, fmt, field->name, value); \
 	}
-	fmt = (field->type == FIELDTYPE_SIGNED ? "%s=%lld" : "%s=%llu");
-	log_write_nl(trans, last, fmt, field->name, value);
-}
+
+LOG_INT_FIELD_FUNC(signed, int, "%s=%lld")
+LOG_INT_FIELD_FUNC(unsigned, uint, "%s=%llu")
 
 static void log_enum_field(trans_t *trans, int last, const void *data,
                            const field_t *field) {
@@ -218,8 +221,8 @@ void log_write_post(trans_t *trans, const post_t *post) {
 	const field_t *field = post_fields;
 	const char    *md5 = md5_md52str(post->md5);
 	void (*func[])(trans_t *, int, const void *, const field_t *) = {
-	                log_int_field,
-	                log_int_field,
+	                log_unsigned_field,
+	                log_signed_field,
 	                log_enum_field,
 	                log_string_field,
 	};
