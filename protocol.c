@@ -188,7 +188,7 @@ const field_t post_fields[] = {
 };
 
 /* I need a setter for both signed and unsigned ints. This is mostly *
- * the same function but with differect types. The magnificent       *
+ * the same function but with different types. The magnificent       *
  * preprocessor comes to the rescue!                                 */
 
 #define PUT_INT_VALUE_INNER(type, bytes)                  \
