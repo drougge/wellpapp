@@ -225,7 +225,7 @@ static void populate_from_log_line(char *line) {
 }
 
 #define MAX_CONCURRENT_TRANSACTIONS 64
-static int find_trans(uint32_t *trans, uint32_t needle) {
+static int find_trans(trans_id_t *trans, trans_id_t needle) {
 	int i;
 	for (i = 0; i < MAX_CONCURRENT_TRANSACTIONS; i++) {
 		if (trans[i] == needle) return i;
@@ -234,10 +234,10 @@ static int find_trans(uint32_t *trans, uint32_t needle) {
 }
 
 int populate_from_log(const char *filename, void (*callback)(const char *line)) {
-	FILE     *fh;
-	char     buf[4096];
-	uint32_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
-	int      len;
+	FILE       *fh;
+	char       buf[4096];
+	trans_id_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
+	int        len;
 
 	fh = fopen(filename, "r");
 	if (!fh) {
@@ -245,30 +245,30 @@ int populate_from_log(const char *filename, void (*callback)(const char *line)) 
 		return 1;
 	}
 	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
-		char     *end;
-		uint32_t tid = strtoul(buf + 1, &end, 16);
-		assert(end == buf + 9);
+		char       *end;
+		trans_id_t tid = strtoul(buf + 1, &end, 16);
+		assert(end == buf + 17);
 		if (*buf == 'T') { // New transaction
-			assert(len == 10);
-			if (buf[9] == 'O') { // Complete transaction
+			assert(len == 18);
+			if (buf[17] == 'O') { // Complete transaction
 				int trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
-			} else if (buf[9] == 'U') { // Unfinished transaction
+			} else if (buf[17] == 'U') { // Unfinished transaction
 				// Do nothing
 			} else { // What?
 				assert(0);
 			}
 		} else if (*buf == 'D') { // Data from transaction
-			assert(len > 10);
+			assert(len > 18);
 			if (find_trans(trans, tid) >= 0) {
-				populate_from_log_line(buf + 10);
+				populate_from_log_line(buf + 18);
 			} else {
 				printf("Skipping data from incomplete transaction: %s\n", buf);
 			}
 		} else if (*buf == 'E') { // End of transaction
 			int pos;
-			assert(len == 9);
+			assert(len == 17);
 			pos = find_trans(trans, tid);
 			if (pos != -1) trans[pos] = 0;
 		} else { // What?
