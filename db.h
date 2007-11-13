@@ -310,3 +310,5 @@ extern const char * const *cap_names;
 extern const char *basedir;
 
 extern connection_t *logconn;
+
+extern int server_running;

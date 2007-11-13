@@ -342,7 +342,10 @@ void db_serve(void) {
 
 	while (server_running) {
 		r = poll(fds, MAX_CONNECTIONS + 1, INFTIM);
-		assert(r != -1);
+		if (r == -1) {
+			assert(!server_running);
+			return;
+		}
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
 			if (fds[i].revents & POLLIN) {

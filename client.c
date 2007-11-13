@@ -480,7 +480,6 @@ static void modifying_command(connection_t *conn,
 }
 
 extern int connection_count;
-extern int server_running;
 
 void client_handle(connection_t *conn) {
 	char *buf = conn->linebuf;

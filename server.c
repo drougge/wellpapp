@@ -1,5 +1,6 @@
 #include "db.h"
 
+#include <signal.h>
 #include <dirent.h>
 
 connection_t *logconn;
@@ -69,6 +70,11 @@ static void populate_from_dump(void) {
 	printf("Log recovery complete.\n");
 }
 
+static void sig_die(int sig) {
+	(void)sig;
+	server_running = 0;
+}
+
 int main(void) {
 	user_t       loguser_;
 	connection_t logconn_;
@@ -89,6 +95,7 @@ int main(void) {
 	mm_print();
 	log_init();
 	printf("serving..\n");
+	signal(SIGINT, sig_die);
 	db_serve();
 	printf("Cleaning up mm..\n");
 	mm_cleanup();
