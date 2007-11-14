@@ -247,7 +247,7 @@ int populate_from_log(const char *filename, void (*callback)(const char *line)) 
 	}
 	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
 		char       *end;
-		trans_id_t tid = strtoul(buf + 1, &end, 16);
+		trans_id_t tid = strtoull(buf + 1, &end, 16);
 		assert(end == buf + 17);
 		if (*buf == 'T') { // New transaction
 			assert(len == 34);
