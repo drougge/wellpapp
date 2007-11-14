@@ -23,7 +23,8 @@ static void trans_sync(trans_t *trans) {
 	}
 }
 
-static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
+static void log_trans_start_(trans_t *trans, const user_t *user,
+                             time_t now, int fd) {
 	char buf[20];
 	unsigned int len, r;
 	
@@ -33,6 +34,7 @@ static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	trans->user     = user;
 	trans->fd       = fd;
 	trans->conn     = NULL;
+	trans->now      = now;
 	mm_lock();
 	trans->id = next_trans_id++;
 	mm_unlock();
@@ -48,8 +50,8 @@ static void log_trans_start_(trans_t *trans, const user_t *user, int fd) {
 	trans->mark_offset -= 2;
 }
 
-void log_trans_start(connection_t *conn) {
-	log_trans_start_(&conn->trans, conn->user, log_fd);
+void log_trans_start(connection_t *conn, time_t now) {
+	log_trans_start_(&conn->trans, conn->user, now, log_fd);
 	conn->trans.conn = conn;
 }
 
@@ -328,7 +330,7 @@ void log_dump(void) {
 	assert(fd != -1);
 	*logdumpindex += 1;
 
-	log_trans_start_(&dump_trans, logconn->user, fd);
+	log_trans_start_(&dump_trans, logconn->user, time(NULL), fd); // @@@ wrong time (needs many transactions)
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);

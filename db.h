@@ -202,6 +202,7 @@ typedef struct trans {
 	transflag_t  flags;
 	const user_t *user;
 	connection_t *conn;
+	time_t       now;
 	char         buf[4000];
 } trans_t;
 
@@ -209,7 +210,7 @@ typedef struct trans {
 
 typedef int (*prot_err_func_t)(connection_t *conn, const char *msg);
 typedef int (*prot_cmd_func_t)(connection_t *conn, const char *cmd,
-                               void *data, prot_cmd_flag_t flags, time_t now);
+                               void *data, prot_cmd_flag_t flags);
 
 typedef enum {
 	CONNFLAG_GOING = 1, // Connection is still in use
@@ -233,10 +234,10 @@ struct connection {
 
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
-                  prot_cmd_func_t func, prot_cmd_flag_t flags, time_t now);
-int prot_tag_post(connection_t *conn, char *cmd, time_t now);
-int prot_add(connection_t *conn, char *cmd, time_t now);
-int prot_modify(connection_t *conn, char *cmd, time_t now);
+                  prot_cmd_func_t func, prot_cmd_flag_t flags);
+int prot_tag_post(connection_t *conn, char *cmd);
+int prot_add(connection_t *conn, char *cmd);
+int prot_modify(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
@@ -276,7 +277,7 @@ void client_read_data(connection_t *conn);
 int client_get_line(connection_t *conn);
 void client_handle(connection_t *conn);
 
-void log_trans_start(connection_t *conn);
+void log_trans_start(connection_t *conn, time_t now);
 void log_trans_end(connection_t *conn);
 void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);

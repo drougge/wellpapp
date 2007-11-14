@@ -181,7 +181,7 @@ static int sort_search(const void *_t1, const void *_t2) {
 }
 
 static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
-                            prot_cmd_flag_t flags, time_t now) {
+                            prot_cmd_flag_t flags) {
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -190,7 +190,6 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 	int        r;
 
 	(void)flags;
-	(void)now;
 
 	switch(*cmd) {
 		case 'T': // Tag
@@ -258,7 +257,7 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 
 static int build_search(connection_t *conn, char *cmd, search_t *search) {
 	memset(search, 0, sizeof(*search));
-	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE, 0)) return 1;
+	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
 	if (!search->of_tags && !search->post) {
 		return conn->error(conn, "E Specify at least one included tag");
 	}
@@ -471,12 +470,11 @@ static void tag_search(connection_t *conn, const char *spec) {
 }
 
 static void modifying_command(connection_t *conn,
-                              int (*func)(connection_t *, char *, time_t),
-                              char *cmd) {
+                              int (*func)(connection_t *, char *), char *cmd) {
 	int ok;
 
-	log_trans_start(conn);
-	ok = !func(conn, cmd, time(NULL));
+	log_trans_start(conn, time(NULL));
+	ok = !func(conn, cmd);
 	log_trans_end(conn);
 	if (ok) c_printf(conn, "OK\n");
 }

@@ -207,19 +207,16 @@ static int read_log_line(FILE *fh, char *buf, int len) {
 }
 
 static void populate_from_log_line(char *line) {
-	time_t now;
-	int    r;
-
-now = 0;
+	int r;
 	switch (*line) {
 		case 'A': // 'A'dd something
-			r = prot_add(logconn, line + 1, now);
+			r = prot_add(logconn, line + 1);
 			break;
 		case 'T': // 'T'ag post
-			r = prot_tag_post(logconn, line + 1, now);
+			r = prot_tag_post(logconn, line + 1);
 			break;
 		case 'M': // 'M'odify post
-			r = prot_modify(logconn, line + 1, now);
+			r = prot_modify(logconn, line + 1);
 			break;
 		default:
 			printf("Log: What? %s\n", line);

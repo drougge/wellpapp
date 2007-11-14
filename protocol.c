@@ -5,7 +5,7 @@
 #include <time.h>
 
 static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
-                        prot_cmd_flag_t flags, time_t now) {
+                        prot_cmd_flag_t flags) {
 	post_t     **post = post_;
 	const char *args = cmd + 1;
 
@@ -40,12 +40,12 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 			return conn->error(conn, cmd);
 			break;
 	}
-	if (*cmd != 'P' && *post) (*post)->modified = now;
+	if (*cmd != 'P' && *post) (*post)->modified = conn->trans.now;
 	return 0;
 }
 
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
-                  prot_cmd_func_t func, prot_cmd_flag_t flags, time_t now) {
+                  prot_cmd_func_t func, prot_cmd_flag_t flags) {
 	while (*cmd) {
 		int  len = 0;
 		while (cmd[len] && cmd[len] != ' ') len++;
@@ -54,15 +54,15 @@ int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
 			len++;
 		}
 		if (!cmd[len]) flags |= CMDFLAG_LAST;
-		if (func(conn, cmd, data, flags, now)) return 1;
+		if (func(conn, cmd, data, flags)) return 1;
 		cmd += len;
 	}
 	return 0;
 }
 
-int prot_tag_post(connection_t *conn, char *cmd, time_t now) {
+int prot_tag_post(connection_t *conn, char *cmd) {
 	post_t *post = NULL;
-	return prot_cmd_loop(conn, cmd, &post, tag_post_cmd, CMDFLAG_NONE, now);
+	return prot_cmd_loop(conn, cmd, &post, tag_post_cmd, CMDFLAG_NONE);
 }
 
 static int error1(connection_t *conn, char *cmd) {
@@ -85,7 +85,7 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array,
 }
 
 static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
-                       prot_cmd_flag_t flags, time_t now) {
+                       prot_cmd_flag_t flags) {
 	tag_t      *tag = *(tag_t **)data;
 	int        r;
 	const char *args = cmd + 1;
@@ -136,7 +136,7 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 }
 
 static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
-                         prot_cmd_flag_t flags, time_t now) {
+                         prot_cmd_flag_t flags) {
 	tagalias_t *tagalias = *(tagalias_t **)data;
 	const char *args = cmd + 1;
 
@@ -263,7 +263,7 @@ static int put_in_post_field(const user_t *user, post_t *post, const char *str,
 }
 
 static int post_cmd(connection_t *conn, const char *cmd, void *data,
-                    prot_cmd_flag_t flags, time_t now) {
+                    prot_cmd_flag_t flags) {
 	post_t     *post = *(post_t **)data;
 	const char *eqp;
 
@@ -274,7 +274,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 		if (put_in_post_field(conn->user, post, cmd, len)) {
 			return conn->error(conn, cmd);
 		}
-		post->modified = now;
+		post->modified = conn->trans.now;
 		if (flags & CMDFLAG_MODIFY) log_write(&conn->trans, "%s", cmd);
 	} else { // This is the md5
 		if (flags & CMDFLAG_MODIFY) {
@@ -318,7 +318,7 @@ static user_t *user_find(const char *name) {
 }
 
 static int user_cmd(connection_t *conn, const char *cmd, void *data,
-                    prot_cmd_flag_t flags, time_t now) {
+                    prot_cmd_flag_t flags) {
 	user_t     *moduser = *(user_t **)data;
 	const char *args = cmd + 1;
 	const char *name;
@@ -377,7 +377,7 @@ static int user_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-int prot_add(connection_t *conn, char *cmd, time_t now) {
+int prot_add(connection_t *conn, char *cmd) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -404,10 +404,10 @@ int prot_add(connection_t *conn, char *cmd, time_t now) {
 		default:
 			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_NONE, now);
+	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_NONE);
 }
 
-int prot_modify(connection_t *conn, char *cmd, time_t now) {
+int prot_modify(connection_t *conn, char *cmd) {
 	prot_cmd_func_t func;
 	void *data = NULL;
 
@@ -421,7 +421,7 @@ int prot_modify(connection_t *conn, char *cmd, time_t now) {
 		default:
 			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_MODIFY, now);
+	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_MODIFY);
 }
 
 user_t *prot_auth(char *cmd) {
