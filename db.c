@@ -250,11 +250,13 @@ int populate_from_log(const char *filename, void (*callback)(const char *line)) 
 		trans_id_t tid = strtoul(buf + 1, &end, 16);
 		assert(end == buf + 17);
 		if (*buf == 'T') { // New transaction
-			assert(len == 18);
+			assert(len == 34);
 			if (buf[17] == 'O') { // Complete transaction
 				int trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
+				logconn->trans.now = strtoull(buf + 18, &end, 16);
+				assert(end == buf + 34);
 			} else if (buf[17] == 'U') { // Unfinished transaction
 				// Do nothing
 			} else { // What?
