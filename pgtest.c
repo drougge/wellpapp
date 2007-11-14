@@ -358,7 +358,7 @@ err:
 	return r;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
 	int          r = 0;
 	user_t       loguser_;
 	connection_t logconn_;
@@ -374,7 +374,8 @@ int main(void) {
 	logconn->flags = CONNFLAG_LOG;
 	logconn->trans.conn = logconn;
 
-	db_read_cfg();
+	assert(argc == 2);
+	db_read_cfg(argv[1]);
 	printf("initing mm..\n");
 	mm_r = mm_init();
 	assert(mm_r == 1);

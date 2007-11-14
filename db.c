@@ -411,13 +411,13 @@ static guid_t server_guid_;
 
 md5_t config_md5;
 
-void db_read_cfg(void) {
+void db_read_cfg(const char *filename) {
 	char    buf[1024];
 	FILE    *fh;
 	MD5_CTX ctx;
 
 	MD5Init(&ctx);
-	fh = fopen("db.conf", "r");
+	fh = fopen(filename, "r");
 	assert(fh);
 	while (fgets(buf, sizeof(buf), fh)) {
 		int len = strlen(buf);

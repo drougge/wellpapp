@@ -75,7 +75,7 @@ static void sig_die(int sig) {
 	server_running = 0;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
 	user_t       loguser_;
 	connection_t logconn_;
 
@@ -89,7 +89,8 @@ int main(void) {
 	logconn->flags = CONNFLAG_LOG;
 	logconn->trans.conn = logconn;
 
-	db_read_cfg();
+	assert(argc == 2);
+	db_read_cfg(argv[1]);
 	printf("initing mm..\n");
 	if (mm_init()) populate_from_dump();
 	mm_print();

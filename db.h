@@ -250,7 +250,7 @@ const char *md5_md52str(const md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
 int populate_from_log(const char *filename, void (*callback)(const char *line));
 void db_serve(void);
-void db_read_cfg(void);
+void db_read_cfg(const char *filename);
 int str2id(const char *str, const char * const *ids);
 
 typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
