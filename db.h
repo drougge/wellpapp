@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <time.h>
 
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
@@ -208,7 +209,7 @@ typedef struct trans {
 
 typedef int (*prot_err_func_t)(connection_t *conn, const char *msg);
 typedef int (*prot_cmd_func_t)(connection_t *conn, const char *cmd,
-                               void *data, prot_cmd_flag_t flags);
+                               void *data, prot_cmd_flag_t flags, time_t now);
 
 typedef enum {
 	CONNFLAG_GOING = 1, // Connection is still in use
@@ -232,10 +233,10 @@ struct connection {
 
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
-                  prot_cmd_func_t func, prot_cmd_flag_t flags);
-int prot_tag_post(connection_t *conn, char *cmd);
-int prot_add(connection_t *conn, char *cmd);
-int prot_modify(connection_t *conn, char *cmd);
+                  prot_cmd_func_t func, prot_cmd_flag_t flags, time_t now);
+int prot_tag_post(connection_t *conn, char *cmd, time_t now);
+int prot_add(connection_t *conn, char *cmd, time_t now);
+int prot_modify(connection_t *conn, char *cmd, time_t now);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);

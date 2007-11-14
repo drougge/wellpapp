@@ -232,7 +232,7 @@ static int populate_from_db(PGconn *conn) {
 	}
 
 	/* drougge/apa */
-	r = prot_add(logconn, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"));
+	r = prot_add(logconn, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"), time(NULL));
 	assert(!r);
 	tags  = calloc(MAX_TAGS , sizeof(void *));
 	posts = calloc(MAX_POSTS, sizeof(void *));
