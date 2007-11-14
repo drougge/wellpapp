@@ -279,6 +279,8 @@ void log_init(void) {
  ** Below here is only dumping **
  ********************************/
 static trans_t dump_trans;
+static int     dump_fd;
+
 static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
 	(void)key;
 	log_write_tag(&dump_trans, (tag_t *)value);
@@ -306,11 +308,13 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	post_t *post = (post_t *)value;
 
 	(void)key;
+	log_trans_start_(&dump_trans, logconn->user, post->modified, dump_fd);
+	dump_trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&dump_trans, post);
 	log_set_init(&dump_trans, "TP%s", md5_md52str(post->md5));
 	post_taglist(&post->tags, "");
 	post_taglist(post->weak_tags, "~");
-	log_clear_init(&dump_trans);
+	log_trans_end_(&dump_trans);
 }
 
 static void user_iter(rbtree_key_t key, rbtree_value_t value) {
@@ -321,27 +325,29 @@ static void user_iter(rbtree_key_t key, rbtree_value_t value) {
 void log_dump(void) {
 	char filename[1024];
 	int  len, w;
-	int  fd;
 	char buf[20];
 
 	len = snprintf(filename, sizeof(filename), "%s/dump/%016llx",
 	               basedir, (unsigned long long)*logdumpindex);
 	assert(len < (int)sizeof(filename));
-	fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
-	assert(fd != -1);
+	dump_fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK, 0666);
+	assert(dump_fd != -1);
 	*logdumpindex += 1;
 
-	log_trans_start_(&dump_trans, logconn->user, time(NULL), fd); // @@@ wrong time (needs many transactions)
+	/* Users, tags and tagaliases are dumped in a single transaction      *
+	 * with the current time. Posts are dumped in individual transactions *
+	 * with the modification time of the post.                            */
+	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
 	rbtree_iterate(usertree, user_iter);
 	rbtree_iterate(tagtree, tag_iter);
 	rbtree_iterate(tagaliastree, tagalias_iter);
-	rbtree_iterate(posttree, post_iter);
 	log_trans_end_(&dump_trans);
+	rbtree_iterate(posttree, post_iter);
 
 	len = snprintf(buf, sizeof(buf), "L%016llx\n",
 	               (unsigned long long)*logindex);
 	assert(len == 18);
-	w = write(fd, buf, len);
+	w = write(dump_fd, buf, len);
 	assert(len == w);
-	close(fd);
+	close(dump_fd);
 }
