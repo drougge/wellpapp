@@ -25,7 +25,7 @@ static void trans_sync(trans_t *trans) {
 
 static void log_trans_start_(trans_t *trans, const user_t *user,
                              time_t now, int fd) {
-	char buf[20];
+	char buf[36];
 	unsigned int len, r;
 	
 	trans->init_len = 0;
@@ -38,16 +38,17 @@ static void log_trans_start_(trans_t *trans, const user_t *user,
 	mm_lock();
 	trans->id = next_trans_id++;
 	mm_unlock();
-	len = snprintf(buf, sizeof(buf), "T%016llxU\n",
-	               (unsigned long long)trans->id);
-	assert(len == 19);
+	len = snprintf(buf, sizeof(buf), "T%016llxU%016llx\n",
+	               (unsigned long long)trans->id,
+	               (unsigned long long)trans->now);
+	assert(len == 35);
 	trans_lock(trans);
 	r = write(trans->fd, buf, len);
 	trans->mark_offset = lseek(trans->fd, 0, SEEK_CUR);
 	trans_unlock(trans);
 	assert(r == len);
 	assert(trans->mark_offset != -1);
-	trans->mark_offset -= 2;
+	trans->mark_offset -= 18;
 }
 
 void log_trans_start(connection_t *conn, time_t now) {
