@@ -109,7 +109,7 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 	}
 	if (flags & CMDFLAG_LAST) {
-		rbtree_key_t key;
+		ss128_key_t  key;
 		unsigned int i;
 		ptr = (char *)&tag->guid;
 		for (i = 0; i < sizeof(tag->guid); i++) {
@@ -118,14 +118,14 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 		if (i == sizeof(tag->guid) || !tag->name) {
 			return conn->error(conn, cmd);
 		}
-		key = rbtree_str2key(tag->name);
+		key = ss128_str2key(tag->name);
 		mm_lock();
-		if (rbtree_insert(tagtree, tag, key)) {
+		if (ss128_insert(tagtree, tag, key)) {
 			mm_unlock();
 			return conn->error(conn, cmd);
 		}
-		if (rbtree_insert(tagguidtree, tag, tag->guid.key)) {
-			rbtree_delete(tagtree, key);
+		if (ss128_insert(tagguidtree, tag, tag->guid.key)) {
+			ss128_delete(tagtree, key);
 			mm_unlock();
 			return conn->error(conn, cmd);
 		}
@@ -152,14 +152,14 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 	}
 	if (flags & CMDFLAG_LAST) {
-		rbtree_key_t key;
+		ss128_key_t key;
 		if (!tagalias->tag || !tagalias->name) {
 			return conn->error(conn, cmd);
 		}
-		key = rbtree_str2key(tagalias->name);
+		key = ss128_str2key(tagalias->name);
 		mm_lock();
-		if (!rbtree_find(tagaliastree, NULL, key)
-		 || rbtree_insert(tagaliastree, tagalias, key)) {
+		if (!ss128_find(tagaliastree, NULL, key)
+		 || ss128_insert(tagaliastree, tagalias, key)) {
 		 	mm_unlock();
 		 	return conn->error(conn, cmd);
 		}
@@ -299,7 +299,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 		}
 		mm_lock();
-		r = rbtree_insert(posttree, post, post->md5.key);
+		r = ss128_insert(posttree, post, post->md5.key);
 		if (r) {
 			mm_unlock();
 			return conn->error(conn, cmd);
@@ -311,9 +311,9 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 }
 
 static user_t *user_find(const char *name) {
-	void         *user;
-	rbtree_key_t key = rbtree_str2key(name);
-	if (rbtree_find(usertree, &user, key)) return NULL;
+	void        *user;
+	ss128_key_t key = ss128_str2key(name);
+	if (ss128_find(usertree, &user, key)) return NULL;
 	return (user_t *)user;
 }
 
@@ -363,13 +363,13 @@ static int user_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 	}
 	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
-		rbtree_key_t key;
+		ss128_key_t key;
 		if (!moduser->name || !moduser->password) {
 			return conn->error(conn, cmd);
 		}
-		key = rbtree_str2key(moduser->name);
+		key = ss128_str2key(moduser->name);
 		mm_lock();
-		r = rbtree_insert(usertree, moduser, key);
+		r = ss128_insert(usertree, moduser, key);
 		mm_unlock();
 		if (r) return conn->error(conn, cmd);
 		log_write_user(&conn->trans, moduser);

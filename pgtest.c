@@ -10,21 +10,21 @@ connection_t *logconn;
 
 static void add_tag(const char *name, tag_t *tag) {
 	tag->name = mm_strdup(name);
-	if (rbtree_insert(tagtree, tag, rbtree_str2key(name))) {
+	if (ss128_insert(tagtree, tag, ss128_str2key(name))) {
 		assert(0);
 	}
-	if (rbtree_insert(tagguidtree, tag, tag->guid.key)) {
+	if (ss128_insert(tagguidtree, tag, tag->guid.key)) {
 		assert(0);
 	}
 }
 
 static void add_tagalias(const char *name, tag_t *tag) {
-	rbtree_key_t hash = rbtree_str2key(name);
-	tagalias_t   *alias;
+	ss128_key_t hash = ss128_str2key(name);
+	tagalias_t  *alias;
 	alias = mm_alloc(sizeof(*alias));
 	alias->name = mm_strdup(name);
 	alias->tag  = tag;
-	if (rbtree_insert(tagaliastree, alias, hash)) {
+	if (ss128_insert(tagaliastree, alias, hash)) {
 		assert(0);
 	}
 }
@@ -266,7 +266,7 @@ static int populate_from_db(PGconn *conn) {
 		}
 		posts[atol(PQgetvalue(res, i, 0))] = post;
 		fix_broken_post(PQgetvalue(res, i, 5), post);
-		if (rbtree_insert(posttree, post, *(rbtree_key_t *)post->md5.m)) {
+		if (ss128_insert(posttree, post, post->md5.key)) {
 			assert(0);
 		}
 	}

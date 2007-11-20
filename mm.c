@@ -20,11 +20,11 @@ typedef struct mm_head {
 	uint64_t      logindex;
 	uint64_t      logdumpindex;
 	uint32_t      tag_guid_last[2];
-	rbtree_head_t posttree;
-	rbtree_head_t tagtree;
-	rbtree_head_t tagaliastree;
-	rbtree_head_t tagguidtree;
-	rbtree_head_t usertree;
+	ss128_head_t  posttree;
+	ss128_head_t  tagtree;
+	ss128_head_t  tagaliastree;
+	ss128_head_t  tagguidtree;
+	ss128_head_t  usertree;
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
@@ -124,11 +124,11 @@ static void mm_init_new(void) {
 	mm_head->segment_size = MM_SEGMENT_SIZE;
 	mm_head->of_segments  = 1;
 	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
-	r  = rbtree_init(posttree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-	r |= rbtree_init(tagtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-	r |= rbtree_init(tagaliastree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-	r |= rbtree_init(tagguidtree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
-	r |= rbtree_init(usertree, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	r  = ss128_init(posttree);
+	r |= ss128_init(tagtree);
+	r |= ss128_init(tagaliastree);
+	r |= ss128_init(tagguidtree);
+	r |= ss128_init(usertree);
 	assert(!r);
 }
 

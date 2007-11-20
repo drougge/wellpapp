@@ -25,33 +25,22 @@ typedef uint16_t efs_u16_t;
 typedef uint32_t efs_u32_t;
 typedef uint64_t efs_u64_t;
 
-typedef struct rbtree_key {
+typedef struct ss128_key {
 	uint64_t a;
 	uint64_t b;
-} rbtree_key_t;
-typedef void *    rbtree_value_t;
+} ss128_key_t;
+typedef void * ss128_value_t;
 
-typedef enum {
-	RBTREE_ALLOCATION_POLICY_NORMAL,
-	RBTREE_ALLOCATION_POLICY_PREALLOC,
-	RBTREE_ALLOCATION_POLICY_CHUNKED
-} rbtree_allocation_policy_t;
+struct ss128_node;
+typedef struct ss128_node ss128_node_t;
 
-typedef struct rbtree_node {
-	struct rbtree_node *child[2];
-	struct rbtree_node *parent;
-	rbtree_key_t       key;
-	rbtree_value_t     value;
-	unsigned int       red : 1;
-} rbtree_node_t;
-
-typedef struct rbtree_head {
-	rbtree_node_t              *root;
-	rbtree_node_t              *freelist;
-	void                       *chunklist;
-	rbtree_allocation_policy_t allocation_policy;
-	int                        allocation_value;
-} rbtree_head_t;
+typedef struct ss128_head {
+	ss128_node_t *root;
+	ss128_node_t *freelist;
+	void         *chunklist;
+	int          allocation_policy;
+	int          allocation_value;
+} ss128_head_t;
 
 /* Keep enum and #define synced */
 /* OR:able flags */
@@ -71,14 +60,14 @@ typedef enum {
 #define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG)
 
 typedef union md5 {
-	uint8_t      m[16];
-	rbtree_key_t key;
+	uint8_t     m[16];
+	ss128_key_t key;
 } md5_t;
 
 typedef union guid {
-	uint8_t      data_u8[16];
-	uint32_t     data_u32[4];
-	rbtree_key_t key;
+	uint8_t     data_u8[16];
+	uint32_t    data_u32[4];
+	ss128_key_t key;
 } guid_t;
 
 typedef enum {
@@ -253,15 +242,15 @@ void db_serve(void);
 void db_read_cfg(const char *filename);
 int str2id(const char *str, const char * const *ids);
 
-typedef void (*rbtree_callback_t)(rbtree_key_t key, rbtree_value_t value);
-void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback);
-int rbtree_insert(rbtree_head_t *head, rbtree_value_t value, rbtree_key_t key);
-int rbtree_delete(rbtree_head_t *head, rbtree_key_t key);
-int rbtree_find(rbtree_head_t *head, rbtree_value_t *r_value, rbtree_key_t key);
-int rbtree_init(rbtree_head_t *head, rbtree_allocation_policy_t allocation_policy, int allocation_value);
-void rbtree_free(rbtree_head_t *head);
-int rbtree_count(rbtree_head_t *head);
-rbtree_key_t rbtree_str2key(const char *str);
+typedef void (*ss128_callback_t)(ss128_key_t key, ss128_value_t value);
+void ss128_iterate(ss128_head_t *head, ss128_callback_t callback);
+int ss128_insert(ss128_head_t *head, ss128_value_t value, ss128_key_t key);
+int ss128_delete(ss128_head_t *head, ss128_key_t key);
+int ss128_find(ss128_head_t *head, ss128_value_t *r_value, ss128_key_t key);
+int ss128_init(ss128_head_t *head);
+void ss128_free(ss128_head_t *head);
+int ss128_count(ss128_head_t *head);
+ss128_key_t ss128_str2key(const char *str);
 
 int  mm_init(void);
 void mm_cleanup(void);
@@ -298,11 +287,11 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 const char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
 
-extern rbtree_head_t *posttree;
-extern rbtree_head_t *tagtree;
-extern rbtree_head_t *tagaliastree;
-extern rbtree_head_t *tagguidtree;
-extern rbtree_head_t *usertree;
+extern ss128_head_t *posttree;
+extern ss128_head_t *tagtree;
+extern ss128_head_t *tagaliastree;
+extern ss128_head_t *tagguidtree;
+extern ss128_head_t *usertree;
 
 extern const char * const *filetype_names;
 extern const char * const *rating_names;

@@ -4,31 +4,50 @@
 
 #include <md5.h>
 
-#define efs_rbtree_count(bs, a)        rbtree_count(a)
-#define efs_rbtree_delete(bs, a, b)    rbtree_delete(a, b)
-#define efs_rbtree_find(bs, a, b, c)   rbtree_find(a, b, c)
-#define efs_rbtree_free(bs, a)         rbtree_free(a)
-#define efs_rbtree_init(bs, a, b, c)   rbtree_init(a, b, c)
-#define efs_rbtree_insert(bs, a, b, c) rbtree_insert(a, b, c)
+struct ss128_node {
+	struct ss128_node *child[2];
+	struct ss128_node *parent;
+	ss128_key_t       key;
+	ss128_value_t     value;
+	unsigned int      red : 1;
+};
 
-#define efs_rbtree_node_alloc(bs, a, b, c, d)      rbtree_node_alloc(a, b, c, d)
-#define efs_rbtree_alloc_chunk(bs, a)              rbtree_alloc_chunk(a)
-#define efs_rbtree_balance_after_insert(bs, a, b)  rbtree_balance_after_insert(a, b)
-#define efs_rbtree_rotate(bs, a, b, c)             rbtree_rotate(a, b, c)
-#define efs_rbtree_node_free(bs, a, b)             rbtree_node_free(a, b)
-#define efs_rbtree_balance_before_delete(bs, a, b) rbtree_balance_before_delete(a, b)
-#define efs_rbtree_free_i(bs, a)                   rbtree_free_i(a)
+typedef enum {
+	RBTREE_ALLOCATION_POLICY_NORMAL,
+	RBTREE_ALLOCATION_POLICY_PREALLOC,
+	RBTREE_ALLOCATION_POLICY_CHUNKED
+} rbtree_allocation_policy_t;
 
-#define efs_rbtree_key_t   rbtree_key_t
-#define efs_rbtree_value_t rbtree_value_t
+#define efs_rbtree_count(bs, a)        ss128_count(a)
+#define efs_rbtree_delete(bs, a, b)    ss128_delete(a, b)
+#define efs_rbtree_find(bs, a, b, c)   ss128_find(a, b, c)
+#define efs_rbtree_free(bs, a)         ss128_free(a)
+#define efs_rbtree_init(bs, a, b, c)   ss128_init_(a, b, c)
+#define efs_rbtree_insert(bs, a, b, c) ss128_insert(a, b, c)
+
+#define efs_rbtree_node_alloc(bs, a, b, c, d)      ss128_node_alloc(a, b, c, d)
+#define efs_rbtree_alloc_chunk(bs, a)              ss128_alloc_chunk(a)
+#define efs_rbtree_balance_after_insert(bs, a, b)  ss128_balance_after_insert(a, b)
+#define efs_rbtree_rotate(bs, a, b, c)             ss128_rotate(a, b, c)
+#define efs_rbtree_node_free(bs, a, b)             ss128_node_free(a, b)
+#define efs_rbtree_balance_before_delete(bs, a, b) ss128_balance_before_delete(a, b)
+#define efs_rbtree_free_i(bs, a)                   ss128_free_i(a)
+
+#define efs_rbtree_key_t   ss128_key_t
+#define efs_rbtree_value_t ss128_value_t
 
 #define efs_rbtree_allocation_policy_t        rbtree_allocation_policy_t
 #define EFS_RBTREE_ALLOCATION_POLICY_NORMAL   RBTREE_ALLOCATION_POLICY_NORMAL
 #define EFS_RBTREE_ALLOCATION_POLICY_PREALLOC RBTREE_ALLOCATION_POLICY_PREALLOC
 #define EFS_RBTREE_ALLOCATION_POLICY_CHUNKED  RBTREE_ALLOCATION_POLICY_CHUNKED
 
-#define efs_rbtree_node_t rbtree_node_t
-#define efs_rbtree_head_t rbtree_head_t
+#define efs_rbtree_node_t ss128_node_t
+#define efs_rbtree_head_t ss128_head_t
+
+int efs_rbtree_init(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_allocation_policy_t allocation_policy, int allocation_value);
+int ss128_init(ss128_head_t *head) {
+	return efs_rbtree_init(NULL, head, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+}
 
 #define panic(bs, a) do_panic(a)
 static void do_panic(const char *msg) {
@@ -48,27 +67,27 @@ static int allocmem(void *res, unsigned int z) {
 
 #define efs_freemem(dummy1, ptr, dummy2) mm_free(ptr)
 
-static void rbtree_iterate_i(rbtree_node_t *node, rbtree_callback_t callback) {
-	if (node->child[0]) rbtree_iterate_i(node->child[0], callback);
+static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback) {
+	if (node->child[0]) ss128_iterate_i(node->child[0], callback);
 	callback(node->key, node->value);
-	if (node->child[1]) rbtree_iterate_i(node->child[1], callback);
+	if (node->child[1]) ss128_iterate_i(node->child[1], callback);
 }
 
-void rbtree_iterate(rbtree_head_t *head, rbtree_callback_t callback) {
-	rbtree_iterate_i(head->root, callback);
+void ss128_iterate(ss128_head_t *head, ss128_callback_t callback) {
+	ss128_iterate_i(head->root, callback);
 }
 
-static int rbtree_key_lt(rbtree_key_t a, rbtree_key_t b) {
+static int rbtree_key_lt(ss128_key_t a, ss128_key_t b) {
 	if (a.a < b.a) return 1;
 	if (a.a == b.a && a.b < b.b) return 1;
 	return 0;
 }
 
-static int rbtree_key_eq(rbtree_key_t a, rbtree_key_t b) {
+static int rbtree_key_eq(ss128_key_t a, ss128_key_t b) {
 	return a.a == b.a && a.b == b.b;
 }
 
-rbtree_key_t rbtree_str2key(const char *str) {
+ss128_key_t ss128_str2key(const char *str) {
 	MD5_CTX ctx;
 	md5_t   md5;
 

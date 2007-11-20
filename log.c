@@ -281,12 +281,12 @@ void log_init(void) {
 static trans_t dump_trans;
 static int     dump_fd;
 
-static void tag_iter(rbtree_key_t key, rbtree_value_t value) {
+static void tag_iter(ss128_key_t key, ss128_value_t value) {
 	(void)key;
 	log_write_tag(&dump_trans, (tag_t *)value);
 }
 
-static void tagalias_iter(rbtree_key_t key, rbtree_value_t value) {
+static void tagalias_iter(ss128_key_t key, ss128_value_t value) {
 	(void)key;
 	log_write_tagalias(&dump_trans, (tagalias_t *)value);
 }
@@ -304,7 +304,7 @@ static void post_taglist(post_taglist_t *tl, const char *prefix) {
 	}
 }
 
-static void post_iter(rbtree_key_t key, rbtree_value_t value) {
+static void post_iter(ss128_key_t key, ss128_value_t value) {
 	post_t *post = (post_t *)value;
 
 	(void)key;
@@ -317,7 +317,7 @@ static void post_iter(rbtree_key_t key, rbtree_value_t value) {
 	log_trans_end_(&dump_trans);
 }
 
-static void user_iter(rbtree_key_t key, rbtree_value_t value) {
+static void user_iter(ss128_key_t key, ss128_value_t value) {
 	(void)key;
 	log_write_user(&dump_trans, (user_t *)value);
 }
@@ -338,11 +338,11 @@ void log_dump(void) {
 	 * with the current time. Posts are dumped in individual transactions *
 	 * with the modification time of the post.                            */
 	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
-	rbtree_iterate(usertree, user_iter);
-	rbtree_iterate(tagtree, tag_iter);
-	rbtree_iterate(tagaliastree, tagalias_iter);
+	ss128_iterate(usertree, user_iter);
+	ss128_iterate(tagtree, tag_iter);
+	ss128_iterate(tagaliastree, tagalias_iter);
 	log_trans_end_(&dump_trans);
-	rbtree_iterate(posttree, post_iter);
+	ss128_iterate(posttree, post_iter);
 
 	len = snprintf(buf, sizeof(buf), "L%016llx\n",
 	               (unsigned long long)*logindex);
