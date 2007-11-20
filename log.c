@@ -338,11 +338,11 @@ void log_dump(void) {
 	 * with the current time. Posts are dumped in individual transactions *
 	 * with the modification time of the post.                            */
 	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
-	ss128_iterate(usertree, user_iter);
-	ss128_iterate(tagtree, tag_iter);
-	ss128_iterate(tagaliastree, tagalias_iter);
+	ss128_iterate(users, user_iter);
+	ss128_iterate(tags, tag_iter);
+	ss128_iterate(tagaliases, tagalias_iter);
 	log_trans_end_(&dump_trans);
-	ss128_iterate(posttree, post_iter);
+	ss128_iterate(posts, post_iter);
 
 	len = snprintf(buf, sizeof(buf), "L%016llx\n",
 	               (unsigned long long)*logindex);

@@ -14,11 +14,11 @@ void assert_fail(const char *ass, const char *file,
 	exit(1);
 }
 
-ss128_head_t *tagtree;
-ss128_head_t *tagaliastree;
-ss128_head_t *tagguidtree;
-ss128_head_t *posttree;
-ss128_head_t *usertree;
+ss128_head_t *tags;
+ss128_head_t *tagaliases;
+ss128_head_t *tagguids;
+ss128_head_t *posts;
+ss128_head_t *users;
 
 // @@TODO: Locking/locklessness.
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
@@ -126,7 +126,7 @@ int str2id(const char *str, const char * const *ids) {
 
 tag_t *tag_find_guid(const guid_t guid) {
 	void *tag = NULL;
-	ss128_find(tagguidtree, &tag, guid.key);
+	ss128_find(tagguids, &tag, guid.key);
 	return (tag_t *)tag;
 }
 
@@ -140,9 +140,9 @@ tag_t *tag_find_name(const char *name) {
 	ss128_key_t hash = ss128_str2key(name);
 	void        *tag = NULL;
 
-	ss128_find(tagtree, &tag, hash);
+	ss128_find(tags, &tag, hash);
 	if (!tag) {
-		ss128_find(tagaliastree, &tag, hash);
+		ss128_find(tagaliases, &tag, hash);
 		if (tag) tag = ((tagalias_t *)tag)->tag;
 	}
 	return (tag_t *)tag;
@@ -192,7 +192,7 @@ int post_find_md5str(post_t **res_post, const char *md5str) {
 	md5_t md5;
 	*res_post = NULL;
 	if (md5_str2md5(&md5, md5str)) return -1;
-	return ss128_find(posttree, (void *)res_post, md5.key);
+	return ss128_find(posts, (void *)res_post, md5.key);
 }
 
 static int read_log_line(FILE *fh, char *buf, int len) {

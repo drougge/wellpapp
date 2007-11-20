@@ -120,12 +120,12 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 		}
 		key = ss128_str2key(tag->name);
 		mm_lock();
-		if (ss128_insert(tagtree, tag, key)) {
+		if (ss128_insert(tags, tag, key)) {
 			mm_unlock();
 			return conn->error(conn, cmd);
 		}
-		if (ss128_insert(tagguidtree, tag, tag->guid.key)) {
-			ss128_delete(tagtree, key);
+		if (ss128_insert(tagguids, tag, tag->guid.key)) {
+			ss128_delete(tags, key);
 			mm_unlock();
 			return conn->error(conn, cmd);
 		}
@@ -158,8 +158,8 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 		}
 		key = ss128_str2key(tagalias->name);
 		mm_lock();
-		if (!ss128_find(tagaliastree, NULL, key)
-		 || ss128_insert(tagaliastree, tagalias, key)) {
+		if (!ss128_find(tagaliases, NULL, key)
+		 || ss128_insert(tagaliases, tagalias, key)) {
 		 	mm_unlock();
 		 	return conn->error(conn, cmd);
 		}
@@ -299,7 +299,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 		}
 		mm_lock();
-		r = ss128_insert(posttree, post, post->md5.key);
+		r = ss128_insert(posts, post, post->md5.key);
 		if (r) {
 			mm_unlock();
 			return conn->error(conn, cmd);
@@ -313,7 +313,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 static user_t *user_find(const char *name) {
 	void        *user;
 	ss128_key_t key = ss128_str2key(name);
-	if (ss128_find(usertree, &user, key)) return NULL;
+	if (ss128_find(users, &user, key)) return NULL;
 	return (user_t *)user;
 }
 
@@ -369,7 +369,7 @@ static int user_cmd(connection_t *conn, const char *cmd, void *data,
 		}
 		key = ss128_str2key(moduser->name);
 		mm_lock();
-		r = ss128_insert(usertree, moduser, key);
+		r = ss128_insert(users, moduser, key);
 		mm_unlock();
 		if (r) return conn->error(conn, cmd);
 		log_write_user(&conn->trans, moduser);

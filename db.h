@@ -287,11 +287,11 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 const char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
 
-extern ss128_head_t *posttree;
-extern ss128_head_t *tagtree;
-extern ss128_head_t *tagaliastree;
-extern ss128_head_t *tagguidtree;
-extern ss128_head_t *usertree;
+extern ss128_head_t *posts;
+extern ss128_head_t *tags;
+extern ss128_head_t *tagaliases;
+extern ss128_head_t *tagguids;
+extern ss128_head_t *users;
 
 extern const char * const *filetype_names;
 extern const char * const *rating_names;

@@ -20,11 +20,11 @@ typedef struct mm_head {
 	uint64_t      logindex;
 	uint64_t      logdumpindex;
 	uint32_t      tag_guid_last[2];
-	ss128_head_t  posttree;
-	ss128_head_t  tagtree;
-	ss128_head_t  tagaliastree;
-	ss128_head_t  tagguidtree;
-	ss128_head_t  usertree;
+	ss128_head_t  posts;
+	ss128_head_t  tags;
+	ss128_head_t  tagaliases;
+	ss128_head_t  tagguids;
+	ss128_head_t  users;
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
@@ -124,11 +124,11 @@ static void mm_init_new(void) {
 	mm_head->segment_size = MM_SEGMENT_SIZE;
 	mm_head->of_segments  = 1;
 	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
-	r  = ss128_init(posttree);
-	r |= ss128_init(tagtree);
-	r |= ss128_init(tagaliastree);
-	r |= ss128_init(tagguidtree);
-	r |= ss128_init(usertree);
+	r  = ss128_init(posts);
+	r |= ss128_init(tags);
+	r |= ss128_init(tagaliases);
+	r |= ss128_init(tagguids);
+	r |= ss128_init(users);
 	assert(!r);
 }
 
@@ -173,11 +173,11 @@ int mm_init(void) {
 	mm_head = (mm_head_t *)MM_BASE_ADDR;
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
 	tag_guid_last = mm_head->tag_guid_last;
-	posttree      = &mm_head->posttree;
-	tagtree       = &mm_head->tagtree;
-	tagaliastree  = &mm_head->tagaliastree;
-	tagguidtree   = &mm_head->tagguidtree;
-	usertree      = &mm_head->usertree;
+	posts         = &mm_head->posts;
+	tags          = &mm_head->tags;
+	tagaliases    = &mm_head->tagaliases;
+	tagguids      = &mm_head->tagguids;
+	users         = &mm_head->users;
 	logindex      = &mm_head->logindex;
 	logdumpindex  = &mm_head->logdumpindex;
 

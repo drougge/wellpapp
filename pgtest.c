@@ -10,10 +10,10 @@ connection_t *logconn;
 
 static void add_tag(const char *name, tag_t *tag) {
 	tag->name = mm_strdup(name);
-	if (ss128_insert(tagtree, tag, ss128_str2key(name))) {
+	if (ss128_insert(tags, tag, ss128_str2key(name))) {
 		assert(0);
 	}
-	if (ss128_insert(tagguidtree, tag, tag->guid.key)) {
+	if (ss128_insert(tagguids, tag, tag->guid.key)) {
 		assert(0);
 	}
 }
@@ -24,7 +24,7 @@ static void add_tagalias(const char *name, tag_t *tag) {
 	alias = mm_alloc(sizeof(*alias));
 	alias->name = mm_strdup(name);
 	alias->tag  = tag;
-	if (ss128_insert(tagaliastree, alias, hash)) {
+	if (ss128_insert(tagaliases, alias, hash)) {
 		assert(0);
 	}
 }
@@ -213,8 +213,8 @@ static int populate_from_db(PGconn *conn) {
 	int r = 0;
 	int cols, rows;
 	int i;
-	tag_t  **tags  = NULL;
-	post_t **posts = NULL;
+	tag_t  **tagarray  = NULL;
+	post_t **postarray = NULL;
 	uint16_t danboorutype2type[5];
 	const char *danboorutype2type_str[] = {
 		"unspecified",
@@ -234,8 +234,8 @@ static int populate_from_db(PGconn *conn) {
 	/* drougge/apa */
 	r = prot_add(logconn, strdup("UNZHJvdWdnZQAA Cmkuser Cdelete PYXBh Cmodcap"));
 	assert(!r);
-	tags  = calloc(MAX_TAGS , sizeof(void *));
-	posts = calloc(MAX_POSTS, sizeof(void *));
+	tagarray  = calloc(MAX_TAGS , sizeof(void *));
+	postarray = calloc(MAX_POSTS, sizeof(void *));
 	res = PQexec(conn, "SELECT id, created_at, user_id, score, source, md5, width, height, file_ext, rating FROM posts");
 	err(!res, 2);
 	err(PQresultStatus(res) != PGRES_TUPLES_OK, 3);
@@ -264,9 +264,9 @@ static int populate_from_db(PGconn *conn) {
 		} else {
 			post->source = NULL;
 		}
-		posts[atol(PQgetvalue(res, i, 0))] = post;
+		postarray[atol(PQgetvalue(res, i, 0))] = post;
 		fix_broken_post(PQgetvalue(res, i, 5), post);
-		if (ss128_insert(posttree, post, post->md5.key)) {
+		if (ss128_insert(posts, post, post->md5.key)) {
 			assert(0);
 		}
 	}
@@ -287,16 +287,16 @@ static int populate_from_db(PGconn *conn) {
 
 		tag_id = atol(PQgetvalue(res, i, 1));
 		assert(tag_id < MAX_TAGS);
-		tag = tags[tag_id];
+		tag = tagarray[tag_id];
 		if (!tag) {
 			tag = mm_alloc(sizeof(*tag));
 			tag->guid = guid_gen_tag_guid();
-			tags[tag_id]  = tag;
+			tagarray[tag_id]  = tag;
 		}
-if (!posts[atol(PQgetvalue(res, i, 0))]) {
+if (!postarray[atol(PQgetvalue(res, i, 0))]) {
 printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 } else
-		r = post_tag_add(posts[atol(PQgetvalue(res, i, 0))], tag, T_NO);
+		r = post_tag_add(postarray[atol(PQgetvalue(res, i, 0))], tag, T_NO);
 		if (r) {
 			printf("WARN: post %s already tagged as %d?\n", PQgetvalue(res, i, 0), tag_id);
 		}
@@ -318,7 +318,7 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 
 		tag_id = atol(PQgetvalue(res, i, 0));
 		assert(tag_id < MAX_TAGS);
-		tag = tags[tag_id];
+		tag = tagarray[tag_id];
 		if (tag) {
 			const char *name = PQgetvalue(res, i, 1);
 			tag->type = danboorutype2type[atol(PQgetvalue(res, i, 2))];
@@ -352,9 +352,9 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 	res = NULL;
 	printf("whee..\n");
 err:
-	if (res  ) PQclear(res);
-	if (tags ) free(tags);
-	if (posts) free(posts);
+	if (res      ) PQclear(res);
+	if (tagarray ) free(tagarray);
+	if (postarray) free(postarray);
 	return r;
 }
 

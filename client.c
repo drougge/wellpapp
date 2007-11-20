@@ -375,25 +375,25 @@ static void return_post(connection_t *conn, post_t *post, int flags) {
 	int i;
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
-		post_taglist_t *tags = &post->tags;
+		post_taglist_t *tl = &post->tags;
 		const char     *prefix = "";
 again:
-		while (tags) {
+		while (tl) {
 			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-				if (tags->tags[i]) {
+				if (tl->tags[i]) {
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
-						c_printf(conn, " T%s%s", prefix, tags->tags[i]->name);
+						c_printf(conn, " T%s%s", prefix, tl->tags[i]->name);
 					}
 					if (flags & FLAG(FLAG_RETURN_TAGIDS)) {
-						c_printf(conn, " G%s%s", prefix, guid_guid2str(tags->tags[i]->guid));
+						c_printf(conn, " G%s%s", prefix, guid_guid2str(tl->tags[i]->guid));
 					}
 				}
 			}
-			tags = tags->next;
+			tl = tl->next;
 		}
 		if (!*prefix) {
 			prefix = "~";
-			tags = post->weak_tags;
+			tl = post->weak_tags;
 			goto again;
 		}
 	}
