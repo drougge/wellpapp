@@ -221,6 +221,17 @@ struct connection {
 	char            outbuf[PROT_MAXLEN];
 };
 
+typedef struct result {
+	post_t **posts;
+	uint32_t of_posts;
+	uint32_t room;
+} result_t;
+
+void result_free(result_t *result);
+int result_add_post(result_t *result, post_t *post);
+int result_remove_tag(result_t *result, tag_t *tag, truth_t weak);
+int result_intersect(result_t *result, tag_t *tag, truth_t weak);
+
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
                   prot_cmd_func_t func, prot_cmd_flag_t flags);

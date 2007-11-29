@@ -94,12 +94,6 @@ typedef struct search {
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
-typedef struct result {
-	post_t **posts;
-	uint32_t of_posts;
-	uint32_t room;
-} result_t;
-
 #define OUTBUF_MIN_FREE 1024
 
 static void c_flush(connection_t *conn) {
@@ -266,75 +260,6 @@ static int build_search(connection_t *conn, char *cmd, search_t *search) {
 	return 0;
 }
 
-static void result_free(result_t *result) {
-	if (result->posts) free(result->posts);
-}
-
-static int add_post_to_result(post_t *post, result_t *result) {
-	if (result->room == result->of_posts) {
-		if (result->room == 0) {
-			result->room = 64;
-		} else {
-			result->room *= 2;
-		}
-		post_t **p = realloc(result->posts, result->room * sizeof(post_t *));
-		if (!p) return 1;
-		result->posts = p;
-	}
-	result->posts[result->of_posts] = post;
-	result->of_posts++;
-	return 0;
-}
-
-static int remove_tag(result_t *result, tag_t *tag, truth_t weak) {
-	result_t new_result;
-	uint32_t i;
-
-	memset(&new_result, 0, sizeof(new_result));
-	for (i = 0; i < result->of_posts; i++) {
-		post_t *post = result->posts[i];
-		if (!post_has_tag(post, tag, weak)) {
-			if (add_post_to_result(post, &new_result)) return 1;
-		}
-	}
-	result_free(result);
-	*result = new_result;
-	return 0;
-}
-
-static int intersect(result_t *result, tag_t *tag, truth_t weak) {
-	result_t new_result;
-	memset(&new_result, 0, sizeof(new_result));
-	if (result->of_posts) {
-		uint32_t i;
-		for (i = 0; i < result->of_posts; i++) {
-			post_t *post = result->posts[i];
-			if (post_has_tag(post, tag, weak)) {
-				if (add_post_to_result(post, &new_result)) {
-					return 1;
-				}
-			}
-		}
-	} else {
-		tag_postlist_t *pl;
-		pl = &tag->posts;
-		while (pl) {
-			uint32_t i;
-			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-				if (pl->posts[i]) {
-					int r = add_post_to_result(pl->posts[i],
-					                           &new_result);
-					if (r) return 1;
-				}
-			}
-			pl = pl->next;
-		}
-	}
-	result_free(result);
-	*result = new_result;
-	return 0;
-}
-
 static int sorter_date(const post_t *p1, const post_t *p2) {
 	if (p1->created < p2->created) return -1;
 	if (p1->created > p2->created) return 1;
@@ -423,7 +348,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
-		if (intersect(&result, t->tag, t->weak)) {
+		if (result_intersect(&result, t->tag, t->weak)) {
 			close_error(conn, E_MEM);
 			return;
 		}
@@ -431,7 +356,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	}
 	for (i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
-		if (remove_tag(&result, t->tag, t->weak)) {
+		if (result_remove_tag(&result, t->tag, t->weak)) {
 			close_error(conn, E_MEM);
 			return;
 		}
