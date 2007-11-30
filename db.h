@@ -42,6 +42,18 @@ typedef struct ss128_head {
 	int          allocation_value;
 } ss128_head_t;
 
+typedef struct list_node {
+	struct list_node *succ;
+	struct list_node *pred;
+	unsigned int     size;
+} list_node_t;
+
+typedef struct list_head {
+	list_node_t *head;
+	list_node_t *tail;
+	list_node_t *tailpred;
+} list_head_t;
+
 /* Keep enum and #define synced */
 /* OR:able flags */
 #define CAP_NAMES_STR "post delete mkuser tag untag modcap mktag super"
@@ -212,6 +224,8 @@ struct connection {
 	trans_t         trans;
 	int             sock;
 	connflag_t      flags;
+	list_head_t     mem_list;
+	unsigned int    mem_used;
 	unsigned int    getlen;
 	unsigned int    getpos;
 	unsigned int    outlen;
@@ -231,6 +245,13 @@ void result_free(result_t *result);
 int result_add_post(result_t *result, post_t *post);
 int result_remove_tag(result_t *result, tag_t *tag, truth_t weak);
 int result_intersect(result_t *result, tag_t *tag, truth_t weak);
+
+void c_init(connection_t *conn);
+int c_alloc(connection_t *conn, void **res, unsigned int size);
+int c_realloc(connection_t *conn, void **res, unsigned int old_size,
+              unsigned int new_size);
+void c_free(connection_t *conn, void *mem, unsigned int size);
+void c_cleanup(connection_t *conn);
 
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
