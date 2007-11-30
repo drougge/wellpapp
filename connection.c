@@ -18,9 +18,21 @@ static void list_remove(list_node_t *node) {
 	node->succ->pred = node->pred;
 }
 
-void c_init(connection_t *conn) {
+int c_init(connection_t **res_conn, int sock, user_t *user,
+           prot_err_func_t error) {
+	connection_t *conn;
+
+	conn = malloc(sizeof(*conn));
+	if (!conn) return 1;
+	memset(conn, 0, sizeof(*conn));
 	list_newlist(&conn->mem_list);
 	conn->mem_used = sizeof(*conn);
+	conn->sock  = sock;
+	conn->user  = user;
+	conn->error = error;
+	conn->flags = CONNFLAG_GOING;
+	*res_conn = conn;
+	return 0;
 }
 
 void c_cleanup(connection_t *conn) {
@@ -32,6 +44,7 @@ void c_cleanup(connection_t *conn) {
 		free(node);
 		node = next;
 	}
+	free(conn);
 }
 
 int c_alloc(connection_t *conn, void **res, unsigned int size) {

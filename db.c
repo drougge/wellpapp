@@ -285,7 +285,7 @@ int populate_from_log(const char *filename, void (*callback)(const char *line)) 
 #define MAX_CONNECTIONS 100
 
 struct pollfd fds[MAX_CONNECTIONS + 1];
-connection_t connections[MAX_CONNECTIONS];
+connection_t *connections[MAX_CONNECTIONS];
 int connection_count = 0;
 int server_running = 1;
 static user_t anonymous;
@@ -305,14 +305,13 @@ static void new_connection(void) {
 			close(s);
 			return;
 		}
+		if (c_init(&conn, s, &anonymous, client_error)) {
+			close(s);
+			return;
+		}
+		connections[i] = conn;
 		fds[i].fd = s;
 		fds[i].revents = 0;
-		conn = &connections[i];
-		memset(conn, 0, sizeof(*conn));
-		conn->sock = s;
-		conn->user = &anonymous;
-		conn->flags = CONNFLAG_GOING;
-		conn->error = client_error;
 		connection_count++;
 	}
 }
@@ -352,14 +351,15 @@ void db_serve(void) {
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
 			if (fds[i].revents & POLLIN) {
-				client_read_data(&connections[i]);
-				if (client_get_line(&connections[i]) > 0) {
-					client_handle(&connections[i]);
+				client_read_data(connections[i]);
+				if (client_get_line(connections[i]) > 0) {
+					client_handle(connections[i]);
 				}
-				if (!(connections[i].flags & CONNFLAG_GOING)) {
+				if (!(connections[i]->flags & CONNFLAG_GOING)) {
 					close(fds[i].fd);
 					fds[i].fd = -1;
 					connection_count--;
+					c_cleanup(connections[i]);
 				}
 			}
 		}

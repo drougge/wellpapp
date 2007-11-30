@@ -246,7 +246,8 @@ int result_add_post(result_t *result, post_t *post);
 int result_remove_tag(result_t *result, tag_t *tag, truth_t weak);
 int result_intersect(result_t *result, tag_t *tag, truth_t weak);
 
-void c_init(connection_t *conn);
+int c_init(connection_t **res_conn, int sock, user_t *user,
+           prot_err_func_t error);
 int c_alloc(connection_t *conn, void **res, unsigned int size);
 int c_realloc(connection_t *conn, void **res, unsigned int old_size,
               unsigned int new_size);
