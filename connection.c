@@ -70,6 +70,7 @@ int c_alloc(connection_t *conn, void **res, unsigned int size) {
 	}
 }
 
+/* Can only expand allocation. Leaves old allocation in case of failure. */
 int c_realloc(connection_t *conn, void **res, unsigned int old_size,
               unsigned int new_size) {
 	void *new;
@@ -77,8 +78,13 @@ int c_realloc(connection_t *conn, void **res, unsigned int old_size,
 
 	assert(old_size < new_size);
 	r = c_alloc(conn, &new, new_size);
-	if (!r) memcpy(new, *res, old_size);
-	c_free(conn, *res, old_size);
+	if (old_size) {
+		assert(*res);
+		if (!r) memcpy(new, *res, old_size);
+		c_free(conn, *res, old_size);
+	} else {
+		assert(!*res);
+	}
 	*res = new;
 	return r;
 }

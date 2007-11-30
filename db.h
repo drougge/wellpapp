@@ -241,10 +241,12 @@ typedef struct result {
 	uint32_t room;
 } result_t;
 
-void result_free(result_t *result);
-int result_add_post(result_t *result, post_t *post);
-int result_remove_tag(result_t *result, tag_t *tag, truth_t weak);
-int result_intersect(result_t *result, tag_t *tag, truth_t weak);
+void result_free(connection_t *conn, result_t *result);
+int result_add_post(connection_t *conn, result_t *result, post_t *post);
+int result_remove_tag(connection_t *conn, result_t *result,
+                      tag_t *tag, truth_t weak);
+int result_intersect(connection_t *conn, result_t *result,
+                     tag_t *tag, truth_t weak);
 
 int c_init(connection_t **res_conn, int sock, user_t *user,
            prot_err_func_t error);

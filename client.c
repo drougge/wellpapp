@@ -348,7 +348,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
-		if (result_intersect(&result, t->tag, t->weak)) {
+		if (result_intersect(conn, &result, t->tag, t->weak)) {
 			close_error(conn, E_MEM);
 			return;
 		}
@@ -356,7 +356,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	}
 	for (i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
-		if (result_remove_tag(&result, t->tag, t->weak)) {
+		if (result_remove_tag(conn, &result, t->tag, t->weak)) {
 			close_error(conn, E_MEM);
 			return;
 		}
@@ -370,7 +370,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	}
 done:
 	c_printf(conn, "OK\n");
-	result_free(&result);
+	result_free(conn, &result);
 }
 
 static void tag_search(connection_t *conn, const char *spec) {
