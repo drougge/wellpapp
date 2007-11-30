@@ -1,29 +1,7 @@
 #include "db.h"
 
-#include <stdarg.h>
-
 #define PROT_TAGS_PER_SEARCH   16
 #define PROT_ORDERS_PER_SEARCH 4
-
-typedef enum {
-	E_LINETOOLONG,
-	E_READ,
-	E_COMMAND,
-	E_SYNTAX,
-	E_OVERFLOW,
-	E_MEM,
-	E_AUTH,
-} error_t;
-
-static const char *errors[] = {
-	"line too long",
-	"read",
-	"unknown command",
-	"syntax error",
-	"overflow",
-	"out of memory",
-	"bad auth",
-};
 
 typedef enum {
 	ORDER_NONE,
@@ -36,7 +14,6 @@ static const char *orders[] = {"date", "score", NULL};
 static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
                                   "width", "height", "score", NULL};
 
-static void c_printf(connection_t *conn, const char *fmt, ...);
 static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
 	c_printf(conn, "%s", filetype_names[post->filetype]);
 }
@@ -94,78 +71,6 @@ typedef struct search {
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
-#define OUTBUF_MIN_FREE 1024
-
-static void c_flush(connection_t *conn) {
-	if (conn->outlen) {
-		ssize_t w = write(conn->sock, conn->outbuf, conn->outlen);
-		assert(w > 0 && (unsigned int)w == conn->outlen);
-		conn->outlen = 0;
-	}
-}
-
-static void c_printf(connection_t *conn, const char *fmt, ...) {
-	va_list ap;
-	int     len;
-
-	va_start(ap, fmt);
-	len = vsnprintf(conn->outbuf + conn->outlen,
-	                sizeof(conn->outbuf) - conn->outlen, fmt, ap);
-	if (len >= (int)(sizeof(conn->outbuf) - conn->outlen)) { // Overflow
-		c_flush(conn);
-		len = vsnprintf(conn->outbuf, sizeof(conn->outbuf), fmt, ap);
-		assert(len < (int)sizeof(conn->outbuf));
-	}
-	va_end(ap);
-	conn->outlen += len;
-	if (conn->outlen + OUTBUF_MIN_FREE > sizeof(conn->outbuf)) c_flush(conn);
-}
-
-int client_error(connection_t *conn, const char *what) {
-	c_printf(conn, "RE %s\n", what);
-	return 1;
-}
-
-static int close_error(connection_t *conn, error_t e) {
-	c_printf(conn, "E%d %s\n", e, errors[e]);
-	c_flush(conn);
-	conn->flags &= ~CONNFLAG_GOING;
-	return 1;
-}
-
-void client_read_data(connection_t *conn) {
-	if (conn->getlen != conn->getpos) return;
-	conn->getpos = 0;
-	conn->getlen = read(conn->sock, conn->getbuf, sizeof(conn->getbuf));
-	if (conn->getlen <= 0) close_error(conn, E_READ);
-}
-
-int client_get_line(connection_t *conn) {
-	unsigned int size = sizeof(conn->linebuf);
-
-	if (!(conn->flags & CONNFLAG_GOING)) return -1;
-	while (size > conn->linelen) {
-		if (conn->getlen > conn->getpos) {
-			char c = conn->getbuf[conn->getpos];
-			conn->getpos++;
-			/* \r is ignored, for easier testing with telnet */
-			if (c == '\n') {
-				int len = conn->linelen;
-				conn->linebuf[conn->linelen] = 0;
-				conn->linelen = 0;
-				return len;
-			} else if (c != '\r') {
-				conn->linebuf[conn->linelen] = c;
-				conn->linelen++;
-			}
-		} else {
-			return 0;
-		}
-	}
-	close_error(conn, E_LINETOOLONG);
-	return -1;
-}
-
 static int sort_search(const void *_t1, const void *_t2) {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
@@ -205,14 +110,14 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			if (!tag) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
 				if (search->of_tags == PROT_TAGS_PER_SEARCH) {
-					return close_error(conn, E_OVERFLOW);
+					return c_close_error(conn, E_OVERFLOW);
 				}
 				search->tags[search->of_tags].tag  = tag;
 				search->tags[search->of_tags].weak = weak;
 				search->of_tags++;
 			} else {
 				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) {
-					return close_error(conn, E_OVERFLOW);
+					return c_close_error(conn, E_OVERFLOW);
 				}
 				search->excluded_tags[search->of_excluded_tags].tag  = tag;
 				search->excluded_tags[search->of_excluded_tags].weak = weak;
@@ -221,7 +126,7 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			break;
 		case 'O': // Ordering
 			if (search->of_orders == PROT_ORDERS_PER_SEARCH) {
-				return close_error(conn, E_OVERFLOW);
+				return c_close_error(conn, E_OVERFLOW);
 			}
 			search->orders[search->of_orders] = str2id(args, orders);
 			if (!search->orders[search->of_orders]) {
@@ -243,7 +148,7 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			}
 			break;
 		default:
-			return close_error(conn, E_SYNTAX);
+			return c_close_error(conn, E_SYNTAX);
 			break;
 	}
 	return 0;
@@ -349,7 +254,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	for (i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
 		if (result_intersect(conn, &result, t->tag, t->weak)) {
-			close_error(conn, E_MEM);
+			c_close_error(conn, E_MEM);
 			return;
 		}
 		if (!result.of_posts) goto done;
@@ -357,7 +262,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	for (i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
 		if (result_remove_tag(conn, &result, t->tag, t->weak)) {
-			close_error(conn, E_MEM);
+			c_close_error(conn, E_MEM);
 			return;
 		}
 		if (!result.of_posts) goto done;
@@ -417,7 +322,7 @@ void client_handle(connection_t *conn) {
 			} else if (buf[1] == 'T') {
 				tag_search(conn, buf + 2);
 			} else {
-				close_error(conn, E_COMMAND);
+				c_close_error(conn, E_COMMAND);
 			}
 			break;
 		case 'T': // 'T'ag post
@@ -463,7 +368,7 @@ void client_handle(connection_t *conn) {
 			}
 			break;
 		default:
-			close_error(conn, E_COMMAND);
+			c_close_error(conn, E_COMMAND);
 			break;
 	}
 	c_flush(conn);

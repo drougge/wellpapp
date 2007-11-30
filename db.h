@@ -156,6 +156,16 @@ typedef struct tagalias {
 
 typedef uint32_t tag_id_t;
 
+/* Keep synced to errors[] in connection.c */
+typedef enum {
+	E_LINETOOLONG,
+	E_READ,
+	E_COMMAND,
+	E_SYNTAX,
+	E_OVERFLOW,
+	E_MEM,
+} error_t;
+
 /* Keep enum and #define synced */
 #define FILETYPE_NAMES_STR "jpeg gif png bmp swf"
 typedef enum {
@@ -255,6 +265,12 @@ int c_realloc(connection_t *conn, void **res, unsigned int old_size,
               unsigned int new_size);
 void c_free(connection_t *conn, void *mem, unsigned int size);
 void c_cleanup(connection_t *conn);
+void c_printf(connection_t *conn, const char *fmt, ...);
+void c_flush(connection_t *conn);
+void c_read_data(connection_t *conn);
+int c_get_line(connection_t *conn);
+int c_error(connection_t *conn, const char *what);
+int c_close_error(connection_t *conn, error_t what);
 
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
@@ -296,9 +312,6 @@ void mm_print(void);
 void mm_lock(void);
 void mm_unlock(void);
 
-int client_error(connection_t *conn, const char *what);
-void client_read_data(connection_t *conn);
-int client_get_line(connection_t *conn);
 void client_handle(connection_t *conn);
 
 void log_trans_start(connection_t *conn, time_t now);

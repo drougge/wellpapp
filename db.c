@@ -305,7 +305,7 @@ static void new_connection(void) {
 			close(s);
 			return;
 		}
-		if (c_init(&conn, s, &anonymous, client_error)) {
+		if (c_init(&conn, s, &anonymous, c_error)) {
 			close(s);
 			return;
 		}
@@ -351,8 +351,8 @@ void db_serve(void) {
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
 			if (fds[i].revents & POLLIN) {
-				client_read_data(connections[i]);
-				if (client_get_line(connections[i]) > 0) {
+				c_read_data(connections[i]);
+				if (c_get_line(connections[i]) > 0) {
 					client_handle(connections[i]);
 				}
 				if (!(connections[i]->flags & CONNFLAG_GOING)) {
