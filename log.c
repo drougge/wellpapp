@@ -260,9 +260,6 @@ void log_write_user(trans_t *trans, const user_t *user) {
 	log_clear_init(trans);
 }
 
-extern uint64_t *logindex;
-extern uint64_t *logdumpindex;
-
 void log_init(void) {
 	char filename[1024];
 	int  len;

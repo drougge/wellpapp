@@ -52,6 +52,7 @@ static void populate_from_dump(void) {
 		len = snprintf(buf, sizeof(buf), "%s/dump/%016llx",
 		               basedir, (unsigned long long)last_dump);
 		assert(len < (int)sizeof(buf));
+		*logdumpindex = last_dump + 1;
 		next_log = ~0ULL;
 		populate_from_log(buf, log_next);
 		assert(next_log != ~0ULL);
@@ -68,6 +69,7 @@ static void populate_from_dump(void) {
 		next_log++;
 	}
 	printf("Log recovery complete.\n");
+	*logindex = next_log;
 }
 
 static void sig_die(int sig) {

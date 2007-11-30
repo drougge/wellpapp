@@ -328,6 +328,9 @@ extern ss128_head_t *tagaliases;
 extern ss128_head_t *tagguids;
 extern ss128_head_t *users;
 
+extern uint64_t *logindex;
+extern uint64_t *logdumpindex;
+
 extern const char * const *filetype_names;
 extern const char * const *rating_names;
 extern const char * const *tagtype_names;
