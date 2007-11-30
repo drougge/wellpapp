@@ -299,13 +299,10 @@ static void new_connection(void) {
 		int           i;
 
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
-			if (fds[i].fd == -1) break;
+			if (!connections[i]) break;
 		}
-		if (i == MAX_CONNECTIONS) {
-			close(s);
-			return;
-		}
-		if (c_init(&conn, s, &anonymous, c_error)) {
+		if (i == MAX_CONNECTIONS
+		 || c_init(&conn, s, &anonymous, c_error)) {
 			close(s);
 			return;
 		}
@@ -325,6 +322,7 @@ void db_serve(void) {
 	for (i = 0; i < MAX_CONNECTIONS + 1; i++) {
 		fds[i].fd = -1;
 		fds[i].events = POLLIN;
+		connections[i] = NULL;
 	}
 
 	s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -343,23 +341,31 @@ void db_serve(void) {
 	fds[MAX_CONNECTIONS].fd = s;
 
 	while (server_running) {
-		r = poll(fds, MAX_CONNECTIONS + 1, INFTIM);
+		int have_unread = 0;
+		r = poll(fds, MAX_CONNECTIONS + 1, have_unread ? 0 : INFTIM);
 		if (r == -1) {
 			assert(!server_running);
 			return;
 		}
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
+			connection_t *conn = connections[i];
+			if (!conn) continue;
 			if (fds[i].revents & POLLIN) {
-				c_read_data(connections[i]);
-				if (c_get_line(connections[i]) > 0) {
-					client_handle(connections[i]);
-				}
-				if (!(connections[i]->flags & CONNFLAG_GOING)) {
-					close(fds[i].fd);
-					fds[i].fd = -1;
-					connection_count--;
-					c_cleanup(connections[i]);
+				c_read_data(conn);
+			}
+			if (c_get_line(conn) > 0) {
+				client_handle(conn);
+			}
+			if (!(conn->flags & CONNFLAG_GOING)) {
+				close(fds[i].fd);
+				fds[i].fd = -1;
+				connection_count--;
+				c_cleanup(conn);
+				connections[i] = NULL;
+			} else {
+				if (conn->getlen > conn->getpos) {
+					have_unread = 1;
 				}
 			}
 		}
