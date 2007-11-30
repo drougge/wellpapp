@@ -56,7 +56,7 @@ int c_alloc(connection_t *conn, void **res, unsigned int size) {
 	assert(new_size > size);
 	new_used = conn->mem_used + new_size;
 	assert(new_used > conn->mem_used && new_used > new_size);
-	mem = malloc(size);
+	mem = malloc(new_size);
 	if (mem) {
 		list_node_t *node = mem;
 		list_addtail(&conn->mem_list, node);
