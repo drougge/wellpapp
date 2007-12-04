@@ -445,7 +445,7 @@ static int rel_cmd(connection_t *conn, const char *cmd, void *data_,
 		log_set_init(&conn->trans, "%c%s", data->type, cmd);
 		return 0;
 	}
-	if (post_rel_add(data->post, post)) return conn->error(conn, cmd);
+	if (data->func(data->post, post)) return conn->error(conn, cmd);
 	log_write(&conn->trans, "%s", cmd);
 	return 0;
 }
