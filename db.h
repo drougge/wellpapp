@@ -306,6 +306,9 @@ int populate_from_log(const char *filename, void (*callback)(const char *line));
 void db_serve(void);
 void db_read_cfg(const char *filename);
 int str2id(const char *str, const char * const *ids);
+typedef void (*postlist_callback_t)(void *data, post_t *post);
+void postlist_iterate(postlist_t *pl, void *data,
+                      postlist_callback_t callback);
 
 typedef void (*ss128_callback_t)(ss128_key_t key, ss128_value_t value);
 void ss128_iterate(ss128_head_t *head, ss128_callback_t callback);

@@ -22,6 +22,20 @@ ss128_head_t *users;
 
 // @@TODO: Locking/locklessness.
 
+void postlist_iterate(postlist_t *pl, void *data,
+                      postlist_callback_t callback) {
+	postlist_node_t *pn = pl->head;
+	while (pn) {
+		unsigned int i;
+		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+			if (pn->posts[i]) {
+				callback(data, pn->posts[i]);
+			}
+		}
+		pn = pn->next;
+	}
+}
+
 static int postlist_remove(postlist_t *pl, post_t *post) {
 	postlist_node_t *pn;
 

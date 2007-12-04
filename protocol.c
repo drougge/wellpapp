@@ -434,15 +434,13 @@ static int rel_cmd(connection_t *conn, const char *cmd, void *data_,
                    prot_cmd_flag_t flags) {
 	post_t     *post;
 	rel_data_t *data = data_;
-	int        r;
 
 	(void)flags;
 
-	r = post_find_md5str(&post, cmd);
-	if (r) return conn->error(conn, cmd);
+	if (post_find_md5str(&post, cmd)) return conn->error(conn, cmd);
 	if (!data->post) {
 		data->post = post;
-		log_set_init(&conn->trans, "%c%s", data->type, cmd);
+		log_set_init(&conn->trans, "R%c%s", data->type, cmd);
 		return 0;
 	}
 	if (data->func(data->post, post)) return conn->error(conn, cmd);

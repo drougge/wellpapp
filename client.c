@@ -300,6 +300,29 @@ static void tag_search(connection_t *conn, const char *spec) {
 	c_printf(conn, "OK\n");
 }
 
+typedef struct show_rels_data {
+	connection_t *conn;
+	post_t       *post;
+} show_rels_data_t;
+
+static void show_rels_cb(void *data_, post_t *post) {
+	show_rels_data_t *rd = data_;
+
+	c_printf(rd->conn, "P%s ", md5_md52str(rd->post->md5));
+	c_printf(rd->conn, "R%s\n", md5_md52str(post->md5));
+}
+
+static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
+                         prot_cmd_flag_t flags) {
+	show_rels_data_t rd;
+	(void)data;
+	(void)flags;
+	if (post_find_md5str(&rd.post, cmd)) return conn->error(conn, cmd);
+	rd.conn = conn;
+	postlist_iterate(&rd.post->related_posts, &rd, show_rels_cb);
+	return 0;
+}
+
 static void modifying_command(connection_t *conn,
                               int (*func)(connection_t *, char *), char *cmd) {
 	int ok;
@@ -335,11 +358,24 @@ void client_handle(connection_t *conn) {
 		case 'M': // 'M'odify something
 			modifying_command(conn, prot_modify, buf + 1);
 			break;
-		case 'R': // Add 'R'elationship
-			modifying_command(conn, prot_rel_add, buf + 1);
-			break;
-		case 'r': // Remove 'r'elationship
-			modifying_command(conn, prot_rel_remove, buf + 1);
+		case 'R': // 'R'elationship
+			switch (buf[1]) {
+				case 'R':
+					modifying_command(conn, prot_rel_add,
+					                  buf + 2);
+					break;
+				case 'r':
+					modifying_command(conn, prot_rel_remove,
+					                  buf + 2);
+					break;
+				case 'S':
+					prot_cmd_loop(conn, buf + 2, NULL,
+					              show_rels_cmd, 0);
+					break;
+				default:
+					c_close_error(conn, E_COMMAND);
+					break;
+			}
 			break;
 		case 'N': // 'N'OP
 			c_printf(conn, "OK\n");
