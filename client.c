@@ -302,24 +302,24 @@ static void tag_search(connection_t *conn, const char *spec) {
 
 typedef struct show_rels_data {
 	connection_t *conn;
-	post_t       *post;
+	char         md5[33];
 } show_rels_data_t;
 
 static void show_rels_cb(void *data_, post_t *post) {
 	show_rels_data_t *rd = data_;
-
-	c_printf(rd->conn, "P%s ", md5_md52str(rd->post->md5));
-	c_printf(rd->conn, "R%s\n", md5_md52str(post->md5));
+	c_printf(rd->conn, "P%s R%s\n", rd->md5, md5_md52str(post->md5));
 }
 
 static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
                          prot_cmd_flag_t flags) {
 	show_rels_data_t rd;
+	post_t           *post;
 	(void)data;
 	(void)flags;
-	if (post_find_md5str(&rd.post, cmd)) return conn->error(conn, cmd);
+	if (post_find_md5str(&post, cmd)) return conn->error(conn, cmd);
 	rd.conn = conn;
-	postlist_iterate(&rd.post->related_posts, &rd, show_rels_cb);
+	strcpy(rd.md5, md5_md52str(post->md5));
+	postlist_iterate(&post->related_posts, &rd, show_rels_cb);
 	return 0;
 }
 
