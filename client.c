@@ -240,6 +240,7 @@ static void do_search(connection_t *conn, search_t *search) {
 	result_t result;
 	unsigned int i;
 
+	memset(&result, 0, sizeof(result));
 	if (search->post) {
 		if (search->of_tags || search->of_excluded_tags) {
 			conn->error(conn, "E mutually exclusive options specified");
@@ -250,7 +251,6 @@ static void do_search(connection_t *conn, search_t *search) {
 		}
 		goto done;
 	}
-	memset(&result, 0, sizeof(result));
 	for (i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
 		if (result_intersect(conn, &result, t->tag, t->weak)) {
