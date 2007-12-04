@@ -287,6 +287,14 @@ static void populate_from_log_line(char *line) {
 		case 'M': // 'M'odify post
 			r = prot_modify(logconn, line + 1);
 			break;
+		case 'R': // 'R'elationship
+			if (line[1] == 'R') {
+				r = prot_rel_add(logconn, line + 2);
+			} else {
+				assert(line[1] == 'r');
+				r = prot_rel_remove(logconn, line + 2);
+			}
+			break;
 		default:
 			printf("Log: What? %s\n", line);
 			r = 1;
