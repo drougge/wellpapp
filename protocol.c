@@ -426,6 +426,7 @@ int prot_modify(connection_t *conn, char *cmd) {
 
 typedef struct rel_data {
 	post_t *post;
+	char type;
 	int (*func)(post_t *, post_t *);
 } rel_data_t;
 
@@ -441,20 +442,21 @@ static int rel_cmd(connection_t *conn, const char *cmd, void *data_,
 	if (r) return conn->error(conn, cmd);
 	if (!data->post) {
 		data->post = post;
-		log_set_init(&conn->trans, "R%s", cmd);
+		log_set_init(&conn->trans, "%c%s", data->type, cmd);
 		return 0;
 	}
 	if (post_rel_add(data->post, post)) return conn->error(conn, cmd);
+	log_write(&conn->trans, "%s", cmd);
 	return 0;
 }
 
 int prot_rel_add(connection_t *conn, char *cmd) {
-	rel_data_t data = {NULL, post_rel_add};
+	rel_data_t data = {NULL, 'R', post_rel_add};
 	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
 }
 
 int prot_rel_remove(connection_t *conn, char *cmd) {
-	rel_data_t data = {NULL, post_rel_remove};
+	rel_data_t data = {NULL, 'r', post_rel_remove};
 	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
 }
 
