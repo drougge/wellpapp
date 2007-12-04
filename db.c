@@ -22,6 +22,27 @@ ss128_head_t *users;
 
 // @@TODO: Locking/locklessness.
 
+static int postlist_remove(postlist_t *pl, post_t *post) {
+	postlist_node_t *pn;
+
+	assert(pl);
+	assert(post);
+
+	pn = pl->head;
+	while (pn) {
+		unsigned int i;
+		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+			if (pn->posts[i] == post) {
+				pn->posts[i] = NULL;
+				pl->count--;
+				pl->holes++;
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 static void postlist_add(postlist_t *pl, post_t *post) {
 	postlist_node_t *pn;
 
@@ -117,10 +138,12 @@ int post_rel_add(post_t *a, post_t *b) {
 }
 
 int post_rel_remove(post_t *a, post_t *b) {
-	if (!post_has_rel(a, b)) return 1;
-	assert(post_has_rel(b, a));
-	// @@ TODO remove
-	return 1;
+	int r;
+	r = postlist_remove(&a->related_posts, b);
+	if (r) return 1;
+	r = postlist_remove(&b->related_posts, a);
+	assert(!r);
+	return 0;
 }
 
 static int md5_digit2digit(int digit) {
