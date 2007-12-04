@@ -173,6 +173,7 @@ typedef enum {
 	E_SYNTAX,
 	E_OVERFLOW,
 	E_MEM,
+	E_UTF8,
 } error_t;
 
 /* Keep enum and #define synced */
@@ -329,7 +330,7 @@ void mm_print(void);
 void mm_lock(void);
 void mm_unlock(void);
 
-void client_handle(connection_t *conn);
+void client_handle(connection_t *conn, char *buf);
 
 void log_trans_start(connection_t *conn, time_t now);
 void log_trans_end(connection_t *conn);

@@ -6,6 +6,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <md5.h>
+#include <utf8proc.h>
 
 void NORETURN assert_fail(const char *ass, const char *file,
                           const char *func, int line) {
@@ -390,6 +391,19 @@ static void new_connection(void) {
 	}
 }
 
+static char *utf_compose(connection_t *conn) {
+	uint8_t *buf;
+	ssize_t res;
+	int     flags = UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_COMPOSE;
+
+	res = utf8proc_map((uint8_t *)conn->linebuf, 0, &buf, flags);
+	if (res < 0) {
+		c_close_error(conn, E_UTF8);
+		return NULL;
+	}
+	return (char *)buf;
+}
+
 void db_serve(void) {
 	int s, r, one, i;
 	struct sockaddr_in addr;
@@ -432,7 +446,11 @@ void db_serve(void) {
 				c_read_data(conn);
 			}
 			if (c_get_line(conn) > 0) {
-				client_handle(conn);
+				char *buf = utf_compose(conn);
+				if (buf) {
+					client_handle(conn, buf);
+					free(buf);
+				}
 			}
 			if (!(conn->flags & CONNFLAG_GOING)) {
 				close(fds[i].fd);

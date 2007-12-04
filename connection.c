@@ -10,6 +10,7 @@ static const char *errors[] = {
 	"syntax error",
 	"overflow",
 	"out of memory",
+	"bad utf8 sequence",
 };
 
 static void list_newlist(list_head_t *list) {

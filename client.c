@@ -335,8 +335,7 @@ static void modifying_command(connection_t *conn,
 
 extern int connection_count;
 
-void client_handle(connection_t *conn) {
-	char *buf = conn->linebuf;
+void client_handle(connection_t *conn, char *buf) {
 	switch (*buf) {
 		case 'S': // 'S'earch
 			if (buf[1] == 'P') {

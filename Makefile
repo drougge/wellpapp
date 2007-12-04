@@ -3,13 +3,15 @@ CFLAGS  += -std=c99 -pedantic -I/usr/local/include -Wall -Werror -W -Wundef -Wsh
 OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
      connection.o
 
+LIBS=-L/usr/local/lib -lmd -lutf8proc
+
 all: server pgtest pearsonr
 
 pgtest: pgtest.o $(OBJS)
-	$(CC) -o pgtest pgtest.o $(OBJS) -L/usr/local/lib -lpq -lmd
+	$(CC) -o pgtest pgtest.o $(OBJS) $(LIBS) -lpq
 
 server: server.o $(OBJS)
-	$(CC) -o server server.o $(OBJS) -lmd
+	$(CC) -o server server.o $(OBJS) $(LIBS)
 
 *.o: db.h config.h
 
