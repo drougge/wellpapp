@@ -39,6 +39,7 @@ static int postlist_remove(postlist_t *pl, post_t *post) {
 				return 0;
 			}
 		}
+		pn = pn->next;
 	}
 	return 1;
 }
