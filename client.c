@@ -371,6 +371,7 @@ void client_handle(connection_t *conn) {
 				case 'S':
 					prot_cmd_loop(conn, buf + 2, NULL,
 					              show_rels_cmd, 0);
+					c_printf(conn, "OK\n");
 					break;
 				default:
 					c_close_error(conn, E_COMMAND);
