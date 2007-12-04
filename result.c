@@ -57,18 +57,27 @@ int result_intersect(connection_t *conn, result_t *result,
 			}
 		}
 	} else {
-		tag_postlist_t *pl;
-		pl = &tag->posts;
-		while (pl) {
-			uint32_t i;
-			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-				if (pl->posts[i]) {
+		postlist_node_t *pn;
+again:
+		if (weak) {
+			pn = tag->weak_posts.head;
+		} else {
+			pn = tag->posts.head;
+		}
+		while (pn) {
+			unsigned int i;
+			for (i = 0; i < POSTLIST_PER_NODE; i++) {
+				if (pn->posts[i]) {
 					int r = result_add_post(conn, &new_result,
-					                        pl->posts[i]);
+					                        pn->posts[i]);
 					if (r) return 1;
 				}
 			}
-			pl = pl->next;
+			pn = pn->next;
+		}
+		if (weak == T_DONTCARE) {
+			weak = T_NO;
+			goto again;
 		}
 	}
 	result_free(conn, result);

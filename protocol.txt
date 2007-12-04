@@ -11,6 +11,8 @@ S - search
 T - tag a post
 A - add a new object
 M - modify an existing object
+R - add relationship
+r - remove relationsship
 N - nop (to keep server from closing idle connection)
 a - authenticate
 Q - quit
@@ -56,6 +58,7 @@ tag ("T").
 	T:
 	Not really implemented yet, can only be used to find a tag using
 	complete name ("N") or guid ("G").
+	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count"
 	Example:
 		STNnekomimi
 
@@ -100,6 +103,13 @@ First char is what type of object to add.
 
 M:
 Like A. Only works for P and U for now.
+
+R/r:
+Takes an md5 followed by a list of md5:s. All posts in the list will be added
+(or removed for "r") as related to the initial md5 (but not each other).
+Relationships are symmetric, "Ra b" and "Rb a" are equivalent.
+Example:
+	Rba6a8fcac2481bc7bf07e493c17eccaa aa019c7b4f4c81cdd89833f41e6064a5
 
 N:
 Replies "OK".

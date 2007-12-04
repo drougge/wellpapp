@@ -7,8 +7,8 @@
 #include <errno.h>
 #include <md5.h>
 
-void assert_fail(const char *ass, const char *file,
-                 const char *func, int line) {
+void NORETURN assert_fail(const char *ass, const char *file,
+                          const char *func, int line) {
 	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n",
 	        ass, func, file, line);
 	exit(1);
@@ -21,9 +21,53 @@ ss128_head_t *posts;
 ss128_head_t *users;
 
 // @@TODO: Locking/locklessness.
+
+static void postlist_add(postlist_t *pl, post_t *post) {
+	postlist_node_t *pn;
+
+	assert(pl);
+	assert(post);
+
+	pl->count++;
+	if (pl->holes) {
+		pn = pl->head;
+		while (pn) {
+			unsigned int i;
+			for (i = 0; i < POSTLIST_PER_NODE; i++) {
+				if (!pn->posts[i]) {
+					pn->posts[i] = post;
+					pl->holes--;
+					return;
+				}
+			}
+			pn = pn->next;
+		}
+		assert(!pl->holes);
+		return; // NOTREACHED
+	}
+	pn = mm_alloc(sizeof(*pn));
+	pn->posts[0]  = post;
+	pl->holes    += POSTLIST_PER_NODE - 1;
+	pn->next      = pl->head;
+	pl->head      = pn;
+}
+
+static int postlist_contains(const postlist_t *pl, const post_t *post) {
+	const postlist_node_t *pn = pl->head;
+	while (pn) {
+		unsigned int i;
+		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+			if (pn->posts[i] == post) return 1;
+		}
+		pn = pn->next;
+	}
+	return 0;
+}
+
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
-	tag_postlist_t *pl, *ppl = NULL;
-	post_taglist_t *tl, *ptl = NULL;
+	post_taglist_t *tl;
+	post_taglist_t *ptl = NULL;
+	uint16_t       *of_holes;
 	int i;
 
 	assert(post);
@@ -31,49 +75,52 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	assert(weak == T_YES || weak == T_NO);
 	if (post_has_tag(post, tag, T_DONTCARE)) return 1;
 	if (weak) {
-		pl = tag->weak_posts;
-		if (!pl) pl = tag->weak_posts = mm_alloc(sizeof(*pl));
+		postlist_add(&tag->weak_posts, post);
 		tl = post->weak_tags;
 		if (!tl) tl = post->weak_tags = mm_alloc(sizeof(*tl));
+		post->of_weak_tags++;
+		of_holes = &post->of_weak_holes;
 	} else {
-		pl = &tag->posts;
+		postlist_add(&tag->posts, post);
 		tl = &post->tags;
+		post->of_tags++;
+		of_holes = &post->of_holes;
 	}
-	tag->of_posts++;
-	post->of_tags++;
 	while (tl) {
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
-				post->of_holes--;
-				goto pt_ok;
+				(*of_holes)--;
+				return 0;
 			}
 		}
 		ptl = tl;
 		tl  = tl->next;
 	}
 	tl = mm_alloc(sizeof(*tl));
-	tl->tags[0]     = tag;
-	post->of_holes += POST_TAGLIST_PER_NODE - 1;
-	ptl->next       = tl;
-
-pt_ok:
-	while (pl) {
-		for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-			if (!pl->posts[i]) {
-				pl->posts[i] = post;
-				tag->of_holes--;
-				return 0;
-			}
-		}
-		ppl = pl;
-		pl  = pl->next;
-	}
-	pl = mm_alloc(sizeof(*pl));
-	pl->posts[0]   = post;
-	tag->of_holes += TAG_POSTLIST_PER_NODE - 1;
-	ppl->next      = pl;
+	tl->tags[0]  = tag;
+	*of_holes   += POST_TAGLIST_PER_NODE - 1;
+	ptl->next    = tl;
 	return 0;
+}
+
+int post_has_rel(const post_t *post, const post_t *rel) {
+	return postlist_contains(&post->related_posts, rel);
+}
+
+int post_rel_add(post_t *a, post_t *b) {
+	if (post_has_rel(a, b)) return 1;
+	assert(!post_has_rel(b, a));
+	postlist_add(&a->related_posts, b);
+	postlist_add(&b->related_posts, a);
+	return 0;
+}
+
+int post_rel_remove(post_t *a, post_t *b) {
+	if (!post_has_rel(a, b)) return 1;
+	assert(post_has_rel(b, a));
+	// @@ TODO remove
+	return 1;
 }
 
 static int md5_digit2digit(int digit) {
@@ -149,37 +196,21 @@ tag_t *tag_find_name(const char *name) {
 }
 
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak) {
+	const post_taglist_t *tl;
 	assert(post);
 	assert(tag);
 again:
-	if (post->of_tags < tag->of_posts) {
-		const post_taglist_t *tl;
-		if (weak == T_NO) {
-			tl = &post->tags;
-		} else {
-			tl = post->weak_tags;
-		}
-		while (tl) {
-			int i;
-			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-				if (tl->tags[i] == tag) return 1;
-			}
-			tl = tl->next;
-		}
+	if (weak) {
+		tl = post->weak_tags;
 	} else {
-		const tag_postlist_t *pl;
-		if (weak == T_NO) {
-			pl = &tag->posts;
-		} else {
-			pl = tag->weak_posts;
+		tl = &post->tags;
+	}
+	while (tl) {
+		unsigned int i;
+		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (tl->tags[i] == tag) return 1;
 		}
-		while (pl) {
-			int i;
-			for (i = 0; i < TAG_POSTLIST_PER_NODE; i++) {
-				if (pl->posts[i] == post) return 1;
-			}
-			pl = pl->next;
-		}
+		tl = tl->next;
 	}
 	if (weak == T_DONTCARE) {
 		weak = T_NO;

@@ -424,6 +424,40 @@ int prot_modify(connection_t *conn, char *cmd) {
 	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_MODIFY);
 }
 
+typedef struct rel_data {
+	post_t *post;
+	int (*func)(post_t *, post_t *);
+} rel_data_t;
+
+static int rel_cmd(connection_t *conn, const char *cmd, void *data_,
+                   prot_cmd_flag_t flags) {
+	post_t     *post;
+	rel_data_t *data = data_;
+	int        r;
+
+	(void)flags;
+
+	r = post_find_md5str(&post, cmd);
+	if (r) return conn->error(conn, cmd);
+	if (!data->post) {
+		data->post = post;
+		log_set_init(&conn->trans, "R%s", cmd);
+		return 0;
+	}
+	if (post_rel_add(data->post, post)) return conn->error(conn, cmd);
+	return 0;
+}
+
+int prot_rel_add(connection_t *conn, char *cmd) {
+	rel_data_t data = {NULL, post_rel_add};
+	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
+}
+
+int prot_rel_remove(connection_t *conn, char *cmd) {
+	rel_data_t data = {NULL, post_rel_remove};
+	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
+}
+
 user_t *prot_auth(char *cmd) {
 	char   *pass;
 	user_t *user;

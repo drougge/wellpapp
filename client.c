@@ -74,8 +74,8 @@ static post_t null_post; /* search->post for not found posts */
 static int sort_search(const void *_t1, const void *_t2) {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
-	if (t1->tag->of_posts < t2->tag->of_posts) return -1;
-	if (t1->tag->of_posts > t2->tag->of_posts) return 1;
+	if (t1->tag->posts.count < t2->tag->posts.count) return -1;
+	if (t1->tag->posts.count > t2->tag->posts.count) return 1;
 	return 0;
 }
 
@@ -294,7 +294,8 @@ static void tag_search(connection_t *conn, const char *spec) {
 		c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 		c_printf(conn, "N%s ", tag->name);
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
-		c_printf(conn, "P%u\n", tag->of_posts);
+		c_printf(conn, "P%u\n", tag->posts.count);
+		c_printf(conn, "W%u\n", tag->weak_posts.count);
 	}
 	c_printf(conn, "OK\n");
 }
@@ -333,6 +334,12 @@ void client_handle(connection_t *conn) {
 			break;
 		case 'M': // 'M'odify something
 			modifying_command(conn, prot_modify, buf + 1);
+			break;
+		case 'R': // Add 'R'elationship
+			modifying_command(conn, prot_rel_add, buf + 1);
+			break;
+		case 'r': // Remove 'r'elationship
+			modifying_command(conn, prot_rel_remove, buf + 1);
 			break;
 		case 'N': // 'N'OP
 			c_printf(conn, "OK\n");

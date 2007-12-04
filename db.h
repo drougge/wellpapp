@@ -12,8 +12,9 @@
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
 #define assert(v) if (!(v)) assert_fail(#v, __FILE__, __FUNCTION__, __LINE__)
+#define NORETURN __attribute__((noreturn))
 
-void assert_fail(const char *ass, const char *file, const char *func, int line);
+void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
 typedef void     efs_base_t;
 typedef int8_t   efs_8_t;
@@ -94,6 +95,13 @@ typedef struct post_taglist {
 	struct post_taglist *next;
 } post_taglist_t;
 
+struct postlist_node;
+typedef struct postlist {
+	struct postlist_node *head;
+	uint32_t count;
+	uint32_t holes;
+} postlist_t;
+
 typedef struct post {
 	md5_t          md5;
 	const char     *source;
@@ -107,8 +115,11 @@ typedef struct post {
 	uint16_t       height;
 	uint16_t       filetype;
 	uint16_t       rating;
-	uint16_t       of_tags;
 	uint16_t       of_holes;
+	uint16_t       of_weak_holes;
+	uint32_t       of_tags;
+	uint32_t       of_weak_tags;
+	postlist_t     related_posts;
 	post_taglist_t tags;
 	post_taglist_t *weak_tags;
 } post_t;
@@ -133,20 +144,18 @@ typedef struct field {
 
 extern const field_t post_fields[];
 
-#define TAG_POSTLIST_PER_NODE 30
-typedef struct tag_postlist {
-	post_t *posts[TAG_POSTLIST_PER_NODE];
-	struct tag_postlist *next;
-} tag_postlist_t;
+#define POSTLIST_PER_NODE 30
+typedef struct postlist_node {
+	post_t *posts[POSTLIST_PER_NODE];
+	struct postlist_node *next;
+} postlist_node_t;
 
 typedef struct tag {
-	const char     *name;
-	guid_t         guid;
-	uint16_t       type;
-	uint16_t       of_holes;
-	uint32_t       of_posts;
-	tag_postlist_t posts;
-	tag_postlist_t *weak_posts;
+	const char *name;
+	guid_t     guid;
+	uint16_t   type;
+	postlist_t posts;
+	postlist_t weak_posts;
 } tag_t;
 
 typedef struct tagalias {
@@ -278,6 +287,8 @@ int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
 int prot_tag_post(connection_t *conn, char *cmd);
 int prot_add(connection_t *conn, char *cmd);
 int prot_modify(connection_t *conn, char *cmd);
+int prot_rel_add(connection_t *conn, char *cmd);
+int prot_rel_remove(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name);
@@ -286,6 +297,9 @@ tag_t *tag_find_guidstr(const char *guidstr);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
+int post_has_rel(const post_t *post, const post_t *rel);
+int post_rel_add(post_t *a, post_t *b);
+int post_rel_remove(post_t *a, post_t *b);
 const char *md5_md52str(const md5_t md5);
 int md5_str2md5(md5_t *res_md5, const char *md5str);
 int populate_from_log(const char *filename, void (*callback)(const char *line));
