@@ -294,7 +294,7 @@ static void tag_search(connection_t *conn, const char *spec) {
 		c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 		c_printf(conn, "N%s ", tag->name);
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
-		c_printf(conn, "P%u\n", tag->posts.count);
+		c_printf(conn, "P%u ", tag->posts.count);
 		c_printf(conn, "W%u\n", tag->weak_posts.count);
 	}
 	c_printf(conn, "OK\n");
