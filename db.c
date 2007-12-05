@@ -410,7 +410,7 @@ void db_serve(void) {
 
 	anonymous.name = "A";
 	anonymous.caps = DEFAULT_CAPS;
-	for (i = 0; i < MAX_CONNECTIONS + 1; i++) {
+	for (i = 0; i < MAX_CONNECTIONS; i++) {
 		fds[i].fd = -1;
 		fds[i].events = POLLIN;
 		connections[i] = NULL;
@@ -430,6 +430,7 @@ void db_serve(void) {
 	r = listen(s, 5);
 	assert(!r);
 	fds[MAX_CONNECTIONS].fd = s;
+	fds[MAX_CONNECTIONS].events = POLLIN;
 
 	while (server_running) {
 		int have_unread = 0;
