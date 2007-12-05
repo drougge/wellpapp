@@ -307,7 +307,7 @@ typedef struct show_rels_data {
 
 static void show_rels_cb(void *data_, post_t *post) {
 	show_rels_data_t *rd = data_;
-	c_printf(rd->conn, "P%s R%s\n", rd->md5, md5_md52str(post->md5));
+	c_printf(rd->conn, "R%s %s\n", rd->md5, md5_md52str(post->md5));
 }
 
 static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,

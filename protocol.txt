@@ -111,8 +111,9 @@ R:
 		initial md5 (but not each other).
 	S:
 		Show relationships for posts. Returnes lines of the form
-		"Pmd5 Rmd5 [Rmd5 [...]]", showing R as related to P.
-		Can return several lines for the same P.
+		"Rmd5 md5 [md5 [...]]". The first md5 on each line is
+		related to all following.
+		Can return several lines for the same post.
 	Relationships are symmetric, "RRa b" and "RRb a" are equivalent.
 	Example:
 		RRba6a8fcac2481bc7bf07e493c17eccaa aa019c7b4f4c81cdd89833f41e6064a5
