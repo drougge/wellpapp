@@ -74,6 +74,7 @@ static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback) {
 }
 
 void ss128_iterate(ss128_head_t *head, ss128_callback_t callback) {
+	if (!head->root) return;
 	ss128_iterate_i(head->root, callback);
 }
 
