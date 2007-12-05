@@ -18,13 +18,13 @@ static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
 	c_printf(conn, "%s", filetype_names[post->filetype]);
 }
 static void FLAGPRINT_DATE(connection_t *conn, post_t *post) {
-	c_printf(conn, "%llu", (unsigned long long)post->created);
+	c_printf(conn, "%llx", (unsigned long long)post->created);
 }
 static void FLAGPRINT_WIDTH(connection_t *conn, post_t *post) {
-	c_printf(conn, "%u", post->width);
+	c_printf(conn, "%x", post->width);
 }
 static void FLAGPRINT_HEIGHT(connection_t *conn, post_t *post) {
-	c_printf(conn, "%u", post->height);
+	c_printf(conn, "%x", post->height);
 }
 static void FLAGPRINT_SCORE(connection_t *conn, post_t *post) {
 	c_printf(conn, "%d", post->score);
@@ -294,8 +294,8 @@ static void tag_search(connection_t *conn, const char *spec) {
 		c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 		c_printf(conn, "N%s ", tag->name);
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
-		c_printf(conn, "P%u ", tag->posts.count);
-		c_printf(conn, "W%u\n", tag->weak_posts.count);
+		c_printf(conn, "P%x ", tag->posts.count);
+		c_printf(conn, "W%x\n", tag->weak_posts.count);
 	}
 	c_printf(conn, "OK\n");
 }

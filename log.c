@@ -203,7 +203,7 @@ void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias) {
 	}
 
 LOG_INT_FIELD_FUNC(signed, int, "%s=%lld")
-LOG_INT_FIELD_FUNC(unsigned, uint, "%s=%llu")
+LOG_INT_FIELD_FUNC(unsigned, uint, "%s=%llx")
 
 static void log_enum_field(trans_t *trans, int last, const void *data,
                            const field_t *field) {

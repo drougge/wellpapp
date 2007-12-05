@@ -197,13 +197,13 @@ const field_t post_fields[] = {
 	if (v != rv) return 1;                            \
 	memcpy((char *)post + field->offset, &rv, bytes);
 
-#define PUT_INT_VALUE_FUNC(signed, type, strtot, check_v) \
+#define PUT_INT_VALUE_FUNC(signed, type, strtot, base, check_v)             \
 	static int put_##signed##_value(post_t *post, const field_t *field, \
 	                                const char *val) {                  \
 		char *end;                                                  \
 		if (!*val) return 1;                                        \
 		errno = 0;                                                  \
-		signed long long v = strtot(val, &end, 10);                 \
+		signed long long v = strtot(val, &end, base);               \
 		if (errno || *end) return 1;                                \
 		if (check_v) return 1;                                      \
 		if (field->size == 8) {                                     \
@@ -217,8 +217,8 @@ const field_t post_fields[] = {
 		return 0;                                                   \
 	}
 
-PUT_INT_VALUE_FUNC(signed, int, strtoll, v == LLONG_MAX || v == LLONG_MIN)
-PUT_INT_VALUE_FUNC(unsigned, uint, strtoull, v == ULLONG_MAX)
+PUT_INT_VALUE_FUNC(signed, int, strtoll, 10, v == LLONG_MAX || v == LLONG_MIN)
+PUT_INT_VALUE_FUNC(unsigned, uint, strtoull, 16, v == ULLONG_MAX)
 
 static int put_enum_value_post(post_t *post, const field_t *field, const char *val) {
 	uint16_t *p = (uint16_t *)((char *)post + field->offset);
