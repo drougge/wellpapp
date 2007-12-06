@@ -436,8 +436,9 @@ void db_serve(void) {
 		int have_unread = 0;
 		r = poll(fds, MAX_CONNECTIONS + 1, have_unread ? 0 : INFTIM);
 		if (r == -1) {
-			assert(!server_running);
-			return;
+			if (!server_running) return;
+			perror("poll");
+			continue;
 		}
 		if (fds[MAX_CONNECTIONS].revents & POLLIN) new_connection();
 		for (i = 0; i < MAX_CONNECTIONS; i++) {
