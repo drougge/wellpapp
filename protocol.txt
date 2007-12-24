@@ -49,6 +49,7 @@ tag ("T").
 			width: Width in pixels. (unsigned)
 			height: Height in pixels. (unsigned)
 			score: signed integer.
+			source: Encoded string.
 	M:
 		md5 of post. Can not be specified together with "T" or "t".
 		Can only be specified once.
