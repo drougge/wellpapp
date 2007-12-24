@@ -15,23 +15,23 @@ static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
                                   "width", "height", "score", "source", NULL};
 
 static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
-	c_printf(conn, "%s", filetype_names[post->filetype]);
+	c_printf(conn, " Fext=%s", filetype_names[post->filetype]);
 }
-static void FLAGPRINT_DATE(connection_t *conn, post_t *post) {
-	c_printf(conn, "%llx", (unsigned long long)post->created);
+static void FLAGPRINT_CREATED(connection_t *conn, post_t *post) {
+	c_printf(conn, " Fcreated=%llx", (unsigned long long)post->created);
 }
 static void FLAGPRINT_WIDTH(connection_t *conn, post_t *post) {
-	c_printf(conn, "%x", post->width);
+	c_printf(conn, " Fwidth=%x", post->width);
 }
 static void FLAGPRINT_HEIGHT(connection_t *conn, post_t *post) {
-	c_printf(conn, "%x", post->height);
+	c_printf(conn, " Fheight=%x", post->height);
 }
 static void FLAGPRINT_SCORE(connection_t *conn, post_t *post) {
-	c_printf(conn, "%d", post->score);
+	c_printf(conn, " Fscore=%d", post->score);
 }
 static void FLAGPRINT_SOURCE(connection_t *conn, post_t *post) {
 	if (post->source) {
-		c_printf(conn, "%s", str_str2enc(post->source));
+		c_printf(conn, " Fsource=%s", str_str2enc(post->source));
 	}
 }
 
@@ -40,7 +40,7 @@ static const flag_printer_t flag_printers[] = {
 	NULL,
 	NULL,
 	FLAGPRINT_EXTENSION,
-	FLAGPRINT_DATE,
+	FLAGPRINT_CREATED,
 	FLAGPRINT_WIDTH,
 	FLAGPRINT_HEIGHT,
 	FLAGPRINT_SCORE,
@@ -51,7 +51,7 @@ typedef enum {
 	FLAG_RETURN_TAGNAMES,
 	FLAG_RETURN_TAGIDS,
 	FLAG_RETURN_EXTENSION,
-	FLAG_RETURN_DATE,
+	FLAG_RETURN_CREATED,
 	FLAG_RETURN_WIDTH,
 	FLAG_RETURN_HEIGHT,
 	FLAG_RETURN_SCORE,
@@ -236,7 +236,6 @@ again:
 	}
 	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
 		if (flags & FLAG(i)) {
-			c_printf(conn, " F%s=", flagnames[i]);
 			flag_printers[i](conn, post);
 		}
 	}
