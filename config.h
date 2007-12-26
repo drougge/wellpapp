@@ -1,1 +1,1 @@
-#define PREFIX "/home/danbooru/"
+#define PREFIX "/danbooru/"
