@@ -275,25 +275,23 @@ void log_init(void) {
 /********************************
  ** Below here is only dumping **
  ********************************/
-static trans_t dump_trans;
-static int     dump_fd;
-
-static void tag_iter(ss128_key_t key, ss128_value_t value) {
+static void tag_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	(void)key;
-	log_write_tag(&dump_trans, (tag_t *)value);
+	log_write_tag(trans, (tag_t *)value);
 }
 
-static void tagalias_iter(ss128_key_t key, ss128_value_t value) {
+static void tagalias_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	(void)key;
-	log_write_tagalias(&dump_trans, (tagalias_t *)value);
+	log_write_tagalias(trans, (tagalias_t *)value);
 }
 
-static void post_taglist(post_taglist_t *tl, const char *prefix) {
+static void post_taglist(trans_t *trans, post_taglist_t *tl,
+                         const char *prefix) {
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i]) {
-				log_write(&dump_trans, "T%s%s", prefix,
+				log_write(trans, "T%s%s", prefix,
 				          guid_guid2str(tl->tags[i]->guid));
 			}
 		}
@@ -301,28 +299,32 @@ static void post_taglist(post_taglist_t *tl, const char *prefix) {
 	}
 }
 
-static void post_iter(ss128_key_t key, ss128_value_t value) {
-	post_t *post = (post_t *)value;
+static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp) {
+	post_t  *post = (post_t *)value;
+	int     fd = *(int *)fdp;
+	trans_t trans;
 
 	(void)key;
-	log_trans_start_(&dump_trans, logconn->user, post->modified, dump_fd);
-	dump_trans.flags &= ~TRANSFLAG_SYNC;
-	log_write_post(&dump_trans, post);
-	log_set_init(&dump_trans, "TP%s", md5_md52str(post->md5));
-	post_taglist(&post->tags, "");
-	post_taglist(post->weak_tags, "~");
-	log_trans_end_(&dump_trans);
+	log_trans_start_(&trans, logconn->user, post->modified, fd);
+	trans.flags &= ~TRANSFLAG_SYNC;
+	log_write_post(&trans, post);
+	log_set_init(&trans, "TP%s", md5_md52str(post->md5));
+	post_taglist(&trans, &post->tags, "");
+	post_taglist(&trans, post->weak_tags, "~");
+	log_trans_end_(&trans);
 }
 
-static void user_iter(ss128_key_t key, ss128_value_t value) {
+static void user_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	(void)key;
-	log_write_user(&dump_trans, (user_t *)value);
+	log_write_user(trans, (user_t *)value);
 }
 
 void log_dump(void) {
-	char filename[1024];
-	int  len, w;
-	char buf[20];
+	char    filename[1024];
+	int     len, w;
+	char    buf[20];
+	trans_t dump_trans;
+	int     dump_fd;
 
 	len = snprintf(filename, sizeof(filename), "%s/dump/%016llx",
 	               basedir, (unsigned long long)*logdumpindex);
@@ -335,11 +337,11 @@ void log_dump(void) {
 	 * with the current time. Posts are dumped in individual transactions *
 	 * with the modification time of the post.                            */
 	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
-	ss128_iterate(users, user_iter);
-	ss128_iterate(tags, tag_iter);
-	ss128_iterate(tagaliases, tagalias_iter);
+	ss128_iterate(users, user_iter, &dump_trans);
+	ss128_iterate(tags, tag_iter, &dump_trans);
+	ss128_iterate(tagaliases, tagalias_iter, &dump_trans);
 	log_trans_end_(&dump_trans);
-	ss128_iterate(posts, post_iter);
+	ss128_iterate(posts, post_iter, &dump_fd);
 
 	len = snprintf(buf, sizeof(buf), "L%016llx\n",
 	               (unsigned long long)*logindex);

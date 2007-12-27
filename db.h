@@ -311,8 +311,9 @@ typedef void (*postlist_callback_t)(void *data, post_t *post);
 void postlist_iterate(postlist_t *pl, void *data,
                       postlist_callback_t callback);
 
-typedef void (*ss128_callback_t)(ss128_key_t key, ss128_value_t value);
-void ss128_iterate(ss128_head_t *head, ss128_callback_t callback);
+typedef void (*ss128_callback_t)(ss128_key_t key, ss128_value_t value,
+              void *data);
+void ss128_iterate(ss128_head_t *head, ss128_callback_t callback, void *data);
 int ss128_insert(ss128_head_t *head, ss128_value_t value, ss128_key_t key);
 int ss128_delete(ss128_head_t *head, ss128_key_t key);
 int ss128_find(ss128_head_t *head, ss128_value_t *r_value, ss128_key_t key);

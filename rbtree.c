@@ -67,15 +67,16 @@ static int allocmem(void *res, unsigned int z) {
 
 #define efs_freemem(dummy1, ptr, dummy2) mm_free(ptr)
 
-static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback) {
-	if (node->child[0]) ss128_iterate_i(node->child[0], callback);
-	callback(node->key, node->value);
-	if (node->child[1]) ss128_iterate_i(node->child[1], callback);
+static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback,
+                            void *data) {
+	if (node->child[0]) ss128_iterate_i(node->child[0], callback, data);
+	callback(node->key, node->value, data);
+	if (node->child[1]) ss128_iterate_i(node->child[1], callback, data);
 }
 
-void ss128_iterate(ss128_head_t *head, ss128_callback_t callback) {
+void ss128_iterate(ss128_head_t *head, ss128_callback_t callback, void *data) {
 	if (!head->root) return;
-	ss128_iterate_i(head->root, callback);
+	ss128_iterate_i(head->root, callback, data);
 }
 
 static int rbtree_key_lt(ss128_key_t a, ss128_key_t b) {
