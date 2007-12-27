@@ -62,9 +62,12 @@ tag ("T").
 		RGyBYR8f-qto48a-aaaaaa-aaaaa0 P0123456789abcdef0123456789abcdef Tfoo T~bar G~foYYLK-qto48a-aaaaaa-aaaa79 Fext=jpeg
 
 	T:
-	Not really implemented yet, can only be used to find a tag using
-	complete name ("N") or guid ("G").
-	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count"
+	Not fully implemented yet. Arguments:
+		G: (Exact) 'G'UID
+		N: (Exact) 'N'name
+		P: 'P'artial name
+	Both N and P match aliases as well.
+	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count".
 	Example:
 		STNnekomimi
 

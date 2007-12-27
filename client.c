@@ -284,26 +284,66 @@ done:
 	result_free(conn, &result);
 }
 
-static void tag_search(connection_t *conn, const char *spec) {
-	tag_t *tag = NULL;
-	if (*spec == 'G') {
+static void c_print_tag(connection_t *conn, const tag_t *tag) {
+	if (!tag) return;
+	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
+	c_printf(conn, "N%s ", tag->name);
+	c_printf(conn, "T%s ", tagtype_names[tag->type]);
+	c_printf(conn, "P%x ", tag->posts.count);
+	c_printf(conn, "W%x\n", tag->weak_posts.count);
+}
+
+typedef struct {
+	connection_t *conn;
+	const char   *text;
+} tag_search_data_t;
+
+static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_) {
+	const tag_t *tag = (const tag_t *)value;
+	tag_search_data_t *data = data_;
+	(void)key;
+	if (strstr(tag->name, data->text)) c_print_tag(data->conn, tag);
+}
+
+static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
+                               void *data_) {
+	const tagalias_t *tagalias = (const tagalias_t *)value;
+	tag_search_data_t *data = data_;
+	(void)key;
+	if (strstr(tagalias->name, data->text)) {
+		c_print_tag(data->conn, tagalias->tag);
+	}
+}
+
+static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
+                         prot_cmd_flag_t flags) {
+	(void)data_;
+	(void)flags;
+	if (*cmd == 'G') { // GUID
 		guid_t guid;
-		if (guid_str2guid(&guid, spec + 1, GUIDTYPE_TAG)) {
-			conn->error(conn, spec);
-			return;
+		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) {
+			conn->error(conn, cmd);
+			return 1;
 		}
-		tag = tag_find_guid(guid);
-	} else if (*spec == 'N') {
-		tag = tag_find_name(spec + 1);
+		c_print_tag(conn, tag_find_guid(guid));
+	} else if (*cmd == 'N') { // Exact name
+		c_print_tag(conn, tag_find_name(cmd + 1));
+	} else if (*cmd == 'P') { // Partial name
+		tag_search_data_t data;
+		data.conn = conn;
+		data.text = cmd + 1;
+		ss128_iterate(tags, tag_search_P, &data);
+		ss128_iterate(tagaliases, tag_search_P_alias, &data);
+	} else {
+		return 1;
 	}
-	if (tag) {
-		c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
-		c_printf(conn, "N%s ", tag->name);
-		c_printf(conn, "T%s ", tagtype_names[tag->type]);
-		c_printf(conn, "P%x ", tag->posts.count);
-		c_printf(conn, "W%x\n", tag->weak_posts.count);
+	return 0;
+}
+
+static void tag_search(connection_t *conn, char *cmd) {
+	if (!prot_cmd_loop(conn, cmd, NULL, tag_search_cmd, 0)) {
+		c_printf(conn, "OK\n");
 	}
-	c_printf(conn, "OK\n");
 }
 
 typedef struct show_rels_data {
