@@ -253,6 +253,10 @@ void *mm_alloc(unsigned int size) {
 	return mm_alloc_(size, 0);
 }
 
+void *mm_alloc_s(unsigned int size) {
+	return mm_alloc_(size, 1);
+}
+
 void mm_free(void *mem) {
 	assert(0);
 	(void)mem;

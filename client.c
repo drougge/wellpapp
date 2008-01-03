@@ -300,34 +300,29 @@ typedef struct {
 	int          partial;
 } tag_search_data_t;
 
-static void tag_search_i(const char *name, const tag_t *tag, void *data_) {
-	tag_search_data_t *data = data_;
-	char              *fuzzname;
-	unsigned int      fuzzlen;
-
-	if (data->fuzzy) {
-		utf_fuzz(data->conn, name, &fuzzname, &fuzzlen);
-		name = fuzzname;
-	}
+static void tag_search_i(const char *name, const tag_t *tag,
+                         tag_search_data_t *data) {
 	if (data->partial) {
 		if (strstr(name, data->text)) c_print_tag(data->conn, tag);
 	} else {
 		if (!strcmp(name, data->text)) c_print_tag(data->conn, tag);
 	}
-	if (data->fuzzy) c_free(data->conn, fuzzname, fuzzlen);
 }
 
-static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data) {
+static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_) {
+	tag_search_data_t *data = data_;
 	const tag_t       *tag = (const tag_t *)value;
 	(void)key;
-	tag_search_i(tag->name, tag, data);
+	tag_search_i(data->fuzzy ? tag->fuzzy_name : tag->name, tag, data);
 }
 
 static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
-                               void *data) {
-	const tagalias_t *tagalias = (const tagalias_t *)value;
+                               void *data_) {
+	tag_search_data_t *data = data_;
+	const tagalias_t  *tagalias = (const tagalias_t *)value;
 	(void)key;
-	tag_search_i(tagalias->name, tagalias->tag, data);
+	tag_search_i(data->fuzzy ? tagalias->fuzzy_name : tagalias->name,
+	             tagalias->tag, data);
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -364,7 +359,10 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 			data.conn    = conn;
 			data.partial = (*cmd == 'P');
 			if (fuzzy) {
-				utf_fuzz(conn, cmd + 1, &fuzztext, &fuzzlen);
+				if (utf_fuzz_c(conn, cmd + 1, &fuzztext,
+				               &fuzzlen)) {
+					return c_close_error(conn, E_MEM);
+				}
 				data.text  = fuzztext;
 				data.fuzzy = 1;
 			} else {

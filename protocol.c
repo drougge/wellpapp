@@ -99,6 +99,7 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 			break;
 		case 'N':
 			tag->name = mm_strdup(args);
+			tag->fuzzy_name = utf_fuzz_mm(tag->name);
 			break;
 		case 'T':
 			if (put_enum_value_gen(&tag->type, tagtype_names, args)) {
@@ -147,6 +148,7 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 			break;
 		case 'N':
 			tagalias->name = mm_strdup(args);
+			tagalias->fuzzy_name = utf_fuzz_mm(tagalias->name);
 			break;
 		default:
 			return conn->error(conn, cmd);

@@ -152,6 +152,7 @@ typedef struct postlist_node {
 
 typedef struct tag {
 	const char *name;
+	const char *fuzzy_name;
 	guid_t     guid;
 	uint16_t   type;
 	postlist_t posts;
@@ -160,6 +161,7 @@ typedef struct tag {
 
 typedef struct tagalias {
 	const char *name;
+	const char *fuzzy_name;
 	tag_t      *tag;
 } tagalias_t;
 
@@ -325,6 +327,7 @@ ss128_key_t ss128_str2key(const char *str);
 int  mm_init(void);
 void mm_cleanup(void);
 void *mm_alloc(unsigned int size);
+void *mm_alloc_s(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);
 void mm_print(void);
@@ -354,8 +357,9 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 const char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
 
-int utf_fuzz(connection_t *conn, const char *str, char **res,
-             unsigned int *res_len);
+int utf_fuzz_c(connection_t *conn, const char *str, char **res,
+               unsigned int *res_len);
+const char *utf_fuzz_mm(const char *str);
 
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
