@@ -222,12 +222,14 @@ tag_t *tag_find_guidstr(const char *guidstr) {
 	return tag_find_guid(guid);
 }
 
-tag_t *tag_find_name(const char *name) {
+tag_t *tag_find_name(const char *name, truth_t alias) {
 	ss128_key_t hash = ss128_str2key(name);
 	void        *tag = NULL;
 
-	ss128_find(tags, &tag, hash);
-	if (!tag) {
+	if (alias != T_YES) {
+		ss128_find(tags, &tag, hash);
+	}
+	if (!tag && alias != T_NO) {
 		ss128_find(tagaliases, &tag, hash);
 		if (tag) tag = ((tagalias_t *)tag)->tag;
 	}

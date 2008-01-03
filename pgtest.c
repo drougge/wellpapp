@@ -341,7 +341,7 @@ printf("Tag %d on post %s has no post\n",tag_id, PQgetvalue(res, i, 0));
 		const char   *name;
 
 		name = PQgetvalue(res, i, 0);
-		tag  = tag_find_name(PQgetvalue(res, i, 1));
+		tag  = tag_find_name(PQgetvalue(res, i, 1), T_DONTCARE);
 		if (tag) {
 			add_tagalias(name, tag);
 		} else {

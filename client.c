@@ -110,7 +110,7 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			if (*args == 'G') {
 				tag = tag_find_guidstr(args + 1);
 			} else if (*args == 'N') {
-				tag = tag_find_name(args + 1);
+				tag = tag_find_name(args + 1, T_DONTCARE);
 			} else {
 				return conn->error(conn, cmd);
 			}
@@ -296,48 +296,93 @@ static void c_print_tag(connection_t *conn, const tag_t *tag) {
 typedef struct {
 	connection_t *conn;
 	const char   *text;
+	int          fuzzy;
+	int          partial;
 } tag_search_data_t;
 
-static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_) {
-	const tag_t *tag = (const tag_t *)value;
+static void tag_search_i(const char *name, const tag_t *tag, void *data_) {
 	tag_search_data_t *data = data_;
+	char              *fuzzname;
+	unsigned int      fuzzlen;
+
+	if (data->fuzzy) {
+		utf_fuzz(data->conn, name, &fuzzname, &fuzzlen);
+		name = fuzzname;
+	}
+	if (data->partial) {
+		if (strstr(name, data->text)) c_print_tag(data->conn, tag);
+	} else {
+		if (!strcmp(name, data->text)) c_print_tag(data->conn, tag);
+	}
+	if (data->fuzzy) c_free(data->conn, fuzzname, fuzzlen);
+}
+
+static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data) {
+	const tag_t       *tag = (const tag_t *)value;
 	(void)key;
-	if (strstr(tag->name, data->text)) c_print_tag(data->conn, tag);
+	tag_search_i(tag->name, tag, data);
 }
 
 static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
-                               void *data_) {
+                               void *data) {
 	const tagalias_t *tagalias = (const tagalias_t *)value;
-	tag_search_data_t *data = data_;
 	(void)key;
-	if (strstr(tagalias->name, data->text)) {
-		c_print_tag(data->conn, tagalias->tag);
-	}
+	tag_search_i(tagalias->name, tagalias->tag, data);
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
                          prot_cmd_flag_t flags) {
+	int     fuzzy   = 0;
+	truth_t aliases = T_NO;
+
 	(void)data_;
 	(void)flags;
-	if (*cmd == 'G') { // GUID
+
+	if (*cmd == 'F') {
+		fuzzy = 1;
+	} else if (*cmd != 'E') {
+		goto err;
+	}
+	cmd++;
+	if (*cmd == 'A') {
+		aliases = T_DONTCARE;
+		cmd++;
+	}
+	if (*cmd == 'G') {
 		guid_t guid;
-		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) {
-			conn->error(conn, cmd);
-			return 1;
-		}
+		if (fuzzy) goto err;
+		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) goto err;
 		c_print_tag(conn, tag_find_guid(guid));
-	} else if (*cmd == 'N') { // Exact name
-		c_print_tag(conn, tag_find_name(cmd + 1));
-	} else if (*cmd == 'P') { // Partial name
-		tag_search_data_t data;
-		data.conn = conn;
-		data.text = cmd + 1;
-		ss128_iterate(tags, tag_search_P, &data);
-		ss128_iterate(tagaliases, tag_search_P_alias, &data);
 	} else {
-		return 1;
+		if (*cmd != 'N' && *cmd != 'P') goto err;
+		if (*cmd == 'N' && !fuzzy) {
+			c_print_tag(conn, tag_find_name(cmd + 1, aliases));
+		} else {
+			tag_search_data_t data;
+			char              *fuzztext;
+			unsigned int      fuzzlen;
+			data.conn    = conn;
+			data.partial = (*cmd == 'P');
+			if (fuzzy) {
+				utf_fuzz(conn, cmd + 1, &fuzztext, &fuzzlen);
+				data.text  = fuzztext;
+				data.fuzzy = 1;
+			} else {
+				data.text  = cmd + 1;
+				data.fuzzy = 0;
+			}
+			ss128_iterate(tags, tag_search_P, &data);
+			if (aliases) {
+				ss128_iterate(tagaliases, tag_search_P_alias,
+				              &data);
+			}
+			if (fuzzy) c_free(conn, fuzztext, fuzzlen);
+		}
 	}
 	return 0;
+err:
+	conn->error(conn, cmd);
+	return 1;
 }
 
 static void tag_search(connection_t *conn, char *cmd) {

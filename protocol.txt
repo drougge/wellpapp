@@ -62,14 +62,14 @@ tag ("T").
 		RGyBYR8f-qto48a-aaaaaa-aaaaa0 P0123456789abcdef0123456789abcdef Tfoo T~bar G~foYYLK-qto48a-aaaaaa-aaaa79 Fext=jpeg
 
 	T:
-	Not fully implemented yet. Arguments:
-		G: (Exact) 'G'UID
-		N: (Exact) 'N'name
+	First either 'E'xact or 'F'uzzy, optionally 'A' to include aliases, 
+	and then one of G, N or P:
+		G: 'G'UID (only with E)
+		N: Complete 'N'ame
 		P: 'P'artial name
-	Both N and P match aliases as well.
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count".
 	Example:
-		STNnekomimi
+		STEANnekomimi
 
 T:
 Arguments:

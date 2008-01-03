@@ -292,7 +292,7 @@ int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
-tag_t *tag_find_name(const char *name);
+tag_t *tag_find_name(const char *name, truth_t alias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
@@ -353,6 +353,9 @@ int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 
 const char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
+
+int utf_fuzz(connection_t *conn, const char *str, char **res,
+             unsigned int *res_len);
 
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
