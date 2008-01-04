@@ -406,6 +406,8 @@ static char *utf_compose(connection_t *conn) {
 	return (char *)buf;
 }
 
+static int port = 0;
+
 void db_serve(void) {
 	int s, r, one, i;
 	struct sockaddr_in addr;
@@ -426,7 +428,8 @@ void db_serve(void) {
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_len    = sizeof(addr);
 	addr.sin_family = AF_INET;
-	addr.sin_port   = htons(2225);
+	assert(port);
+	addr.sin_port   = htons(port);
 	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
 	assert(!r);
 	r = listen(s, 5);
@@ -540,6 +543,8 @@ void db_read_cfg(const char *filename) {
 			int r = guid_str2guid(&server_guid_, buf + 5, GUIDTYPE_SERVER);
 			assert(!r);
 			server_guid = &server_guid_;
+		} else if (!memcmp("port=", buf, 5)) {
+			port = atoi(buf + 5);
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
