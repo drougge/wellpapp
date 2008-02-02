@@ -5,13 +5,15 @@ OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
 
 LIBS=-L/opt/utf8proc/1.1.2/lib -L/opt/libmd/unknown/lib -lmd -lutf8proc
 
+LDFLAGS += -Wl,-rpath /opt/utf8proc/1.1.2/lib
+
 all: server pgtest pearsonr
 
 pgtest: pgtest.o $(OBJS)
 	$(CC) -o pgtest pgtest.o $(OBJS) $(LIBS) -lpq
 
 server: server.o $(OBJS)
-	$(CC) -o server server.o $(OBJS) $(LIBS)
+	$(CC) $(LDFLAGS) -o server server.o $(OBJS) $(LIBS)
 
 *.o: db.h config.h
 
