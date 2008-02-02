@@ -4,6 +4,10 @@
 #include <sys/mman.h>
 #include <sys/file.h>
 
+#ifndef MAP_NOCORE
+#define MAP_NOCORE 0
+#endif
+
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */
 #define MM_FLAG_CLEAN 1

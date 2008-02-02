@@ -381,3 +381,7 @@ extern const char *basedir;
 extern connection_t *logconn;
 
 extern int server_running;
+
+#ifndef O_EXLOCK
+#define O_EXLOCK 0
+#endif

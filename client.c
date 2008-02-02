@@ -3,6 +3,23 @@
 #define PROT_TAGS_PER_SEARCH   16
 #define PROT_ORDERS_PER_SEARCH 4
 
+#ifdef __linux__
+typedef int (*qsort_r_t)(void *, const void *, const void *);
+static void      *qsort_thunk;
+static qsort_r_t qsort_compar;
+
+static int qsort_compwrap(const void *a, const void *b) {
+	return qsort_compar(qsort_thunk, a, b);
+}
+
+static void qsort_r(void *base, size_t nmemb, size_t size,
+                    void *thunk, qsort_r_t compar) {
+	qsort_thunk  = thunk;
+	qsort_compar = compar;
+	qsort(base, nmemb, size, qsort_compwrap);
+}
+#endif
+
 typedef enum {
 	ORDER_NONE,
 	ORDER_DATE,

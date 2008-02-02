@@ -8,6 +8,10 @@
 #include <md5.h>
 #include <utf8proc.h>
 
+#ifndef INFTIM
+#define INFTIM -1
+#endif
+
 void NORETURN assert_fail(const char *ass, const char *file,
                           const char *func, int line) {
 	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n",
@@ -426,7 +430,9 @@ void db_serve(void) {
 	r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	assert(!r);
 	memset(&addr, 0, sizeof(addr));
+#ifndef __linux__
 	addr.sin_len    = sizeof(addr);
+#endif
 	addr.sin_family = AF_INET;
 	assert(port);
 	addr.sin_port   = htons(port);
@@ -474,12 +480,15 @@ void db_serve(void) {
 	}
 }
 
-static const char *strndup(const char *str, unsigned int len) {
+const char *strndup(const char *str, size_t len);
+#ifdef __FreeBSD__
+static const char *strndup(const char *str, size_t len) {
 	char *res = malloc(len + 1);
 	memcpy(res, str, len);
 	res[len] = '\0';
 	return res;
 }
+#endif
 
 static void cfg_parse_list(const char * const **res_list, const char *str) {
 	int          words = 1;
