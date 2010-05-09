@@ -47,21 +47,21 @@ static void deser(uint8_t *a, const char *buf) {
 	}
 }
 
-typedef struct id {
+typedef struct imgid {
 	uint8_t a[RES*RES];
 	char    md5[32];
 	float   p;
-} id_t;
+} imgid_t;
 
-static id_t *ids;
+static imgid_t *ids;
 static unsigned long of_ids;
-static id_t cmp_id;
+static imgid_t cmp_id;
 static const char *cmp_img;
 static int cmp_img_ok;
 
 static int comp_id(const void *a, const void *b) {
-	const id_t *x = a;
-	const id_t *y = b;
+	const imgid_t *x = a;
+	const imgid_t *y = b;
 	if (x->p < y->p) return 1;
 	if (x->p > y->p) return -1;
 	return 0;
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	}
 	id = 0;
 	of_ids = 100;
-	ids = malloc(sizeof(id_t) * of_ids);
+	ids = malloc(sizeof(imgid_t) * of_ids);
 	while (fgets(buf, sizeof(buf), fh)) {
 		if (memcmp(buf, cmp_id.md5, 32)) {
 			deser(ids[id].a, buf + 33);
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 				id++;
 				if (id == of_ids) {
 					of_ids *= 2;
-					ids = realloc(ids, sizeof(id_t) * of_ids);
+					ids = realloc(ids, sizeof(imgid_t) * of_ids);
 					if (!ids) return 1;
 				}
 			}
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
 	fclose(fh);
 	if (!id) return 0;
 	of_ids = id;
-	qsort(ids, of_ids, sizeof(id_t), comp_id);
+	qsort(ids, of_ids, sizeof(imgid_t), comp_id);
 	char md5[33];
 	md5[32] = 0;
 	if (of_ids > 10) of_ids = 10;
@@ -137,13 +137,13 @@ static int read_db(const char *filename) {
 	fh = fopen(filename, "r");
 	if (!fh) return 1;
 	of_ids = 1024;
-	ids = malloc(sizeof(id_t) * of_ids);
+	ids = malloc(sizeof(imgid_t) * of_ids);
 	if (!ids) goto err;
 	while (fgets(buf, sizeof(buf), fh)) {
 		if (memcmp(buf, cmp_img, 32)) {
 			if (id == of_ids) {
 				of_ids *= 2;
-				ids = realloc(ids, sizeof(id_t) * of_ids);
+				ids = realloc(ids, sizeof(imgid_t) * of_ids);
 				if (!ids) goto err;
 			}
 			memcpy(ids[id].md5, buf, 32);
@@ -175,7 +175,7 @@ int mai__n(int argc, char **argv) {
 	for (i = 0; i < of_ids; i++) {
 		ids[i].p = pearsonr(ids[i].a, cmp_id.a, RES*RES);
 	}
-	qsort(ids, of_ids, sizeof(id_t), comp_id);
+	qsort(ids, of_ids, sizeof(imgid_t), comp_id);
 	char md5[33];
 	md5[32] = 0;
 	for (i = 0; i < 10; i++) {

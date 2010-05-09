@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE
+#define _GNU_SOURCE
 #include "db.h"
 
 #include <time.h>

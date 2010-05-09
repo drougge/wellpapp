@@ -5,7 +5,11 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <errno.h>
+#ifdef __linux__
+#include <bsd/md5.h>
+#else
 #include <md5.h>
+#endif
 #include <utf8proc.h>
 
 #ifndef INFTIM
@@ -480,8 +484,8 @@ void db_serve(void) {
 	}
 }
 
-const char *strndup(const char *str, size_t len);
 #ifdef __FreeBSD__
+const char *strndup(const char *str, size_t len);
 static const char *strndup(const char *str, size_t len) {
 	char *res = malloc(len + 1);
 	memcpy(res, str, len);

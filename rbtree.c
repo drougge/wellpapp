@@ -2,7 +2,11 @@
 
 #include "db.h"
 
+#ifdef __linux__
+#include <bsd/md5.h>
+#else
 #include <md5.h>
+#endif
 
 struct ss128_node {
 	struct ss128_node *child[2];
