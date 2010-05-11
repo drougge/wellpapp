@@ -2,7 +2,7 @@
 
 #include <stdarg.h>
 
-/* Keep synced to error_t in db.h */
+/* Keep synced to dberror_t in db.h */
 static const char *errors[] = {
 	"line too long",
 	"read",
@@ -182,7 +182,7 @@ int c_error(connection_t *conn, const char *what) {
 	return 1;
 }
 
-int c_close_error(connection_t *conn, error_t e) {
+int c_close_error(connection_t *conn, dberror_t e) {
 	c_printf(conn, "E%d %s\n", e, errors[e]);
 	c_flush(conn);
 	conn->flags &= ~CONNFLAG_GOING;

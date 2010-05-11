@@ -1,3 +1,6 @@
+#define _XOPEN_SOURCE
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -176,7 +179,7 @@ typedef enum {
 	E_OVERFLOW,
 	E_MEM,
 	E_UTF8,
-} error_t;
+} dberror_t;
 
 /* Keep enum and #define synced */
 #define FILETYPE_NAMES_STR "jpeg gif png bmp swf"
@@ -282,7 +285,7 @@ void c_flush(connection_t *conn);
 void c_read_data(connection_t *conn);
 int c_get_line(connection_t *conn);
 int c_error(connection_t *conn, const char *what);
-int c_close_error(connection_t *conn, error_t what);
+int c_close_error(connection_t *conn, dberror_t what);
 
 /* Note that these modify *cmd. */
 int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
