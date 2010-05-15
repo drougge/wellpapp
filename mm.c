@@ -285,7 +285,7 @@ const char *mm_strdup(const char *str) {
 }
 
 void mm_print(void) {
-	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", ULL mm_head->used, mm_head->size, ULL mm_head->free, ULL mm_head->wasted, mm_head->of_segments);
+	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", ULL mm_head->used, ULL mm_head->size, ULL mm_head->free, ULL mm_head->wasted, mm_head->of_segments);
 	printf("%llu bytes small, %llu bytes aligned.\n", ULL mm_head->used_small, ULL (mm_head->used - mm_head->used_small));
 }
 

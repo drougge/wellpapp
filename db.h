@@ -16,6 +16,7 @@
 #define err(v, res) if(v) { r = (res); goto err; }
 #define assert(v) if (!(v)) assert_fail(#v, __FILE__, __FUNCTION__, __LINE__)
 #define NORETURN __attribute__((noreturn))
+#define ULL (unsigned long long)
 
 void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
