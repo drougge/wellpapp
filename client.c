@@ -12,12 +12,13 @@ static int qsort_compwrap(const void *a, const void *b) {
 	return qsort_compar(qsort_thunk, a, b);
 }
 
-static void qsort_r(void *base, size_t nmemb, size_t size,
-                    void *thunk, qsort_r_t compar) {
+static void qsort_r_(void *base, size_t nmemb, size_t size,
+                     void *thunk, qsort_r_t compar) {
 	qsort_thunk  = thunk;
 	qsort_compar = compar;
 	qsort(base, nmemb, size, qsort_compwrap);
 }
+#define qsort_r qsort_r_
 #endif
 
 typedef enum {
