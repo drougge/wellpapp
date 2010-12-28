@@ -112,12 +112,17 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 	if (flags & CMDFLAG_LAST) {
 		ss128_key_t  key;
 		unsigned int i;
+		if (!tag->name) {
+			return conn->error(conn, cmd);
+		}
 		ptr = (char *)&tag->guid;
 		for (i = 0; i < sizeof(tag->guid); i++) {
 			if (ptr[i]) break;
 		}
-		if (i == sizeof(tag->guid) || !tag->name) {
-			return conn->error(conn, cmd);
+		if (i == sizeof(tag->guid)) {
+			tag->guid = guid_gen_tag_guid();
+		} else {
+			guid_update_last(tag->guid);
 		}
 		key = ss128_str2key(tag->name);
 		mm_lock();

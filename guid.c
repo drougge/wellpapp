@@ -31,6 +31,22 @@ guid_t guid_gen_tag_guid(void) {
 	return guid;
 }
 
+void guid_update_last(guid_t guid) {
+	for (int i = 0; i < 7; i++) {
+		if (guid.data_u8[i] != server_guid->data_u8[i]) return;
+	}
+	if (ntohl(guid.data_u32[2]) > tag_guid_last[0]) {
+		tag_guid_last[0] = ntohl(guid.data_u32[2]);
+		tag_guid_last[1] = ntohl(guid.data_u32[3]);
+		return;
+	}
+	if (ntohl(guid.data_u32[2]) == tag_guid_last[0]
+	    && ntohl(guid.data_u32[3]) > tag_guid_last[1]) {
+		tag_guid_last[1] = ntohl(guid.data_u32[3]);
+		return;
+	}
+}
+
 static int guid_c2i(int c) {
 	int i;
 	for (i = 0; guid_charset[i]; i++) {

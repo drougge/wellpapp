@@ -353,6 +353,7 @@ void log_write_user(trans_t *trans, const user_t *user);
 void log_dump(void);
 
 guid_t guid_gen_tag_guid(void);
+void guid_update_last(guid_t guid);
 const char *guid_guid2str(guid_t guid);
 int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type);
 int guid_is_valid_server_guid(const guid_t guid);
