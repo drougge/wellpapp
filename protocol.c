@@ -22,7 +22,7 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 		case 't': // Remove tag
 			if (!*post) return conn->error(conn, cmd);
 			truth_t weak = T_NO;
-			if (*args == '~') { // Weak tag
+			if (*args == '~' && *cmd == 'T') { // Weak tag
 				args++;
 				weak = T_YES;
 			}
@@ -31,10 +31,11 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 			if (*cmd == 'T') {
 				int r = post_tag_add(*post, tag, weak);
 				if (r) return conn->error(conn, cmd);
-				log_write(&conn->trans, "%s", cmd);
 			} else {
-				return conn->error(conn, cmd); // @@TODO: Implement removal
+				int r = post_tag_rem(*post, tag);
+				if (r) return conn->error(conn, cmd);
 			}
+			log_write(&conn->trans, "%s", cmd);
 			break;
 		default:
 			return conn->error(conn, cmd);

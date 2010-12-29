@@ -301,6 +301,7 @@ user_t *prot_auth(char *cmd);
 tag_t *tag_find_name(const char *name, truth_t alias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
+int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);

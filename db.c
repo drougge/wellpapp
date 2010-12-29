@@ -109,6 +109,37 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	return 0;
 }
 
+int post_tag_rem(post_t *post, tag_t *tag) {
+	post_taglist_t *tl;
+	postlist_t     *pl;
+	int finished = 0;
+	uint16_t *of_holes;
+
+	assert(post);
+	assert(tag);
+	tl = &post->tags;
+	pl = &tag->posts;
+	of_holes = &post->of_holes;
+again:
+	while (tl) {
+		unsigned int i;
+		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (tl->tags[i] == tag) {
+				tl->tags[i] = NULL;
+				(*of_holes)++;
+				return postlist_remove(pl, post);
+			}
+		}
+		tl = tl->next;
+	}
+	if (finished) return 1;
+	finished = 1;
+	tl = post->weak_tags;
+	pl = &tag->weak_posts;
+	of_holes = &post->of_weak_holes;
+	goto again;
+}
+
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	post_taglist_t *tl;
 	post_taglist_t *ptl = NULL;
@@ -118,7 +149,10 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	assert(post);
 	assert(tag);
 	assert(weak == T_YES || weak == T_NO);
-	if (post_has_tag(post, tag, T_DONTCARE)) return 1;
+	if (post_has_tag(post, tag, weak)) return 1;
+	if (post_has_tag(post, tag, !weak)) {
+		if (post_tag_rem(post, tag)) return 1;
+	}
 	if (weak) {
 		postlist_add(&tag->weak_posts, post);
 		tl = post->weak_tags;
