@@ -466,6 +466,30 @@ int prot_rel_remove(connection_t *conn, char *cmd) {
 	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
 }
 
+static void show_implications(connection_t *conn, tag_t *tag) {
+	impllist_t *tl = &tag->implications;
+	int to_go = 0;
+	const char *newline = "";
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (tl->tags[i]) {
+				if (!to_go) {
+					to_go = 10;
+					c_printf(conn, "%sRI%s", newline,
+					         guid_guid2str(tag->guid));
+					newline = "\n";
+				}
+				to_go--;
+				c_printf(conn, " I%s:%ld",
+				         guid_guid2str(tl->tags[i]->guid),
+				         (long)tl->priority[i]);
+			}
+		}
+		tl = tl->next;
+	}
+	 c_printf(conn, "%s", newline);
+}
+
 static int impl_cmd(connection_t *conn, const char *cmd, void *tag_,
                     prot_cmd_flag_t flags) {
 	tag_t *tag = tag_;
@@ -483,7 +507,8 @@ static int impl_cmd(connection_t *conn, const char *cmd, void *tag_,
 			break;
 		case 'S':
 			if (cmd[1]) return conn->error(conn, cmd);
-			// @@
+			show_implications(conn, tag);
+			return 0;
 			break;
 		default:
 			return conn->error(conn, cmd);

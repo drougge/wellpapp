@@ -135,8 +135,12 @@ I:
 		Implies (or no longer implies for "i") this tag.
 		Optionally followed by :priority (int, default 0).
 	S:
-		Show implications from this tag. Example reply:
-			RIg2tKGC-By0kHy-aaaaaa-aaaaas:10 Ig2tKGC-By0kHt-aaaaaa-aaaaar:0
+		Show implications from this tag. Returnes lines of the
+		form "RIid id:prio [id:prio [...]]". The first id on the
+		line imples all following, with the specified priority.
+		Can return several lines for the same tag.
+		Example reply:
+			RIg2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas:10
 	Example:
 		Ig2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas:10
 
