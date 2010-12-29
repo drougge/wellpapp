@@ -119,27 +119,6 @@ static int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
 	return 0;
 }
 
-static int cmp_taglist(const post_taglist_t *a, const post_taglist_t *b) {
-	const post_taglist_t *p1, *p2;
-	assert(a != b || a == NULL);
-	p1 = a;
-	p2 = b;
-again:
-	while (p1) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-			tag_t *tag = p1->tags[i];
-			if (tag && !taglist_contains(p2, tag)) return 1;
-		}
-		p1 = p1->next;
-	}
-	if (p2 == b && a != NULL) {
-		p1 = b;
-		p2 = a;
-		goto again;
-	}
-	return 0;
-}
-
 typedef struct alloc_seg {
 	struct alloc_seg *next;
 } alloc_seg_t;
@@ -245,23 +224,61 @@ static post_taglist_t *post_implications(post_t *post, post_taglist_t *rtl,
 	return impldata.tl;
 }
 
+static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak);
+static int post_tag_rem_i(post_t *post, tag_t *tag);
+static int impl_apply_change(post_t *post, post_taglist_t **old,
+                             post_taglist_t *new, truth_t weak,
+                             alloc_func_t alloc, alloc_data_t *adata) {
+	post_taglist_t *tl;
+	int changed = 0;
+	tl = new;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			tag_t *tag = tl->tags[i];
+			if (tag && !taglist_contains(*old, tag)) {
+				if (!post_has_tag(post, tag, T_DONTCARE)) {
+					post_tag_add_i(post, tag, weak);
+					taglist_add(old, tag, alloc, adata);
+					changed = 1;
+				} else {
+					tl->tags[i] = NULL;
+				}
+			}
+		}
+		tl = tl->next;
+	}
+	tl = *old;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			tag_t *tag = tl->tags[i];
+			if (tag && !taglist_contains(new, tag)) {
+				post_tag_rem_i(post, tag);
+				tl->tags[i] = NULL;
+				changed = 1;
+			}
+		}
+		tl = tl->next;
+	}
+	return changed;
+}
+
 static void post_recompute_implications(post_t *post) {
 	alloc_data_t adata;
 	post_taglist_t *implied;
+	int again;
+again:
+	again = 0;
 	adata.segs = NULL;
 	implied = post_implications(post, NULL, alloc_temp, &adata, T_NO);
-	if (cmp_taglist(implied, post->implied_tags)) {
-		post->implied_tags = post_implications(post, post->implied_tags,
-		                                       alloc_mm, NULL, T_NO);
-	}
+	again |= impl_apply_change(post, &post->implied_tags, implied,
+	                           T_NO, alloc_mm, NULL);
 	alloc_temp_free(&adata);
 	adata.segs = NULL;
 	implied = post_implications(post, NULL, alloc_temp, &adata, T_YES);
-	if (cmp_taglist(implied, post->implied_weak_tags)) {
-		post->implied_weak_tags = post_implications(post, post->implied_weak_tags,
-		                                            alloc_mm, NULL, T_YES);
-	}
+	again |= impl_apply_change(post, &post->implied_weak_tags, implied,
+	                           T_YES, alloc_mm, NULL);
 	alloc_temp_free(&adata);
+	if (again) goto again;
 }
 
 static void post_recompute_implications_iter(void *data, post_t *post) {
