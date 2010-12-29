@@ -109,9 +109,159 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	return 0;
 }
 
+static int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (tl->tags[i] == tag) return 1;
+		}
+		tl = tl->next;
+	}
+	return 0;
+}
+
+static int cmp_taglist(const post_taglist_t *a, const post_taglist_t *b) {
+	const post_taglist_t *p1, *p2;
+	assert(a != b || a == NULL);
+	p1 = a;
+	p2 = b;
+again:
+	while (p1) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			tag_t *tag = p1->tags[i];
+			if (tag && !taglist_contains(p2, tag)) return 1;
+		}
+		p1 = p1->next;
+	}
+	if (p2 == b && a != NULL) {
+		p1 = b;
+		p2 = a;
+		goto again;
+	}
+	return 0;
+}
+
+typedef struct alloc_seg {
+	struct alloc_seg *next;
+} alloc_seg_t;
+typedef struct alloc_data {
+	alloc_seg_t *segs;
+} alloc_data_t;
+typedef void *(*alloc_func_t)(alloc_data_t *data, unsigned int size);
+
+static void *alloc_temp(alloc_data_t *data, unsigned int size) {
+	alloc_seg_t *seg;
+	seg = calloc(1, sizeof(seg) + size);
+	seg->next = data->segs;
+	data->segs = seg;
+	return seg + 1;
+}
+static void alloc_temp_free(alloc_data_t *data) {
+	alloc_seg_t *seg = data->segs;
+	while (seg) {
+		alloc_seg_t *next = seg->next;
+		free(seg);
+		seg = next;
+	}
+}
+static void *alloc_mm(alloc_data_t *data, unsigned int size) {
+	(void) data;
+	return mm_alloc(size);
+}
+
+static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
+                       alloc_data_t *adata) {
+	post_taglist_t *tl = *tlp;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (!tl->tags[i]) {
+				tl->tags[i] = tag;
+				return 0;
+			}
+			if (tl->tags[i] == tag) return 1;
+		}
+		tl = tl->next;
+	}
+	tl = alloc(adata, sizeof(*tl));
+	tl->tags[0] = tag;
+	tl->next = *tlp;
+	*tlp = tl;
+	return 0;
+}
+
+struct impl_iterator_data;
+typedef struct impl_iterator_data impl_iterator_data_t;
+typedef void (*impl_callback_t)(tag_t *tag, impl_iterator_data_t *data);
+struct impl_iterator_data {
+	post_taglist_t  *tl;
+	int             tlpos;
+	alloc_func_t    alloc;
+	alloc_data_t    *adata;
+	impl_callback_t callback;
+	void            *callback_data;
+};
+
+static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data) {
+	while (impl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (impl->tags[i]) {
+				data->callback(impl->tags[i], data);
+			}
+		}
+		impl = impl->next;
+	}
+}
+
+static void impl_cb(tag_t *tag, impl_iterator_data_t *data) {
+	(void) taglist_add(&data->tl, tag, data->alloc, data->adata);
+}
+
+static post_taglist_t *post_implications(post_t *post, post_taglist_t *rtl,
+                                         alloc_func_t alloc,
+                                         alloc_data_t *adata, truth_t weak) {
+	impl_iterator_data_t impldata;
+	post_taglist_t *tl;
+	assert(post);
+	assert(alloc);
+	assert(weak == T_YES || weak == T_NO);
+	impldata.tl = rtl;
+	impldata.alloc = alloc;
+	impldata.adata = adata;
+	impldata.callback = impl_cb;
+	tl = rtl;
+	while (tl) {
+		memset(tl->tags, 0, sizeof(tl->tags));
+		tl = tl->next;
+	}
+	tl = weak ? post->weak_tags : &post->tags;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			tag_t *tag = tl->tags[i];
+			if (tag && tag->implications) {
+				impllist_iterate(tag->implications, &impldata);
+			}
+		}
+		tl = tl->next;
+	}
+	return impldata.tl;
+}
+
 static void post_recompute_implications(post_t *post) {
-	(void)post;
-	// @@ needs to happen
+	alloc_data_t adata;
+	post_taglist_t *implied;
+	adata.segs = NULL;
+	implied = post_implications(post, NULL, alloc_temp, &adata, T_NO);
+	if (cmp_taglist(implied, post->implied_tags)) {
+		post->implied_tags = post_implications(post, post->implied_tags,
+		                                       alloc_mm, NULL, T_NO);
+	}
+	alloc_temp_free(&adata);
+	adata.segs = NULL;
+	implied = post_implications(post, NULL, alloc_temp, &adata, T_YES);
+	if (cmp_taglist(implied, post->implied_weak_tags)) {
+		post->implied_weak_tags = post_implications(post, post->implied_weak_tags,
+		                                            alloc_mm, NULL, T_YES);
+	}
+	alloc_temp_free(&adata);
 }
 
 static void post_recompute_implications_iter(void *data, post_t *post) {
@@ -124,33 +274,34 @@ static void postlist_recompute_implications(postlist_t *pl) {
 }
 
 int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
-	impllist_t *tl = &from->implications;
-	impllist_t *ptl = NULL;
-	tag_t **p_t = NULL;
+	impllist_t *tl = from->implications;
+	int done = 0;
 	while (tl) {
 		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-			if ((!tl->tags[i] || tl->tags[i] == to) && !p_t) {
-				p_t = &tl->tags[i];
-				*p_t = to;
+			if ((!tl->tags[i] || tl->tags[i] == to) && !done) {
+				tl->tags[i] = to;
 				tl->priority[i] = priority;
+				done = 1;
 			} else if (tl->tags[i] == to) {
 				tl->tags[i] = NULL;
 			}
 		}
-		ptl = tl;
-		tl  = tl->next;
+		tl = tl->next;
 	}
-	if (!p_t) {
+	if (!done) {
 		tl = mm_alloc(sizeof(*tl));
 		tl->tags[0] = to;
 		tl->priority[0] = priority;
-		ptl->next = tl;
+		tl->next = from->implications;
+		from->implications = tl;
 	}
+	postlist_recompute_implications(&from->posts);
+	postlist_recompute_implications(&from->weak_posts);
 	return 0;
 }
 
 int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority) {
-	impllist_t *tl = &from->implications;
+	impllist_t *tl = from->implications;
 	(void) priority;
 	while (tl) {
 		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {

@@ -132,6 +132,8 @@ typedef struct post {
 	postlist_t     related_posts;
 	post_taglist_t tags;
 	post_taglist_t *weak_tags;
+	post_taglist_t *implied_tags;
+	post_taglist_t *implied_weak_tags;
 } post_t;
 
 /* Keep this synced with function-arrays in protocol.c:put_in_post_field() *
@@ -167,7 +169,7 @@ typedef struct tag {
 	uint16_t   type;
 	postlist_t posts;
 	postlist_t weak_posts;
-	impllist_t implications;
+	impllist_t *implications;
 } tag_t;
 
 typedef struct tagalias {

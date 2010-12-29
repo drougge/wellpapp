@@ -467,7 +467,7 @@ int prot_rel_remove(connection_t *conn, char *cmd) {
 }
 
 static void show_implications(connection_t *conn, tag_t *tag) {
-	impllist_t *tl = &tag->implications;
+	impllist_t *tl = tag->implications;
 	int to_go = 0;
 	const char *newline = "";
 	while (tl) {
