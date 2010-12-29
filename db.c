@@ -109,7 +109,59 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	return 0;
 }
 
-int post_tag_rem(post_t *post, tag_t *tag) {
+static void post_recompute_implications(post_t *post) {
+	(void)post;
+	// @@ needs to happen
+}
+
+static void post_recompute_implications_iter(void *data, post_t *post) {
+	(void) data;
+	post_recompute_implications(post);
+}
+
+static void postlist_recompute_implications(postlist_t *pl) {
+	postlist_iterate(pl, NULL, post_recompute_implications_iter);
+}
+
+int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
+	impllist_t *tl = &from->implications;
+	impllist_t *ptl = NULL;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (!tl->tags[i]) {
+				tl->tags[i] = to;
+				tl->priority[i] = priority;
+				return 0;
+			}
+		}
+		ptl = tl;
+		tl  = tl->next;
+	}
+	tl = mm_alloc(sizeof(*tl));
+	tl->tags[0] = to;
+	tl->priority[0] = priority;
+	ptl->next = tl;
+	return 0;
+}
+
+int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority) {
+	impllist_t *tl = &from->implications;
+	(void) priority;
+	while (tl) {
+		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			if (tl->tags[i] == to) {
+				tl->tags[i] = NULL;
+				postlist_recompute_implications(&from->posts);
+				postlist_recompute_implications(&from->weak_posts);
+				return 0;
+			}
+		}
+		tl = tl->next;
+	}
+	return 1;
+}
+
+static int post_tag_rem_i(post_t *post, tag_t *tag) {
 	post_taglist_t *tl;
 	postlist_t     *pl;
 	int finished = 0;
@@ -140,7 +192,13 @@ again:
 	goto again;
 }
 
-int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
+int post_tag_rem(post_t *post, tag_t *tag) {
+	int r = post_tag_rem_i(post, tag);
+	if (!r) post_recompute_implications(post);
+	return r;
+}
+
+static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak) {
 	post_taglist_t *tl;
 	post_taglist_t *ptl = NULL;
 	uint16_t       *of_holes;
@@ -151,7 +209,7 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	assert(weak == T_YES || weak == T_NO);
 	if (post_has_tag(post, tag, weak)) return 1;
 	if (post_has_tag(post, tag, !weak)) {
-		if (post_tag_rem(post, tag)) return 1;
+		if (post_tag_rem_i(post, tag)) return 1;
 	}
 	if (weak) {
 		postlist_add(&tag->weak_posts, post);
@@ -181,6 +239,12 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
 	*of_holes   += POST_TAGLIST_PER_NODE - 1;
 	ptl->next    = tl;
 	return 0;
+}
+
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
+	int r = post_tag_add_i(post, tag, weak);
+	if (!r) post_recompute_implications(post);
+	return r;
 }
 
 int post_has_rel(const post_t *post, const post_t *rel) {

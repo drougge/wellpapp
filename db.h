@@ -99,6 +99,12 @@ typedef struct post_taglist {
 	struct post_taglist *next;
 } post_taglist_t;
 
+typedef struct impllist {
+	struct tag      *tags[POST_TAGLIST_PER_NODE];
+	int32_t         priority[POST_TAGLIST_PER_NODE];
+	struct impllist *next;
+} impllist_t;
+
 struct postlist_node;
 typedef struct postlist {
 	struct postlist_node *head;
@@ -161,6 +167,7 @@ typedef struct tag {
 	uint16_t   type;
 	postlist_t posts;
 	postlist_t weak_posts;
+	impllist_t implications;
 } tag_t;
 
 typedef struct tagalias {
@@ -296,11 +303,14 @@ int prot_add(connection_t *conn, char *cmd);
 int prot_modify(connection_t *conn, char *cmd);
 int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
+int prot_implication(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name, truth_t alias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
+int tag_add_implication(tag_t *from, tag_t *to, int32_t priority);
+int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority);
 int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);

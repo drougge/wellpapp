@@ -484,6 +484,9 @@ void client_handle(connection_t *conn, char *buf) {
 					break;
 			}
 			break;
+		case 'I': // 'I'mplication management
+			modifying_command(conn, prot_implication, buf + 1);
+			break;
 		case 'N': // 'N'OP
 			c_printf(conn, "OK\n");
 			break;
