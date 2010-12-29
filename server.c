@@ -101,6 +101,7 @@ int main(int argc, char **argv) {
 	signal(SIGINT, sig_die);
 	db_serve();
 	printf("Cleaning up mm..\n");
+	log_cleanup();
 	mm_cleanup();
 	return 0;
 }

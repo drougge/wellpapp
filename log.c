@@ -272,6 +272,20 @@ void log_init(void) {
 	*logindex += 1;
 }
 
+void log_cleanup(void) {
+	struct stat sb;
+	int r = fstat(log_fd, &sb);
+	close(log_fd);
+	if (!r && !sb.st_size) {
+		char filename[1024];
+		int  len;
+		len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
+			       basedir, (unsigned long long)*logindex - 1);
+		assert(len < (int)sizeof(filename));
+		if (!unlink(filename)) *logindex -= 1;
+	}
+}
+
 /********************************
  ** Below here is only dumping **
  ********************************/
