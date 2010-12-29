@@ -126,21 +126,26 @@ static void postlist_recompute_implications(postlist_t *pl) {
 int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
 	impllist_t *tl = &from->implications;
 	impllist_t *ptl = NULL;
+	tag_t **p_t = NULL;
 	while (tl) {
 		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-			if (!tl->tags[i]) {
-				tl->tags[i] = to;
+			if ((!tl->tags[i] || tl->tags[i] == to) && !p_t) {
+				p_t = &tl->tags[i];
+				*p_t = to;
 				tl->priority[i] = priority;
-				return 0;
+			} else if (tl->tags[i] == to) {
+				tl->tags[i] = NULL;
 			}
 		}
 		ptl = tl;
 		tl  = tl->next;
 	}
-	tl = mm_alloc(sizeof(*tl));
-	tl->tags[0] = to;
-	tl->priority[0] = priority;
-	ptl->next = tl;
+	if (!p_t) {
+		tl = mm_alloc(sizeof(*tl));
+		tl->tags[0] = to;
+		tl->priority[0] = priority;
+		ptl->next = tl;
+	}
 	return 0;
 }
 
