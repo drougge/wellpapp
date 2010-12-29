@@ -285,12 +285,14 @@ static void tagalias_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	log_write_tagalias(trans, (tagalias_t *)value);
 }
 
-static void post_taglist(trans_t *trans, post_taglist_t *tl,
-                         const char *prefix) {
+static void post_taglist(trans_t *trans, post_taglist_t *taglist,
+                         post_taglist_t *tl, const char *prefix) {
 	while (tl) {
 		int i;
 		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
-			if (tl->tags[i]) {
+			if (tl->tags[i]
+			    && !taglist_contains(taglist, tl->tags[i])
+			   ) {
 				log_write(trans, "T%s%s", prefix,
 				          guid_guid2str(tl->tags[i]->guid));
 			}
@@ -309,8 +311,8 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp) {
 	trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&trans, post);
 	log_set_init(&trans, "TP%s", md5_md52str(post->md5));
-	post_taglist(&trans, &post->tags, "");
-	post_taglist(&trans, post->weak_tags, "~");
+	post_taglist(&trans, post->implied_tags, &post->tags, "");
+	post_taglist(&trans, post->implied_weak_tags, post->weak_tags, "~");
 	log_trans_end_(&trans);
 }
 

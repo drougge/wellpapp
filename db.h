@@ -313,6 +313,7 @@ tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 int tag_add_implication(tag_t *from, tag_t *to, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority);
+int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
 int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);

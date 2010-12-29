@@ -109,7 +109,7 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	return 0;
 }
 
-static int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
+int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
 	while (tl) {
 		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
 			if (tl->tags[i] == tag) return 1;
