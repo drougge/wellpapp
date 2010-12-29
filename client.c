@@ -234,7 +234,7 @@ static void return_post(connection_t *conn, post_t *post, int flags) {
 		const char     *prefix = "";
 again:
 		while (tl) {
-			for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+			for (i = 0; i < arraylen(tl->tags); i++) {
 				if (tl->tags[i]) {
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
 						c_printf(conn, " T%s%s", prefix, tl->tags[i]->name);

@@ -18,6 +18,8 @@
 #define NORETURN __attribute__((noreturn))
 #define ULL (unsigned long long)
 
+#define arraylen(a) ((int)(sizeof(a)/sizeof(*(a))))
+
 void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
 typedef void     efs_base_t;
@@ -92,16 +94,15 @@ typedef enum {
 	GUIDTYPE_TAG,
 } guidtype_t;
 
-#define POST_TAGLIST_PER_NODE 14
 struct tag;
 typedef struct post_taglist {
-	struct tag          *tags[POST_TAGLIST_PER_NODE];
+	struct tag          *tags[14];
 	struct post_taglist *next;
 } post_taglist_t;
 
 typedef struct impllist {
-	struct tag      *tags[POST_TAGLIST_PER_NODE];
-	int32_t         priority[POST_TAGLIST_PER_NODE];
+	struct tag      *tags[14];
+	int32_t         priority[14];
 	struct impllist *next;
 } impllist_t;
 
@@ -156,9 +157,8 @@ typedef struct field {
 
 extern const field_t post_fields[];
 
-#define POSTLIST_PER_NODE 30
 typedef struct postlist_node {
-	post_t *posts[POSTLIST_PER_NODE];
+	post_t *posts[30];
 	struct postlist_node *next;
 } postlist_node_t;
 

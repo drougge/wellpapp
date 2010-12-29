@@ -471,7 +471,7 @@ static void show_implications(connection_t *conn, tag_t *tag) {
 	int to_go = 0;
 	const char *newline = "";
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i]) {
 				if (!to_go) {
 					to_go = 10;

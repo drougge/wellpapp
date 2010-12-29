@@ -36,7 +36,7 @@ void postlist_iterate(postlist_t *pl, void *data,
 	postlist_node_t *pn = pl->head;
 	while (pn) {
 		unsigned int i;
-		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(pn->posts); i++) {
 			if (pn->posts[i]) {
 				callback(data, pn->posts[i]);
 			}
@@ -54,7 +54,7 @@ static int postlist_remove(postlist_t *pl, post_t *post) {
 	pn = pl->head;
 	while (pn) {
 		unsigned int i;
-		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(pn->posts); i++) {
 			if (pn->posts[i] == post) {
 				pn->posts[i] = NULL;
 				pl->count--;
@@ -78,7 +78,7 @@ static void postlist_add(postlist_t *pl, post_t *post) {
 		pn = pl->head;
 		while (pn) {
 			unsigned int i;
-			for (i = 0; i < POSTLIST_PER_NODE; i++) {
+			for (i = 0; i < arraylen(pn->posts); i++) {
 				if (!pn->posts[i]) {
 					pn->posts[i] = post;
 					pl->holes--;
@@ -92,7 +92,7 @@ static void postlist_add(postlist_t *pl, post_t *post) {
 	}
 	pn = mm_alloc(sizeof(*pn));
 	pn->posts[0]  = post;
-	pl->holes    += POSTLIST_PER_NODE - 1;
+	pl->holes    += arraylen(pn->posts) - 1;
 	pn->next      = pl->head;
 	pl->head      = pn;
 }
@@ -101,7 +101,7 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	const postlist_node_t *pn = pl->head;
 	while (pn) {
 		unsigned int i;
-		for (i = 0; i < POSTLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(pn->posts); i++) {
 			if (pn->posts[i] == post) return 1;
 		}
 		pn = pn->next;
@@ -111,7 +111,7 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == tag) return 1;
 		}
 		tl = tl->next;
@@ -151,7 +151,7 @@ static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
                        alloc_data_t *adata) {
 	post_taglist_t *tl = *tlp;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
 				return 0;
@@ -181,7 +181,7 @@ struct impl_iterator_data {
 
 static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data) {
 	while (impl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(impl->tags); i++) {
 			if (impl->tags[i]) {
 				data->callback(impl->tags[i], data);
 			}
@@ -213,7 +213,7 @@ static post_taglist_t *post_implications(post_t *post, post_taglist_t *rtl,
 	}
 	tl = weak ? post->weak_tags : &post->tags;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			tag_t *tag = tl->tags[i];
 			if (tag && tag->implications) {
 				impllist_iterate(tag->implications, &impldata);
@@ -233,7 +233,7 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 	int changed = 0;
 	tl = new;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			tag_t *tag = tl->tags[i];
 			if (tag && !taglist_contains(*old, tag)) {
 				if (!post_has_tag(post, tag, T_DONTCARE)) {
@@ -249,7 +249,7 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 	}
 	tl = *old;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			tag_t *tag = tl->tags[i];
 			if (tag && !taglist_contains(new, tag)) {
 				post_tag_rem_i(post, tag);
@@ -294,7 +294,7 @@ int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
 	impllist_t *tl = from->implications;
 	int done = 0;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if ((!tl->tags[i] || tl->tags[i] == to) && !done) {
 				tl->tags[i] = to;
 				tl->priority[i] = priority;
@@ -321,7 +321,7 @@ int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority) {
 	impllist_t *tl = from->implications;
 	(void) priority;
 	while (tl) {
-		for (int i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == to) {
 				tl->tags[i] = NULL;
 				postlist_recompute_implications(&from->posts);
@@ -348,7 +348,7 @@ static int post_tag_rem_i(post_t *post, tag_t *tag) {
 again:
 	while (tl) {
 		unsigned int i;
-		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == tag) {
 				tl->tags[i] = NULL;
 				(*of_holes)++;
@@ -397,7 +397,7 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak) {
 		of_holes = &post->of_holes;
 	}
 	while (tl) {
-		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
 				(*of_holes)--;
@@ -409,7 +409,7 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak) {
 	}
 	tl = mm_alloc(sizeof(*tl));
 	tl->tags[0]  = tag;
-	*of_holes   += POST_TAGLIST_PER_NODE - 1;
+	*of_holes   += arraylen(tl->tags) - 1;
 	ptl->next    = tl;
 	return 0;
 }
@@ -527,7 +527,7 @@ again:
 	}
 	while (tl) {
 		unsigned int i;
-		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == tag) return 1;
 		}
 		tl = tl->next;

@@ -66,7 +66,7 @@ again:
 		}
 		while (pn) {
 			unsigned int i;
-			for (i = 0; i < POSTLIST_PER_NODE; i++) {
+			for (i = 0; i < arraylen(pn->posts); i++) {
 				if (pn->posts[i]) {
 					int r = result_add_post(conn, &new_result,
 					                        pn->posts[i]);

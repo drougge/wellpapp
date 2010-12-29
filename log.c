@@ -288,7 +288,7 @@ static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans) {
 	char guid[7*4];
 	strncpy(guid, guid_guid2str(tag->guid), sizeof(guid));
 	while (l) {
-		for (int i = i; i < POST_TAGLIST_PER_NODE; i++) {
+		for (int i = i; i < arraylen(l->tags); i++) {
 			if (l->tags[i]) {
 				log_write(trans, "I%s I%s", guid,
 				          guid_guid2str(l->tags[i]->guid));
@@ -307,7 +307,7 @@ static void post_taglist(trans_t *trans, post_taglist_t *taglist,
                          post_taglist_t *tl, const char *prefix) {
 	while (tl) {
 		int i;
-		for (i = 0; i < POST_TAGLIST_PER_NODE; i++) {
+		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i]
 			    && !taglist_contains(taglist, tl->tags[i])
 			   ) {
