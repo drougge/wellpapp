@@ -577,6 +577,9 @@ static void populate_from_log_line(char *line) {
 				r = prot_rel_remove(logconn, line + 2);
 			}
 			break;
+		case 'I': // 'I'mplication
+			prot_implication(logconn, line + 1);
+			break;
 		default:
 			printf("Log: What? %s\n", line);
 			r = 1;

@@ -280,6 +280,24 @@ static void tag_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	log_write_tag(trans, (tag_t *)value);
 }
 
+static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans) {
+	tag_t *tag = (tag_t *)value;
+	impllist_t *l;
+	(void)key;
+	l = tag->implications;
+	char guid[7*4];
+	strncpy(guid, guid_guid2str(tag->guid), sizeof(guid));
+	while (l) {
+		for (int i = i; i < POST_TAGLIST_PER_NODE; i++) {
+			if (l->tags[i]) {
+				log_write(trans, "I%s I%s", guid,
+				          guid_guid2str(l->tags[i]->guid));
+			}
+		}
+		l = l->next;
+	}
+}
+
 static void tagalias_iter(ss128_key_t key, ss128_value_t value, void *trans) {
 	(void)key;
 	log_write_tagalias(trans, (tagalias_t *)value);
@@ -335,12 +353,13 @@ void log_dump(void) {
 	assert(dump_fd != -1);
 	*logdumpindex += 1;
 
-	/* Users, tags and tagaliases are dumped in a single transaction      *
-	 * with the current time. Posts are dumped in individual transactions *
-	 * with the modification time of the post.                            */
+	/* Users, tags, tagaliases and implications are dumped in a single   *
+	 * transaction with the current time. Posts are dumped in individual *
+	 * transactions with the modification time of the post.              */
 	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
 	ss128_iterate(users, user_iter, &dump_trans);
 	ss128_iterate(tags, tag_iter, &dump_trans);
+	ss128_iterate(tags, tag_iter_impl, &dump_trans);
 	ss128_iterate(tagaliases, tagalias_iter, &dump_trans);
 	log_trans_end_(&dump_trans);
 	ss128_iterate(posts, post_iter, &dump_fd);
