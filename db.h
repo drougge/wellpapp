@@ -381,6 +381,9 @@ int utf_fuzz_c(connection_t *conn, const char *str, char **res,
                unsigned int *res_len);
 const char *utf_fuzz_mm(const char *str);
 
+typedef int (*sort_compar_t)(const void *a, const void *b, void *data);
+void sort(void *base, int nmemb, size_t size, sort_compar_t comp, void *data);
+
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;

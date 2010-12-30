@@ -3,26 +3,6 @@
 #define PROT_TAGS_PER_SEARCH   16
 #define PROT_ORDERS_PER_SEARCH 4
 
-#ifdef __linux__
-typedef int (*qsort_r_t)(void *, const void *, const void *);
-static void      *qsort_thunk;
-static qsort_r_t qsort_compar;
-
-static int qsort_compwrap(const void *a, const void *b)
-{
-	return qsort_compar(qsort_thunk, a, b);
-}
-
-static void qsort_r_(void *base, size_t nmemb, size_t size,
-                     void *thunk, qsort_r_t compar)
-{
-	qsort_thunk  = thunk;
-	qsort_compar = compar;
-	qsort(base, nmemb, size, qsort_compwrap);
-}
-#define qsort_r qsort_r_
-#endif
-
 typedef enum {
 	ORDER_NONE,
 	ORDER_DATE,
@@ -98,10 +78,11 @@ typedef struct search {
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
-static int sort_search(const void *_t1, const void *_t2)
+static int sort_search(const void *_t1, const void *_t2, void *_data)
 {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
+	(void) _data;
 	if (t1->tag->posts.count < t2->tag->posts.count) return -1;
 	if (t1->tag->posts.count > t2->tag->posts.count) return 1;
 	return 0;
@@ -191,7 +172,8 @@ static int build_search(connection_t *conn, char *cmd, search_t *search)
 		return conn->error(conn, "E Specify at least one included tag");
 	}
 	/* Searching is faster if ordered by post-count */
-	qsort(search->tags, search->of_tags, sizeof(search_tag_t), sort_search);
+	sort(search->tags, search->of_tags, sizeof(search_tag_t),
+	     sort_search, NULL);
 	return 0;
 }
 
@@ -212,7 +194,7 @@ static int sorter_score(const post_t *p1, const post_t *p2)
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
 static sorter_f sorters[] = {sorter_date, sorter_score};
 
-static int sorter(void *_search, const void *_p1, const void *_p2)
+static int sorter(const void *_p1, const void *_p2, void *_search)
 {
 	const post_t *p1 = *(const post_t * const *)_p1;
 	const post_t *p2 = *(const post_t * const *)_p2;
@@ -302,7 +284,8 @@ static void do_search(connection_t *conn, search_t *search)
 		if (!result.of_posts) goto done;
 	}
 	if (result.of_posts) {
-		qsort_r(result.posts, result.of_posts, sizeof(post_t *), search, sorter);
+		sort(result.posts, result.of_posts, sizeof(post_t *),
+		     sorter, search);
 		for (i = 0; i < result.of_posts; i++) {
 			return_post(conn, result.posts[i], search->flags);
 		}
