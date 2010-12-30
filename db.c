@@ -615,7 +615,7 @@ static void populate_from_log_line(char *line)
 			}
 			break;
 		case 'I': // 'I'mplication
-			prot_implication(logconn, line + 1);
+			r = prot_implication(logconn, line + 1);
 			break;
 		default:
 			printf("Log: What? %s\n", line);
