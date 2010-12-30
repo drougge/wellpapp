@@ -18,8 +18,9 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post)
 			old_size = result->room * sizeof(post_t *);
 			result->room *= 2;
 		}
-		int r = c_realloc(conn, (void **)&result->posts, old_size,
-		                  result->room * sizeof(post_t *));
+		int r;
+		result->posts = c_realloc(conn, result->posts, old_size,
+		                          result->room * sizeof(post_t *), &r);
 		if (r) return 1;
 	}
 	result->posts[result->of_posts] = post;

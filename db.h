@@ -286,8 +286,8 @@ int result_intersect(connection_t *conn, result_t *result,
 int c_init(connection_t **res_conn, int sock, user_t *user,
            prot_err_func_t error);
 int c_alloc(connection_t *conn, void **res, unsigned int size);
-int c_realloc(connection_t *conn, void **res, unsigned int old_size,
-              unsigned int new_size);
+void *c_realloc(connection_t *conn, void *ptr, unsigned int old_size,
+                unsigned int new_size, int *res);
 void c_free(connection_t *conn, void *mem, unsigned int size);
 void c_cleanup(connection_t *conn);
 void c_printf(connection_t *conn, const char *fmt, ...);
