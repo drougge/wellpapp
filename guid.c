@@ -8,7 +8,8 @@ static const char *guid_charset = "abcdefghkopqrstyABCDEFGHKLPQRSTY234567890";
 extern const guid_t *server_guid;
 extern uint32_t     *tag_guid_last;
 
-static uint8_t guid_checksum(const guid_t guid, const guidtype_t what) {
+static uint8_t guid_checksum(const guid_t guid, const guidtype_t what)
+{
 	uint8_t sum = what;
 	int i;
 	for (i = 0; i < 16; i++) {
@@ -17,7 +18,8 @@ static uint8_t guid_checksum(const guid_t guid, const guidtype_t what) {
 	return sum;
 }
 
-guid_t guid_gen_tag_guid(void) {
+guid_t guid_gen_tag_guid(void)
+{
 	guid_t guid;
 	guid = *server_guid;
 	tag_guid_last[1]++;
@@ -31,7 +33,8 @@ guid_t guid_gen_tag_guid(void) {
 	return guid;
 }
 
-void guid_update_last(guid_t guid) {
+void guid_update_last(guid_t guid)
+{
 	for (int i = 0; i < 7; i++) {
 		if (guid.data_u8[i] != server_guid->data_u8[i]) return;
 	}
@@ -47,7 +50,8 @@ void guid_update_last(guid_t guid) {
 	mm_unlock();
 }
 
-static int guid_c2i(int c) {
+static int guid_c2i(int c)
+{
 	int i;
 	for (i = 0; guid_charset[i]; i++) {
 		if (guid_charset[i] == c) return i;
@@ -55,7 +59,8 @@ static int guid_c2i(int c) {
 	return -1;
 }
 
-static void guid_int2str(uint32_t val, char *str) {
+static void guid_int2str(uint32_t val, char *str)
+{
 	int i;
 	for (i = 5; i >= 0; i--) {
 		str[i] = guid_charset[val % GUID_BASE];
@@ -64,7 +69,8 @@ static void guid_int2str(uint32_t val, char *str) {
 	assert(val == 0);
 }
 
-const char *guid_guid2str(guid_t guid) {
+const char *guid_guid2str(guid_t guid)
+{
 	static char buf[7*4];
 	char        *strp = buf;
 	int         i;
@@ -78,11 +84,13 @@ const char *guid_guid2str(guid_t guid) {
 	return buf;
 }
 
-static int guid_is_valid_something(const guid_t guid, guidtype_t what) {
+static int guid_is_valid_something(const guid_t guid, guidtype_t what)
+{
 	return guid.data_u8[7] == guid_checksum(guid, what);
 }
 
-int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type) {
+int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type)
+{
 	uint32_t val[4] = {0, 0, 0, 0};
 	uint32_t pval;
 	int      consumed = 0;
@@ -118,12 +126,14 @@ int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type) {
 	return !guid_is_valid_something(*res_guid, type);
 }
 
-int guid_is_valid_server_guid(const guid_t guid) {
+int guid_is_valid_server_guid(const guid_t guid)
+{
 	return guid_is_valid_something(guid, GUIDTYPE_SERVER)
 	       && guid.data_u32[2] == 0 && guid.data_u32[3] == 0;
 }
 
-int guid_is_valid_tag_guid(const guid_t guid, int must_be_local) {
+int guid_is_valid_tag_guid(const guid_t guid, int must_be_local)
+{
 	if (!guid_is_valid_something(guid, GUIDTYPE_TAG)) return 0;
 	if (must_be_local) {
 		int i;

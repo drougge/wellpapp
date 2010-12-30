@@ -51,7 +51,8 @@ uint32_t *tag_guid_last;
 uint64_t *logindex;
 uint64_t *logdumpindex;
 
-static int mm_open_segment(unsigned int nr, int flags) {
+static int mm_open_segment(unsigned int nr, int flags)
+{
 	char fn[1024];
 	int  fd;
 	int  len;
@@ -64,7 +65,8 @@ static int mm_open_segment(unsigned int nr, int flags) {
 	return fd;
 }
 
-static void *mm_map_segment(unsigned int nr) {
+static void *mm_map_segment(unsigned int nr)
+{
 	uint8_t *addr, *want_addr;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
@@ -74,13 +76,15 @@ static void *mm_map_segment(unsigned int nr) {
 	return addr;
 }
 
-static void mm_unmap_segment(unsigned int nr) {
+static void mm_unmap_segment(unsigned int nr)
+{
 	uint8_t *addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
 	int r = munmap(addr, MM_SEGMENT_SIZE);
 	assert(!r);
 }
 
-static void mm_new_segment(void) {
+static void mm_new_segment(void)
+{
 	char         buf[16384];
 	int          fd;
 	unsigned int nr;
@@ -111,7 +115,8 @@ static void mm_new_segment(void) {
 
 static int mm_lock_fd = -1;
 
-static void mm_init_new(void) {
+static void mm_init_new(void)
+{
 	int r;
 
 	mm_head = NULL;
@@ -136,7 +141,8 @@ static void mm_init_new(void) {
 	assert(!r);
 }
 
-static int mm_init_old(void) {
+static int mm_init_old(void)
+{
 	mm_head_t    head;
 	int          fd;
 	unsigned int i;
@@ -165,7 +171,8 @@ static int mm_init_old(void) {
 }
 
 /* Note that this returns 1 for a new cache, not failure as such. */
-int mm_init(void) {
+int mm_init(void)
+{
 	char  fn[1024];
 	int   i;
 	int   len;
@@ -204,12 +211,14 @@ int mm_init(void) {
 	return 1;
 }
 
-static void mm_sync(unsigned int nr) {
+static void mm_sync(unsigned int nr)
+{
 	int r = fsync(mm_fd[nr]);
 	assert(!r);
 }
 
-void mm_cleanup(void) {
+void mm_cleanup(void)
+{
 	int   i;
 	off_t pos;
 
@@ -227,7 +236,8 @@ void mm_cleanup(void) {
 	close(mm_lock_fd);
 }
 
-static void *mm_alloc_(unsigned int size, int unaligned) {
+static void *mm_alloc_(unsigned int size, int unaligned)
+{
 	if (size % MM_ALIGN) {
 		assert(unaligned);
 		if (mm_head->top - size < mm_head->bottom) {
@@ -253,15 +263,18 @@ static void *mm_alloc_(unsigned int size, int unaligned) {
 	}
 }
 
-void *mm_alloc(unsigned int size) {
+void *mm_alloc(unsigned int size)
+{
 	return mm_alloc_(size, 0);
 }
 
-void *mm_alloc_s(unsigned int size) {
+void *mm_alloc_s(unsigned int size)
+{
 	return mm_alloc_(size, 1);
 }
 
-void mm_free(void *mem) {
+void mm_free(void *mem)
+{
 	assert(0);
 	(void)mem;
 /*
@@ -275,7 +288,8 @@ void mm_free(void *mem) {
 */
 }
 
-const char *mm_strdup(const char *str) {
+const char *mm_strdup(const char *str)
+{
 	char *new;
 	int len = strlen(str);
 
@@ -284,17 +298,20 @@ const char *mm_strdup(const char *str) {
 	return new;
 }
 
-void mm_print(void) {
+void mm_print(void)
+{
 	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", ULL mm_head->used, ULL mm_head->size, ULL mm_head->free, ULL mm_head->wasted, mm_head->of_segments);
 	printf("%llu bytes small, %llu bytes aligned.\n", ULL mm_head->used_small, ULL (mm_head->used - mm_head->used_small));
 }
 
-void mm_lock(void) {
+void mm_lock(void)
+{
 	int r = flock(mm_fd[0], LOCK_EX);
 	assert(!r);
 }
 
-void mm_unlock(void) {
+void mm_unlock(void)
+{
 	int r = flock(mm_fd[0], LOCK_UN);
 	assert(!r);
 }

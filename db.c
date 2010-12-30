@@ -17,7 +17,8 @@
 #endif
 
 void NORETURN assert_fail(const char *ass, const char *file,
-                          const char *func, int line) {
+                          const char *func, int line)
+{
 	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n",
 	        ass, func, file, line);
 	exit(1);
@@ -32,7 +33,8 @@ ss128_head_t *users;
 // @@TODO: Locking/locklessness.
 
 void postlist_iterate(postlist_t *pl, void *data,
-                      postlist_callback_t callback) {
+                      postlist_callback_t callback)
+{
 	postlist_node_t *pn = pl->head;
 	while (pn) {
 		unsigned int i;
@@ -45,7 +47,8 @@ void postlist_iterate(postlist_t *pl, void *data,
 	}
 }
 
-static int postlist_remove(postlist_t *pl, post_t *post) {
+static int postlist_remove(postlist_t *pl, post_t *post)
+{
 	postlist_node_t *pn;
 
 	assert(pl);
@@ -67,7 +70,8 @@ static int postlist_remove(postlist_t *pl, post_t *post) {
 	return 1;
 }
 
-static void postlist_add(postlist_t *pl, post_t *post) {
+static void postlist_add(postlist_t *pl, post_t *post)
+{
 	postlist_node_t *pn;
 
 	assert(pl);
@@ -97,7 +101,8 @@ static void postlist_add(postlist_t *pl, post_t *post) {
 	pl->head      = pn;
 }
 
-static int postlist_contains(const postlist_t *pl, const post_t *post) {
+static int postlist_contains(const postlist_t *pl, const post_t *post)
+{
 	const postlist_node_t *pn = pl->head;
 	while (pn) {
 		unsigned int i;
@@ -109,7 +114,8 @@ static int postlist_contains(const postlist_t *pl, const post_t *post) {
 	return 0;
 }
 
-int taglist_contains(const post_taglist_t *tl, const tag_t *tag) {
+int taglist_contains(const post_taglist_t *tl, const tag_t *tag)
+{
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == tag) return 1;
@@ -127,14 +133,16 @@ typedef struct alloc_data {
 } alloc_data_t;
 typedef void *(*alloc_func_t)(alloc_data_t *data, unsigned int size);
 
-static void *alloc_temp(alloc_data_t *data, unsigned int size) {
+static void *alloc_temp(alloc_data_t *data, unsigned int size)
+{
 	alloc_seg_t *seg;
 	seg = calloc(1, sizeof(seg) + size);
 	seg->next = data->segs;
 	data->segs = seg;
 	return seg + 1;
 }
-static void alloc_temp_free(alloc_data_t *data) {
+static void alloc_temp_free(alloc_data_t *data)
+{
 	alloc_seg_t *seg = data->segs;
 	while (seg) {
 		alloc_seg_t *next = seg->next;
@@ -142,13 +150,15 @@ static void alloc_temp_free(alloc_data_t *data) {
 		seg = next;
 	}
 }
-static void *alloc_mm(alloc_data_t *data, unsigned int size) {
+static void *alloc_mm(alloc_data_t *data, unsigned int size)
+{
 	(void) data;
 	return mm_alloc(size);
 }
 
 static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
-                       alloc_data_t *adata) {
+                       alloc_data_t *adata)
+{
 	post_taglist_t *tl = *tlp;
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->tags); i++) {
@@ -179,7 +189,8 @@ struct impl_iterator_data {
 	void            *callback_data;
 };
 
-static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data) {
+static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data)
+{
 	while (impl) {
 		for (int i = 0; i < arraylen(impl->tags); i++) {
 			if (impl->tags[i]) {
@@ -190,13 +201,15 @@ static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data) {
 	}
 }
 
-static void impl_cb(tag_t *tag, impl_iterator_data_t *data) {
+static void impl_cb(tag_t *tag, impl_iterator_data_t *data)
+{
 	(void) taglist_add(&data->tl, tag, data->alloc, data->adata);
 }
 
 static post_taglist_t *post_implications(post_t *post, post_taglist_t *rtl,
                                          alloc_func_t alloc,
-                                         alloc_data_t *adata, truth_t weak) {
+                                         alloc_data_t *adata, truth_t weak)
+{
 	impl_iterator_data_t impldata;
 	post_taglist_t *tl;
 	assert(post);
@@ -228,7 +241,8 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak);
 static int post_tag_rem_i(post_t *post, tag_t *tag);
 static int impl_apply_change(post_t *post, post_taglist_t **old,
                              post_taglist_t *new, truth_t weak,
-                             alloc_func_t alloc, alloc_data_t *adata) {
+                             alloc_func_t alloc, alloc_data_t *adata)
+{
 	post_taglist_t *tl;
 	int changed = 0;
 	tl = new;
@@ -262,7 +276,8 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 	return changed;
 }
 
-static void post_recompute_implications(post_t *post) {
+static void post_recompute_implications(post_t *post)
+{
 	alloc_data_t adata;
 	post_taglist_t *implied;
 	int again;
@@ -281,16 +296,19 @@ again:
 	if (again) goto again;
 }
 
-static void post_recompute_implications_iter(void *data, post_t *post) {
+static void post_recompute_implications_iter(void *data, post_t *post)
+{
 	(void) data;
 	post_recompute_implications(post);
 }
 
-static void postlist_recompute_implications(postlist_t *pl) {
+static void postlist_recompute_implications(postlist_t *pl)
+{
 	postlist_iterate(pl, NULL, post_recompute_implications_iter);
 }
 
-int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
+int tag_add_implication(tag_t *from, tag_t *to, int32_t priority)
+{
 	impllist_t *tl = from->implications;
 	int done = 0;
 	while (tl) {
@@ -317,7 +335,8 @@ int tag_add_implication(tag_t *from, tag_t *to, int32_t priority) {
 	return 0;
 }
 
-int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority) {
+int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority)
+{
 	impllist_t *tl = from->implications;
 	(void) priority;
 	while (tl) {
@@ -334,7 +353,8 @@ int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority) {
 	return 1;
 }
 
-static int post_tag_rem_i(post_t *post, tag_t *tag) {
+static int post_tag_rem_i(post_t *post, tag_t *tag)
+{
 	post_taglist_t *tl;
 	postlist_t     *pl;
 	int finished = 0;
@@ -365,13 +385,15 @@ again:
 	goto again;
 }
 
-int post_tag_rem(post_t *post, tag_t *tag) {
+int post_tag_rem(post_t *post, tag_t *tag)
+{
 	int r = post_tag_rem_i(post, tag);
 	if (!r) post_recompute_implications(post);
 	return r;
 }
 
-static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak) {
+static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak)
+{
 	post_taglist_t *tl;
 	post_taglist_t *ptl = NULL;
 	uint16_t       *of_holes;
@@ -414,17 +436,20 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak) {
 	return 0;
 }
 
-int post_tag_add(post_t *post, tag_t *tag, truth_t weak) {
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak)
+{
 	int r = post_tag_add_i(post, tag, weak);
 	if (!r) post_recompute_implications(post);
 	return r;
 }
 
-int post_has_rel(const post_t *post, const post_t *rel) {
+int post_has_rel(const post_t *post, const post_t *rel)
+{
 	return postlist_contains(&post->related_posts, rel);
 }
 
-int post_rel_add(post_t *a, post_t *b) {
+int post_rel_add(post_t *a, post_t *b)
+{
 	if (post_has_rel(a, b)) return 1;
 	assert(!post_has_rel(b, a));
 	postlist_add(&a->related_posts, b);
@@ -432,7 +457,8 @@ int post_rel_add(post_t *a, post_t *b) {
 	return 0;
 }
 
-int post_rel_remove(post_t *a, post_t *b) {
+int post_rel_remove(post_t *a, post_t *b)
+{
 	int r;
 	r = postlist_remove(&a->related_posts, b);
 	if (r) return 1;
@@ -441,14 +467,16 @@ int post_rel_remove(post_t *a, post_t *b) {
 	return 0;
 }
 
-static int md5_digit2digit(int digit) {
+static int md5_digit2digit(int digit)
+{
 	if (digit >= '0' && digit <= '9') return digit - '0';
 	if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
 	if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
 	return -1;
 }
 
-int md5_str2md5(md5_t *res_md5, const char *md5str) {
+int md5_str2md5(md5_t *res_md5, const char *md5str)
+{
 	int i;
 
 	if (strlen(md5str) != 32) return 1;
@@ -461,7 +489,8 @@ int md5_str2md5(md5_t *res_md5, const char *md5str) {
 	return 0;
 }
 
-const char *md5_md52str(const md5_t md5) {
+const char *md5_md52str(const md5_t md5)
+{
 	static char buf[33];
 	static const char digits[] = {'0', '1', '2', '3', '4', '5', '6', '7',
 	                              '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
@@ -475,7 +504,8 @@ const char *md5_md52str(const md5_t md5) {
 	return buf;
 }
 
-int str2id(const char *str, const char * const *ids) {
+int str2id(const char *str, const char * const *ids)
+{
 	int id   = 0;
 	int sign = 1;
 	if (*str == '-') {
@@ -489,19 +519,22 @@ int str2id(const char *str, const char * const *ids) {
 	return 0;
 }
 
-tag_t *tag_find_guid(const guid_t guid) {
+tag_t *tag_find_guid(const guid_t guid)
+{
 	void *tag = NULL;
 	ss128_find(tagguids, &tag, guid.key);
 	return (tag_t *)tag;
 }
 
-tag_t *tag_find_guidstr(const char *guidstr) {
+tag_t *tag_find_guidstr(const char *guidstr)
+{
 	guid_t guid;
 	if (guid_str2guid(&guid, guidstr, GUIDTYPE_TAG)) return NULL;
 	return tag_find_guid(guid);
 }
 
-tag_t *tag_find_name(const char *name, truth_t alias) {
+tag_t *tag_find_name(const char *name, truth_t alias)
+{
 	ss128_key_t hash = ss128_str2key(name);
 	void        *tag = NULL;
 
@@ -515,7 +548,8 @@ tag_t *tag_find_name(const char *name, truth_t alias) {
 	return (tag_t *)tag;
 }
 
-int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak) {
+int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak)
+{
 	const post_taglist_t *tl;
 	assert(post);
 	assert(tag);
@@ -539,14 +573,16 @@ again:
 	return 0;
 }
 
-int post_find_md5str(post_t **res_post, const char *md5str) {
+int post_find_md5str(post_t **res_post, const char *md5str)
+{
 	md5_t md5;
 	*res_post = NULL;
 	if (md5_str2md5(&md5, md5str)) return -1;
 	return ss128_find(posts, (void *)res_post, md5.key);
 }
 
-static int read_log_line(FILE *fh, char *buf, int len) {
+static int read_log_line(FILE *fh, char *buf, int len)
+{
 	if (!fgets(buf, len, fh)) {
 		assert(feof(fh));
 		return 0;
@@ -557,7 +593,8 @@ static int read_log_line(FILE *fh, char *buf, int len) {
 	return len;
 }
 
-static void populate_from_log_line(char *line) {
+static void populate_from_log_line(char *line)
+{
 	int r;
 	switch (*line) {
 		case 'A': // 'A'dd something
@@ -588,7 +625,8 @@ static void populate_from_log_line(char *line) {
 }
 
 #define MAX_CONCURRENT_TRANSACTIONS 64
-static int find_trans(trans_id_t *trans, trans_id_t needle) {
+static int find_trans(trans_id_t *trans, trans_id_t needle)
+{
 	int i;
 	for (i = 0; i < MAX_CONCURRENT_TRANSACTIONS; i++) {
 		if (trans[i] == needle) return i;
@@ -596,7 +634,8 @@ static int find_trans(trans_id_t *trans, trans_id_t needle) {
 	return -1;
 }
 
-int populate_from_log(const char *filename, void (*callback)(const char *line)) {
+int populate_from_log(const char *filename, void (*callback)(const char *line))
+{
 	FILE       *fh;
 	char       buf[4096];
 	trans_id_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
@@ -652,7 +691,8 @@ int connection_count = 0;
 int server_running = 1;
 static user_t anonymous;
 
-static void new_connection(void) {
+static void new_connection(void)
+{
 	int s = accept(fds[MAX_CONNECTIONS].fd, NULL, NULL);
 	if (s < 0) {
 		perror("accept");
@@ -675,7 +715,8 @@ static void new_connection(void) {
 	}
 }
 
-static char *utf_compose(connection_t *conn) {
+static char *utf_compose(connection_t *conn)
+{
 	uint8_t *buf;
 	ssize_t res;
 	int     flags = UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_COMPOSE;
@@ -690,7 +731,8 @@ static char *utf_compose(connection_t *conn) {
 
 static int port = 0;
 
-void db_serve(void) {
+void db_serve(void)
+{
 	int s, r, one, i;
 	struct sockaddr_in addr;
 
@@ -768,7 +810,8 @@ static const char *strndup(const char *str, size_t len) {
 }
 #endif
 
-static void cfg_parse_list(const char * const **res_list, const char *str) {
+static void cfg_parse_list(const char * const **res_list, const char *str)
+{
 	int          words = 1;
 	int          word;
 	const char   **list;
@@ -806,7 +849,8 @@ static guid_t server_guid_;
 
 md5_t config_md5;
 
-void db_read_cfg(const char *filename) {
+void db_read_cfg(const char *filename)
+{
 	char    buf[1024];
 	FILE    *fh;
 	MD5_CTX ctx;

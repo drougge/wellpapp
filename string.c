@@ -27,7 +27,8 @@ for (i = 0; i < 64; i++) {
 */
 
 #define GETONE(s) ((uint32_t)(*s ? (unsigned char)*s++ : 0))
-const char *str_str2enc(const char *str) {
+const char *str_str2enc(const char *str)
+{
 	static char buf[1024];
 	char        *ptr;
 	uint32_t    n;
@@ -47,7 +48,8 @@ const char *str_str2enc(const char *str) {
 	return buf;
 }
 
-const char *str_enc2str(const char *enc) {
+const char *str_enc2str(const char *enc)
+{
 	static char buf[1024];
 	char        *ptr;
 	uint32_t    n;

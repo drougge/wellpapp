@@ -13,26 +13,30 @@ static const char *errors[] = {
 	"bad utf8 sequence",
 };
 
-static void list_newlist(list_head_t *list) {
+static void list_newlist(list_head_t *list)
+{
 	list->head = (list_node_t *)&list->tail;
 	list->tail = NULL;
 	list->tailpred = (list_node_t *)list;
 }
 
-static void list_addtail(list_head_t *list, list_node_t *node) {
+static void list_addtail(list_head_t *list, list_node_t *node)
+{
 	node->succ = (list_node_t *)&list->tail;
 	node->pred = list->tailpred;
 	list->tailpred->succ = node;
 	list->tailpred = node;
 }
 
-static void list_remove(list_node_t *node) {
+static void list_remove(list_node_t *node)
+{
 	node->pred->succ = node->succ;
 	node->succ->pred = node->pred;
 }
 
 int c_init(connection_t **res_conn, int sock, user_t *user,
-           prot_err_func_t error) {
+           prot_err_func_t error)
+{
 	connection_t *conn;
 
 	conn = malloc(sizeof(*conn));
@@ -48,7 +52,8 @@ int c_init(connection_t **res_conn, int sock, user_t *user,
 	return 0;
 }
 
-void c_cleanup(connection_t *conn) {
+void c_cleanup(connection_t *conn)
+{
 	list_node_t *node;
 	list_node_t *next;
 
@@ -60,7 +65,8 @@ void c_cleanup(connection_t *conn) {
 	free(conn);
 }
 
-int c_alloc(connection_t *conn, void **res, unsigned int size) {
+int c_alloc(connection_t *conn, void **res, unsigned int size)
+{
 	unsigned int new_used;
 	unsigned int new_size;
 	void *mem;
@@ -85,7 +91,8 @@ int c_alloc(connection_t *conn, void **res, unsigned int size) {
 
 /* Can only expand allocation. Leaves old allocation in case of failure. */
 int c_realloc(connection_t *conn, void **res, unsigned int old_size,
-              unsigned int new_size) {
+              unsigned int new_size)
+{
 	void *new;
 	int   r;
 
@@ -102,7 +109,8 @@ int c_realloc(connection_t *conn, void **res, unsigned int old_size,
 	return r;
 }
 
-void c_free(connection_t *conn, void *mem, unsigned int size) {
+void c_free(connection_t *conn, void *mem, unsigned int size)
+{
 	unsigned int new_used;
 	unsigned int new_size;
 	list_node_t *node;
@@ -118,7 +126,8 @@ void c_free(connection_t *conn, void *mem, unsigned int size) {
 	free(node);
 }
 
-void c_flush(connection_t *conn) {
+void c_flush(connection_t *conn)
+{
 	if (conn->outlen) {
 		ssize_t w = write(conn->sock, conn->outbuf, conn->outlen);
 		assert(w > 0 && (unsigned int)w == conn->outlen);
@@ -127,7 +136,8 @@ void c_flush(connection_t *conn) {
 }
 
 #define OUTBUF_MINFREE 512
-void c_printf(connection_t *conn, const char *fmt, ...) {
+void c_printf(connection_t *conn, const char *fmt, ...)
+{
 	va_list ap;
 	int     len;
 
@@ -144,14 +154,16 @@ void c_printf(connection_t *conn, const char *fmt, ...) {
 	if (conn->outlen + OUTBUF_MINFREE > sizeof(conn->outbuf)) c_flush(conn);
 }
 
-void c_read_data(connection_t *conn) {
+void c_read_data(connection_t *conn)
+{
 	if (conn->getlen != conn->getpos) return;
 	conn->getpos = 0;
 	conn->getlen = read(conn->sock, conn->getbuf, sizeof(conn->getbuf));
 	if (conn->getlen <= 0) c_close_error(conn, E_READ);
 }
 
-int c_get_line(connection_t *conn) {
+int c_get_line(connection_t *conn)
+{
 	unsigned int size = sizeof(conn->linebuf);
 
 	if (!(conn->flags & CONNFLAG_GOING)) return -1;
@@ -177,12 +189,14 @@ int c_get_line(connection_t *conn) {
 	return -1;
 }
 
-int c_error(connection_t *conn, const char *what) {
+int c_error(connection_t *conn, const char *what)
+{
 	c_printf(conn, "RE %s\n", what);
 	return 1;
 }
 
-int c_close_error(connection_t *conn, dberror_t e) {
+int c_close_error(connection_t *conn, dberror_t e)
+{
 	c_printf(conn, "E%d %s\n", e, errors[e]);
 	c_flush(conn);
 	conn->flags &= ~CONNFLAG_GOING;

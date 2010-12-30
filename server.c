@@ -5,13 +5,15 @@
 
 connection_t *logconn;
 
-static int dummy_error(connection_t *conn, const char *msg) {
+static int dummy_error(connection_t *conn, const char *msg)
+{
 	(void)conn;
 	(void)msg;
 	return 1;
 }
 
-static uint64_t str2u64(const char *str) {
+static uint64_t str2u64(const char *str)
+{
 	uint64_t val;
 	char    *end;
 	assert(strlen(str) == 16);
@@ -22,12 +24,14 @@ static uint64_t str2u64(const char *str) {
 
 static uint64_t next_log = 0;
 
-static void log_next(const char *line) {
+static void log_next(const char *line)
+{
 	assert(*line == 'L');
 	next_log = str2u64(line + 1);
 }
 
-static void populate_from_dump(void) {
+static void populate_from_dump(void)
+{
 	uint64_t      last_dump = ~0ULL;
 	char          buf[1024];
 	int           len;
@@ -72,12 +76,14 @@ static void populate_from_dump(void) {
 	*logindex = next_log;
 }
 
-static void sig_die(int sig) {
+static void sig_die(int sig)
+{
 	(void)sig;
 	server_running = 0;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	user_t       loguser_;
 	connection_t logconn_;
 

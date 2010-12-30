@@ -4,7 +4,8 @@
 
 static char fuzz_ignore[127] = { 0 };
 
-static void init_ignore(void) {
+static void init_ignore(void)
+{
 	for (int i = 0; i < 32; i++) fuzz_ignore[i] = 1;
 	fuzz_ignore[' '] = 1;
 	fuzz_ignore['-'] = 1;
@@ -35,7 +36,8 @@ static void init_ignore(void) {
 }
 
 static int utf_fuzz_i1(const char *str, unsigned char **res_buf,
-                       unsigned int *res_len) {
+                       unsigned int *res_len)
+{
 	int flags = UTF8PROC_NULLTERM | UTF8PROC_STABLE  | UTF8PROC_DECOMPOSE |
 	            UTF8PROC_IGNORE   | UTF8PROC_STRIPCC | UTF8PROC_CASEFOLD  |
 	            UTF8PROC_STRIPMARK;
@@ -70,7 +72,8 @@ err:
 	return 1;
 }
 
-static void utf_fuzz_i2(unsigned char *buf, char *res) {
+static void utf_fuzz_i2(unsigned char *buf, char *res)
+{
 	unsigned char *ptr1 = buf;
 	unsigned char *ptr2 = (unsigned char *)res;
 	while (*ptr1) {
@@ -81,7 +84,8 @@ static void utf_fuzz_i2(unsigned char *buf, char *res) {
 }
 
 int utf_fuzz_c(connection_t *conn, const char *str, char **res,
-               unsigned int *res_len) {
+               unsigned int *res_len)
+{
 	unsigned char *buf = NULL;
 	int            r;
 
@@ -94,7 +98,8 @@ int utf_fuzz_c(connection_t *conn, const char *str, char **res,
 	return r;
 }
 
-const char *utf_fuzz_mm(const char *str) {
+const char *utf_fuzz_mm(const char *str)
+{
 	unsigned char *buf = NULL;
 	char          *res;
 	int            r;

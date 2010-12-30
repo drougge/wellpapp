@@ -1,12 +1,14 @@
 #include "db.h"
 
-void result_free(connection_t *conn, result_t *result) {
+void result_free(connection_t *conn, result_t *result)
+{
 	if (result->posts) {
 		c_free(conn, result->posts, result->room * sizeof(post_t *));
 	}
 }
 
-int result_add_post(connection_t *conn, result_t *result, post_t *post) {
+int result_add_post(connection_t *conn, result_t *result, post_t *post)
+{
 	if (result->room == result->of_posts) {
 		unsigned int old_size;
 		if (result->room == 0) {
@@ -26,7 +28,8 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post) {
 }
 
 int result_remove_tag(connection_t *conn, result_t *result,
-                      tag_t *tag, truth_t weak) {
+                      tag_t *tag, truth_t weak)
+{
 	result_t new_result;
 	uint32_t i;
 
@@ -43,7 +46,8 @@ int result_remove_tag(connection_t *conn, result_t *result,
 }
 
 int result_intersect(connection_t *conn, result_t *result,
-                     tag_t *tag, truth_t weak) {
+                     tag_t *tag, truth_t weak)
+{
 	result_t new_result;
 	memset(&new_result, 0, sizeof(new_result));
 	if (result->of_posts) {

@@ -8,12 +8,14 @@ typedef int (*qsort_r_t)(void *, const void *, const void *);
 static void      *qsort_thunk;
 static qsort_r_t qsort_compar;
 
-static int qsort_compwrap(const void *a, const void *b) {
+static int qsort_compwrap(const void *a, const void *b)
+{
 	return qsort_compar(qsort_thunk, a, b);
 }
 
 static void qsort_r_(void *base, size_t nmemb, size_t size,
-                     void *thunk, qsort_r_t compar) {
+                     void *thunk, qsort_r_t compar)
+{
 	qsort_thunk  = thunk;
 	qsort_compar = compar;
 	qsort(base, nmemb, size, qsort_compwrap);
@@ -96,7 +98,8 @@ typedef struct search {
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
-static int sort_search(const void *_t1, const void *_t2) {
+static int sort_search(const void *_t1, const void *_t2)
+{
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
 	if (t1->tag->posts.count < t2->tag->posts.count) return -1;
@@ -105,7 +108,8 @@ static int sort_search(const void *_t1, const void *_t2) {
 }
 
 static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
-                            prot_cmd_flag_t flags) {
+                            prot_cmd_flag_t flags)
+{
 	tag_t      *tag;
 	truth_t    weak = T_DONTCARE;
 	search_t   *search = search_;
@@ -179,7 +183,8 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 	return 0;
 }
 
-static int build_search(connection_t *conn, char *cmd, search_t *search) {
+static int build_search(connection_t *conn, char *cmd, search_t *search)
+{
 	memset(search, 0, sizeof(*search));
 	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
 	if (!search->of_tags && !search->post) {
@@ -190,13 +195,15 @@ static int build_search(connection_t *conn, char *cmd, search_t *search) {
 	return 0;
 }
 
-static int sorter_date(const post_t *p1, const post_t *p2) {
+static int sorter_date(const post_t *p1, const post_t *p2)
+{
 	if (p1->created < p2->created) return -1;
 	if (p1->created > p2->created) return 1;
 	return 0;
 }
 
-static int sorter_score(const post_t *p1, const post_t *p2) {
+static int sorter_score(const post_t *p1, const post_t *p2)
+{
 	if (p1->score < p2->score) return -1;
 	if (p1->score > p2->score) return 1;
 	return 0;
@@ -205,7 +212,8 @@ static int sorter_score(const post_t *p1, const post_t *p2) {
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
 static sorter_f sorters[] = {sorter_date, sorter_score};
 
-static int sorter(void *_search, const void *_p1, const void *_p2) {
+static int sorter(void *_search, const void *_p1, const void *_p2)
+{
 	const post_t *p1 = *(const post_t * const *)_p1;
 	const post_t *p2 = *(const post_t * const *)_p2;
 	search_t     *search = _search;
@@ -226,7 +234,8 @@ static int sorter(void *_search, const void *_p1, const void *_p2) {
 	return 0;
 }
 
-static void return_post(connection_t *conn, post_t *post, int flags) {
+static void return_post(connection_t *conn, post_t *post, int flags)
+{
 	int i;
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
@@ -260,7 +269,8 @@ again:
 	c_printf(conn, "\n");
 }
 
-static void do_search(connection_t *conn, search_t *search) {
+static void do_search(connection_t *conn, search_t *search)
+{
 	result_t result;
 	unsigned int i;
 
@@ -302,7 +312,8 @@ done:
 	result_free(conn, &result);
 }
 
-static void c_print_tag(connection_t *conn, const tag_t *tag) {
+static void c_print_tag(connection_t *conn, const tag_t *tag)
+{
 	if (!tag) return;
 	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 	c_printf(conn, "N%s ", tag->name);
@@ -319,7 +330,8 @@ typedef struct {
 } tag_search_data_t;
 
 static void tag_search_i(const char *name, const tag_t *tag,
-                         tag_search_data_t *data) {
+                         tag_search_data_t *data)
+{
 	if (data->partial) {
 		if (strstr(name, data->text)) c_print_tag(data->conn, tag);
 	} else {
@@ -327,7 +339,8 @@ static void tag_search_i(const char *name, const tag_t *tag,
 	}
 }
 
-static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_) {
+static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_)
+{
 	tag_search_data_t *data = data_;
 	const tag_t       *tag = (const tag_t *)value;
 	(void)key;
@@ -335,7 +348,8 @@ static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_) {
 }
 
 static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
-                               void *data_) {
+                               void *data_)
+{
 	tag_search_data_t *data = data_;
 	const tagalias_t  *tagalias = (const tagalias_t *)value;
 	(void)key;
@@ -344,7 +358,8 @@ static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
-                         prot_cmd_flag_t flags) {
+                         prot_cmd_flag_t flags)
+{
 	int     fuzzy   = 0;
 	truth_t aliases = T_NO;
 
@@ -401,7 +416,8 @@ err:
 	return 1;
 }
 
-static void tag_search(connection_t *conn, char *cmd) {
+static void tag_search(connection_t *conn, char *cmd)
+{
 	if (!prot_cmd_loop(conn, cmd, NULL, tag_search_cmd, 0)) {
 		c_printf(conn, "OK\n");
 	}
@@ -412,13 +428,15 @@ typedef struct show_rels_data {
 	char         md5[33];
 } show_rels_data_t;
 
-static void show_rels_cb(void *data_, post_t *post) {
+static void show_rels_cb(void *data_, post_t *post)
+{
 	show_rels_data_t *rd = data_;
 	c_printf(rd->conn, "R%s %s\n", rd->md5, md5_md52str(post->md5));
 }
 
 static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
-                         prot_cmd_flag_t flags) {
+                         prot_cmd_flag_t flags)
+{
 	show_rels_data_t rd;
 	post_t           *post;
 	(void)data;
@@ -431,7 +449,8 @@ static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
 }
 
 static void modifying_command(connection_t *conn,
-                              int (*func)(connection_t *, char *), char *cmd) {
+                              int (*func)(connection_t *, char *), char *cmd)
+{
 	int ok;
 
 	log_trans_start(conn, time(NULL));
@@ -442,7 +461,8 @@ static void modifying_command(connection_t *conn,
 
 extern int connection_count;
 
-void client_handle(connection_t *conn, char *buf) {
+void client_handle(connection_t *conn, char *buf)
+{
 	switch (*buf) {
 		case 'S': // 'S'earch
 			if (buf[1] == 'P') {

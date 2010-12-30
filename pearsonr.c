@@ -10,7 +10,8 @@
 //#define FN  (PREFIX "id.8x8")
 #define FN  (PREFIX "id.4x4")
 
-static float pearsonr(uint8_t *x, uint8_t *y, int len) {
+static float pearsonr(uint8_t *x, uint8_t *y, int len)
+{
 	float mx = 0.0f, my = 0.0f;
 	float xmi, ymi;
 	float dx = 0.0f, dy = 0.0f;
@@ -35,7 +36,8 @@ static float pearsonr(uint8_t *x, uint8_t *y, int len) {
 	return fabsf(r_num / r_den);
 }
 
-static void deser(uint8_t *a, const char *buf) {
+static void deser(uint8_t *a, const char *buf)
+{
 	int i;
 	for (i = 0; i < RES*RES; i++) {
 		uint8_t v1, v2;
@@ -69,7 +71,8 @@ static int comp_id(const void *a, const void *b) {
 
 #define THRES 0.90f
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	FILE *fh;
 	char buf[256];
 	unsigned long id;
@@ -129,7 +132,8 @@ int main(int argc, char **argv) {
 }
 
 #if 0
-static int read_db(const char *filename) {
+static int read_db(const char *filename)
+{
 	FILE *fh;
 	char buf[256];
 	unsigned long id = 0;
@@ -165,7 +169,8 @@ err:
 	return 1;
 }
 
-int mai__n(int argc, char **argv) {
+int mai__n(int argc, char **argv)
+{
 	unsigned long i;
 
 	if (argc != 2 || strlen(argv[1]) != 32) return 1;
@@ -185,7 +190,8 @@ int mai__n(int argc, char **argv) {
 	return 0;
 }
 
-int mai_n(void) {
+int mai_n(void)
+{
 	uint8_t a[RES*RES];
 	uint8_t b[RES*RES];
 	char buf[256];

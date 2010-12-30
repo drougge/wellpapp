@@ -6,17 +6,20 @@
 static int log_fd;
 static trans_id_t next_trans_id = 1;
 
-static void trans_lock(trans_t *trans) {
+static void trans_lock(trans_t *trans)
+{
 	int r = flock(trans->fd, LOCK_EX);
 	assert(!r);
 }
 
-static void trans_unlock(trans_t *trans) {
+static void trans_unlock(trans_t *trans)
+{
 	int r = flock(trans->fd, LOCK_UN);
 	assert(!r);
 }
 
-static void trans_sync(trans_t *trans) {
+static void trans_sync(trans_t *trans)
+{
 	if (trans->flags & TRANSFLAG_SYNC) {
 		int r = fsync(trans->fd);
 		assert(!r);
@@ -24,7 +27,8 @@ static void trans_sync(trans_t *trans) {
 }
 
 static void log_trans_start_(trans_t *trans, const user_t *user,
-                             time_t now, int fd) {
+                             time_t now, int fd)
+{
 	char buf[36];
 	unsigned int len, r;
 	
@@ -51,12 +55,14 @@ static void log_trans_start_(trans_t *trans, const user_t *user,
 	trans->mark_offset -= 18;
 }
 
-void log_trans_start(connection_t *conn, time_t now) {
+void log_trans_start(connection_t *conn, time_t now)
+{
 	log_trans_start_(&conn->trans, conn->user, now, log_fd);
 	conn->trans.conn = conn;
 }
 
-static void trans_line_done_(trans_t *trans) {
+static void trans_line_done_(trans_t *trans)
+{
 	char idbuf[20];
 	struct iovec iov[3];
 	char newline = '\n';
@@ -82,7 +88,8 @@ while (*ptr) assert(*ptr++ != '\n');
 }
 
 static void log_write_(trans_t *trans, int complete,
-                       const char *fmt, va_list ap) {
+                       const char *fmt, va_list ap)
+{
 	int looped = 0;
 	int len;
 
@@ -111,7 +118,8 @@ again:
 	}
 }
 
-static void log_trans_end_(trans_t *trans) {
+static void log_trans_end_(trans_t *trans)
+{
 	off_t pos, r2;
 	int   r;
 	char  buf[20];
@@ -136,11 +144,13 @@ static void log_trans_end_(trans_t *trans) {
 	trans_unlock(trans);
 }
 
-void log_trans_end(connection_t *conn) {
+void log_trans_end(connection_t *conn)
+{
 	log_trans_end_(&conn->trans);
 }
 
-void log_set_init(trans_t *trans, const char *fmt, ...) {
+void log_set_init(trans_t *trans, const char *fmt, ...)
+{
 	va_list ap;
 
 	if (!trans) return;
@@ -152,13 +162,15 @@ void log_set_init(trans_t *trans, const char *fmt, ...) {
 	trans->buf_used = trans->init_len;
 }
 
-void log_clear_init(trans_t *trans) {
+void log_clear_init(trans_t *trans)
+{
 	if (!trans) return;
 	trans_line_done_(trans);
 	trans->buf_used = trans->init_len = 0;
 }
 
-void log_write(trans_t *trans, const char *fmt, ...) {
+void log_write(trans_t *trans, const char *fmt, ...)
+{
 	va_list ap;
 	if (!trans) return;
 	va_start(ap, fmt);
@@ -166,7 +178,8 @@ void log_write(trans_t *trans, const char *fmt, ...) {
 	va_end(ap);
 }
 
-static void log_write_nl(trans_t *trans, int last, const char *fmt, ...) {
+static void log_write_nl(trans_t *trans, int last, const char *fmt, ...)
+{
 	va_list ap;
 	if (!trans) return;
 	va_start(ap, fmt);
@@ -174,12 +187,14 @@ static void log_write_nl(trans_t *trans, int last, const char *fmt, ...) {
 	va_end(ap);
 }
 
-void log_write_tag(trans_t *trans, const tag_t *tag) {
+void log_write_tag(trans_t *trans, const tag_t *tag)
+{
 	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid),
 	          tag->name, tagtype_names[tag->type]);
 }
 
-void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias) {
+void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias)
+{
 	log_write(trans, "AAG%s N%s", guid_guid2str(tagalias->tag->guid),
 	          tagalias->name);
 }
@@ -206,21 +221,24 @@ LOG_INT_FIELD_FUNC(signed, int, "%s=%lld")
 LOG_INT_FIELD_FUNC(unsigned, uint, "%s=%llx")
 
 static void log_enum_field(trans_t *trans, int last, const void *data,
-                           const field_t *field) {
+                           const field_t *field)
+{
 	const char * const *array = *field->array;
 	uint16_t   value = *(const uint16_t *)(((const char *)data) + field->offset);
 	log_write_nl(trans, last, "%s=%s", field->name, array[value]);
 }
 
 static void log_string_field(trans_t *trans, int last, const void *data,
-                           const field_t *field) {
+                           const field_t *field)
+{
 	const char *value = *(const char * const *)(((const char *)data) + field->offset);
 	if (value) {
 		log_write_nl(trans, last, "%s=%s", field->name, str_str2enc(value));
 	}
 }
 
-void log_write_post(trans_t *trans, const post_t *post) {
+void log_write_post(trans_t *trans, const post_t *post)
+{
 	const field_t *field = post_fields;
 	const char    *md5 = md5_md52str(post->md5);
 	void (*func[])(trans_t *, int, const void *, const field_t *) = {
@@ -237,7 +255,8 @@ void log_write_post(trans_t *trans, const post_t *post) {
 	}
 }
 
-void log_write_user(trans_t *trans, const user_t *user) {
+void log_write_user(trans_t *trans, const user_t *user)
+{
 	char *name;
 	int  i;
 
@@ -260,7 +279,8 @@ void log_write_user(trans_t *trans, const user_t *user) {
 	log_clear_init(trans);
 }
 
-void log_init(void) {
+void log_init(void)
+{
 	char filename[1024];
 	int  len;
 
@@ -272,7 +292,8 @@ void log_init(void) {
 	*logindex += 1;
 }
 
-void log_cleanup(void) {
+void log_cleanup(void)
+{
 	struct stat sb;
 	int r = fstat(log_fd, &sb);
 	close(log_fd);
@@ -289,12 +310,14 @@ void log_cleanup(void) {
 /********************************
  ** Below here is only dumping **
  ********************************/
-static void tag_iter(ss128_key_t key, ss128_value_t value, void *trans) {
+static void tag_iter(ss128_key_t key, ss128_value_t value, void *trans)
+{
 	(void)key;
 	log_write_tag(trans, (tag_t *)value);
 }
 
-static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans) {
+static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans)
+{
 	tag_t *tag = (tag_t *)value;
 	impllist_t *l;
 	(void)key;
@@ -312,13 +335,15 @@ static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans) {
 	}
 }
 
-static void tagalias_iter(ss128_key_t key, ss128_value_t value, void *trans) {
+static void tagalias_iter(ss128_key_t key, ss128_value_t value, void *trans)
+{
 	(void)key;
 	log_write_tagalias(trans, (tagalias_t *)value);
 }
 
 static void post_taglist(trans_t *trans, post_taglist_t *taglist,
-                         post_taglist_t *tl, const char *prefix) {
+                         post_taglist_t *tl, const char *prefix)
+{
 	while (tl) {
 		int i;
 		for (i = 0; i < arraylen(tl->tags); i++) {
@@ -333,7 +358,8 @@ static void post_taglist(trans_t *trans, post_taglist_t *taglist,
 	}
 }
 
-static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp) {
+static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp)
+{
 	post_t  *post = (post_t *)value;
 	int     fd = *(int *)fdp;
 	trans_t trans;
@@ -348,12 +374,14 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp) {
 	log_trans_end_(&trans);
 }
 
-static void user_iter(ss128_key_t key, ss128_value_t value, void *trans) {
+static void user_iter(ss128_key_t key, ss128_value_t value, void *trans)
+{
 	(void)key;
 	log_write_user(trans, (user_t *)value);
 }
 
-void log_dump(void) {
+void log_dump(void)
+{
 	char    filename[1024];
 	int     len, w;
 	char    buf[20];
