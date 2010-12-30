@@ -800,15 +800,14 @@ void db_serve(void)
 	}
 }
 
-#ifdef __FreeBSD__
-const char *strndup(const char *str, size_t len);
-static const char *strndup(const char *str, size_t len) {
+/* Pretty much strndup, but without checking for NUL, *
+ * and without portability concerns.                  */
+static const char *memdup(const char *src, size_t len) {
 	char *res = malloc(len + 1);
-	memcpy(res, str, len);
+	memcpy(res, src, len);
 	res[len] = '\0';
 	return res;
 }
-#endif
 
 static void cfg_parse_list(const char * const **res_list, const char *str)
 {
@@ -830,7 +829,7 @@ static void cfg_parse_list(const char * const **res_list, const char *str)
 		len = p - str;
 		if (*p) p++;
 		assert(word < words);
-		list[word++] = strndup(str, len);
+		list[word++] = memdup(str, len);
 	}
 	list[word] = NULL;
 	assert(word == words);
