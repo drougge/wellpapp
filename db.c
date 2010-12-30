@@ -5,11 +5,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <errno.h>
-#ifdef __linux__
-#include <bsd/md5.h>
-#else
-#include <md5.h>
-#endif
+#include <openssl/md5.h>
 #include <utf8proc.h>
 
 #ifndef INFTIM
@@ -854,13 +850,13 @@ void db_read_cfg(const char *filename)
 	FILE    *fh;
 	MD5_CTX ctx;
 
-	MD5Init(&ctx);
+	MD5_Init(&ctx);
 	fh = fopen(filename, "r");
 	assert(fh);
 	while (fgets(buf, sizeof(buf), fh)) {
 		int len = strlen(buf);
 		assert(len && buf[len - 1] == '\n');
-		MD5Update(&ctx, (unsigned char *)buf, len);
+		MD5_Update(&ctx, (unsigned char *)buf, len);
 		buf[len - 1] = '\0';
 		if (!memcmp("tagtypes=", buf, 9)) {
 			cfg_parse_list(&tagtype_names, buf + 9);
@@ -884,5 +880,5 @@ void db_read_cfg(const char *filename)
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
 	cfg_parse_list(&cap_names, CAP_NAMES_STR);
 	assert(tagtype_names && rating_names && basedir && server_guid);
-	MD5Final(config_md5.m, &ctx);
+	MD5_Final(config_md5.m, &ctx);
 }

@@ -2,11 +2,7 @@
 
 #include "db.h"
 
-#ifdef __linux__
-#include <bsd/md5.h>
-#else
-#include <md5.h>
-#endif
+#include <openssl/md5.h>
 
 struct ss128_node {
 	struct ss128_node *child[2];
@@ -97,9 +93,9 @@ ss128_key_t ss128_str2key(const char *str) {
 	MD5_CTX ctx;
 	md5_t   md5;
 
-	MD5Init(&ctx);
-	MD5Update(&ctx, (const unsigned char *)str, strlen(str));
-	MD5Final(md5.m, &ctx);
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (const unsigned char *)str, strlen(str));
+	MD5_Final(md5.m, &ctx);
 	return md5.key;
 }
 

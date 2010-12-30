@@ -1,11 +1,9 @@
-CFLAGS  += -std=gnu99 -pedantic -I/usr/local/include -I/opt/utf8proc/1.1.2/include -I/usr/include/postgresql -Wall -Werror -W -Wundef -Wshadow -Wpointer-arith -Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings -Wsign-compare -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -g
+CFLAGS  += -std=gnu99 -pedantic -Wall -Werror -W -Wundef -Wshadow -Wpointer-arith -Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings -Wsign-compare -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -g
 
 OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
      connection.o utf.o sort.o
 
-LIBS=-L/opt/utf8proc/1.1.2/lib -L/opt/libmd/unknown/lib -lutf8proc -lbsd
-
-LDFLAGS += -Wl,-rpath /opt/utf8proc/1.1.2/lib
+LIBS= -lutf8proc -lcrypto
 
 all: server pgtest pearsonr
 
