@@ -5,6 +5,8 @@ OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
 
 LIBS= -lutf8proc -lcrypto
 
+default: server
+
 all: server pgtest pearsonr
 
 pgtest: pgtest.o $(OBJS)
