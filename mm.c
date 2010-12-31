@@ -8,6 +8,19 @@
 #define MAP_NOCORE 0
 #endif
 
+static const size_t sizes[] = {
+	sizeof(guid_t),
+	sizeof(post_taglist_t),
+	sizeof(impllist_t),
+	sizeof(postlist_t),
+	sizeof(post_t),
+	sizeof(field_t),
+	sizeof(postlist_node_t),
+	sizeof(tag_t),
+	sizeof(tagalias_t),
+	sizeof(user_t),
+};
+
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */
 #define MM_FLAG_CLEAN 1
@@ -33,6 +46,7 @@ typedef struct mm_head {
 	uint8_t       *top;
 	uint8_t       *bottom;
 	md5_t         config_md5;
+	size_t        struct_sizes[arraylen(sizes)];
 	uint32_t      clean;
 	uint32_t      magic1;
 } mm_head_t;
@@ -133,6 +147,7 @@ static void mm_init_new(void)
 	mm_head->segment_size = MM_SEGMENT_SIZE;
 	mm_head->of_segments  = 1;
 	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
+	memcpy(mm_head->struct_sizes, sizes, sizeof(sizes));
 	r  = ss128_init(posts);
 	r |= ss128_init(tags);
 	r |= ss128_init(tagaliases);
@@ -155,6 +170,7 @@ static int mm_init_old(void)
 	    || (head.addr != MM_BASE_ADDR)
 	    || (head.segment_size != MM_SEGMENT_SIZE)
 	    || (!head.clean)
+	    || memcmp(head.struct_sizes, sizes, sizeof(sizes))
 	    || memcmp(head.config_md5.m, config_md5.m, sizeof(config_md5.m))) {
 		close(fd);
 		mm_fd[0] = -1;
