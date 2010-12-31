@@ -521,7 +521,9 @@ static int impl_cmd(connection_t *conn, const char *cmd, void *data_,
 			return conn->error(conn, cmd);
 			break;
 	}
-	data->func(data->tag, implied_tag, positive, priority);
+	if (data->func(data->tag, implied_tag, positive, priority)) {
+		return conn->error(conn, cmd);
+	}
 	log_write(&conn->trans, "%s:%ld", cmd, (long)priority);
 	return 0;
 }
