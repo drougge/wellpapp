@@ -303,7 +303,7 @@ static void postlist_recompute_implications(postlist_t *pl)
 	postlist_iterate(pl, NULL, post_recompute_implications_iter);
 }
 
-int tag_add_implication(tag_t *from, tag_t *to, int32_t priority)
+int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
 {
 	impllist_t *tl = from->implications;
 	int done = 0;
@@ -312,6 +312,7 @@ int tag_add_implication(tag_t *from, tag_t *to, int32_t priority)
 			if ((!tl->tags[i] || tl->tags[i] == to) && !done) {
 				tl->tags[i] = to;
 				tl->priority[i] = priority;
+				tl->positive[i] = positive;
 				done = 1;
 			} else if (tl->tags[i] == to) {
 				tl->tags[i] = NULL;
@@ -323,6 +324,7 @@ int tag_add_implication(tag_t *from, tag_t *to, int32_t priority)
 		tl = mm_alloc(sizeof(*tl));
 		tl->tags[0] = to;
 		tl->priority[0] = priority;
+		tl->positive[0] = positive;
 		tl->next = from->implications;
 		from->implications = tl;
 	}
@@ -331,13 +333,13 @@ int tag_add_implication(tag_t *from, tag_t *to, int32_t priority)
 	return 0;
 }
 
-int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority)
+int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
 {
 	impllist_t *tl = from->implications;
 	(void) priority;
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->tags); i++) {
-			if (tl->tags[i] == to) {
+			if (tl->tags[i] == to && tl->positive[i] == positive) {
 				tl->tags[i] = NULL;
 				postlist_recompute_implications(&from->posts);
 				postlist_recompute_implications(&from->weak_posts);

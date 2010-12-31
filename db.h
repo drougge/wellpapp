@@ -103,6 +103,7 @@ typedef struct post_taglist {
 typedef struct impllist {
 	struct tag      *tags[14];
 	int32_t         priority[14];
+	int             positive[14];
 	struct impllist *next;
 } impllist_t;
 
@@ -311,8 +312,8 @@ user_t *prot_auth(char *cmd);
 tag_t *tag_find_name(const char *name, truth_t alias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
-int tag_add_implication(tag_t *from, tag_t *to, int32_t priority);
-int tag_rem_implication(tag_t *from, tag_t *to, int32_t priority);
+int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
+int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
 int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak);

@@ -431,6 +431,38 @@ static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
+static int show_impl_cmd(connection_t *conn, const char *cmd, void *data,
+                         prot_cmd_flag_t flags)
+{
+	(void) data;
+	(void) flags;
+	tag_t *tag = tag_find_guidstr(cmd);
+	if (!tag) return 1;
+	impllist_t *tl = tag->implications;
+	int to_go = 0;
+	const char *newline = "";
+	while (tl) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
+			if (tl->tags[i]) {
+				if (!to_go) {
+					to_go = 10;
+					c_printf(conn, "%sRI%s", newline,
+					         guid_guid2str(tag->guid));
+					newline = "\n";
+				}
+				to_go--;
+				c_printf(conn, " %c%s:%ld",
+				         tl->positive[i] ? 'I' : 'i',
+				         guid_guid2str(tl->tags[i]->guid),
+				         (long)tl->priority[i]);
+			}
+		}
+		tl = tl->next;
+	}
+	c_printf(conn, "%s", newline);
+	return 0;
+}
+
 static void modifying_command(connection_t *conn,
                               int (*func)(connection_t *, char *), char *cmd)
 {
@@ -488,7 +520,20 @@ void client_handle(connection_t *conn, char *buf)
 			}
 			break;
 		case 'I': // 'I'mplication management
-			modifying_command(conn, prot_implication, buf + 1);
+			switch (buf[1]) {
+				case 'I':
+				case 'i':
+					modifying_command(conn, prot_implication, buf + 1);
+					break;
+				case 'S':
+					prot_cmd_loop(conn, buf + 2, NULL,
+					              show_impl_cmd, 0);
+					c_printf(conn, "OK\n");
+					break;
+				default:
+					c_close_error(conn, E_COMMAND);
+					break;
+			}
 			break;
 		case 'N': // 'N'OP
 			c_printf(conn, "OK\n");

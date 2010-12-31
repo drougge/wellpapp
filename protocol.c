@@ -466,54 +466,18 @@ int prot_rel_remove(connection_t *conn, char *cmd) {
 	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
 }
 
-static void show_implications(connection_t *conn, tag_t *tag) {
-	impllist_t *tl = tag->implications;
-	int to_go = 0;
-	const char *newline = "";
-	while (tl) {
-		for (int i = 0; i < arraylen(tl->tags); i++) {
-			if (tl->tags[i]) {
-				if (!to_go) {
-					to_go = 10;
-					c_printf(conn, "%sRI%s", newline,
-					         guid_guid2str(tag->guid));
-					newline = "\n";
-				}
-				to_go--;
-				c_printf(conn, " I%s:%ld",
-				         guid_guid2str(tl->tags[i]->guid),
-				         (long)tl->priority[i]);
-			}
-		}
-		tl = tl->next;
-	}
-	 c_printf(conn, "%s", newline);
-}
+typedef int (*implfunc_t)(tag_t *from, tag_t *to, int positive, int priority);
+typedef struct impldata {
+	tag_t      *tag;
+	implfunc_t func;
+} impldata_t;
 
-static int impl_cmd(connection_t *conn, const char *cmd, void *tag_,
+static int impl_cmd(connection_t *conn, const char *cmd, void *data_,
                     prot_cmd_flag_t flags) {
-	tag_t *tag = tag_;
-	tag_t *implied_tag;
-	int (*func)(tag_t *, tag_t *, int);
+	impldata_t *data = data_;
 
 	(void)flags;
 
-	switch(*cmd) {
-		case 'I':
-			func = tag_add_implication;
-			break;
-		case 'i':
-			func = tag_rem_implication;
-			break;
-		case 'S':
-			if (cmd[1]) return conn->error(conn, cmd);
-			show_implications(conn, tag);
-			return 0;
-			break;
-		default:
-			return conn->error(conn, cmd);
-			break;
-	}
 	char *colon = strchr(cmd + 1, ':');
 	int32_t priority = 0;
 	if (colon) {
@@ -522,22 +486,45 @@ static int impl_cmd(connection_t *conn, const char *cmd, void *tag_,
 		if (*end) return conn->error(conn, cmd);
 		*colon = 0;
 	}
-	implied_tag = tag_find_guidstr(cmd + 1);
+	tag_t *implied_tag = tag_find_guidstr(cmd + 1);
 	if (!implied_tag) return conn->error(conn, cmd);
-	func(tag, implied_tag, priority);
+	int positive;
+	switch (*cmd) {
+		case 'I':
+			positive = 1;
+			break;
+		case 'i':
+			positive = 0;
+			break;
+		default:
+			return conn->error(conn, cmd);
+			break;
+	}
+	data->func(data->tag, implied_tag, positive, priority);
 	log_write(&conn->trans, "%s:%ld", cmd, (long)priority);
 	return 0;
 }
 
 int prot_implication(connection_t *conn, char *cmd) {
-	tag_t *tag;
+	impldata_t data;
 	char *end = strchr(cmd, ' ');
 	if (!end) return conn->error(conn, cmd);
 	*end = 0;
-	tag = tag_find_guidstr(cmd);
-	if (!tag) return conn->error(conn, cmd);
+	data.tag = tag_find_guidstr(cmd + 1);
+	if (!data.tag) return conn->error(conn, cmd);
+	switch (*cmd) {
+		case 'I':
+			data.func = tag_add_implication;
+			break;
+		case 'i':
+			data.func = tag_rem_implication;
+			break;
+		default:
+			return conn->error(conn, cmd);
+			break;
+	}
 	log_set_init(&conn->trans, "I%s", cmd);
-	return prot_cmd_loop(conn, end + 1, tag, impl_cmd, CMDFLAG_MODIFY);
+	return prot_cmd_loop(conn, end + 1, &data, impl_cmd, CMDFLAG_MODIFY);
 }
 
 user_t *prot_auth(char *cmd) {
