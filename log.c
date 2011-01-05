@@ -188,10 +188,11 @@ static void log_write_nl(trans_t *trans, int last, const char *fmt, ...)
 	va_end(ap);
 }
 
-void log_write_tag(trans_t *trans, const tag_t *tag)
+void log_write_tag(trans_t *trans, const tag_t *tag, int is_add)
 {
-	log_write(trans, "ATG%s N%s T%s", guid_guid2str(tag->guid),
-	          tag->name, tagtype_names[tag->type]);
+	log_write(trans, "%cTG%s N%s T%s", is_add ? 'A' : 'M',
+	          guid_guid2str(tag->guid), tag->name,
+	          tagtype_names[tag->type]);
 }
 
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias)
@@ -314,7 +315,7 @@ void log_cleanup(void)
 static void tag_iter(ss128_key_t key, ss128_value_t value, void *trans)
 {
 	(void)key;
-	log_write_tag(trans, (tag_t *)value);
+	log_write_tag(trans, (tag_t *)value, 1);
 }
 
 static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans)

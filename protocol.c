@@ -90,25 +90,41 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array,
 	return 1;
 }
 
-static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
-                       prot_cmd_flag_t flags)
+typedef struct tag_cmd_data {
+	tag_t *tag;
+	int   is_add;
+} tag_cmd_data_t;
+
+static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
+                   prot_cmd_flag_t flags)
 {
-	tag_t      *tag = *(tag_t **)data;
-	int        r;
+	tag_cmd_data_t *data = data_;
+	tag_t      *tag = data->tag;
+	int        r = 1;
 	const char *args = cmd + 1;
 	char       *ptr;
 
 	if (!*cmd || !*args) return conn->error(conn, cmd);
 	switch (*cmd) {
 		case 'G':
-			r = guid_str2guid(&tag->guid, args, GUIDTYPE_TAG);
+			if (data->is_add) {
+				r = guid_str2guid(&tag->guid, args,
+				                  GUIDTYPE_TAG);
+			} else if (!tag) {
+				data->tag = tag = tag_find_guidstr(args);
+				r = !tag;
+			}
 			if (r) return conn->error(conn, cmd);
 			break;
 		case 'N':
+			if (!data->is_add || tag->name) {
+				return conn->error(conn, cmd);
+			}
 			tag->name = mm_strdup(args);
 			tag->fuzzy_name = utf_fuzz_mm(tag->name);
 			break;
 		case 'T':
+			if (!tag) return conn->error(conn, cmd);
 			if (put_enum_value_gen(&tag->type, tagtype_names, args)) {
 				return conn->error(conn, cmd);
 			}
@@ -119,31 +135,33 @@ static int add_tag_cmd(connection_t *conn, const char *cmd, void *data,
 	if (flags & CMDFLAG_LAST) {
 		ss128_key_t  key;
 		unsigned int i;
-		if (!tag->name) {
+		if (!tag || !tag->name) {
 			return conn->error(conn, cmd);
 		}
-		ptr = (char *)&tag->guid;
-		for (i = 0; i < sizeof(tag->guid); i++) {
-			if (ptr[i]) break;
-		}
-		if (i == sizeof(tag->guid)) {
-			tag->guid = guid_gen_tag_guid();
-		} else {
-			guid_update_last(tag->guid);
-		}
-		key = ss128_str2key(tag->name);
-		mm_lock();
-		if (ss128_insert(tags, tag, key)) {
+		if (data->is_add) {
+			ptr = (char *)&tag->guid;
+			for (i = 0; i < sizeof(tag->guid); i++) {
+				if (ptr[i]) break;
+			}
+			if (i == sizeof(tag->guid)) {
+				tag->guid = guid_gen_tag_guid();
+			} else {
+				guid_update_last(tag->guid);
+			}
+			key = ss128_str2key(tag->name);
+			mm_lock();
+			if (ss128_insert(tags, tag, key)) {
+				mm_unlock();
+				return conn->error(conn, cmd);
+			}
+			if (ss128_insert(tagguids, tag, tag->guid.key)) {
+				ss128_delete(tags, key);
+				mm_unlock();
+				return conn->error(conn, cmd);
+			}
 			mm_unlock();
-			return conn->error(conn, cmd);
 		}
-		if (ss128_insert(tagguids, tag, tag->guid.key)) {
-			ss128_delete(tags, key);
-			mm_unlock();
-			return conn->error(conn, cmd);
-		}
-		log_write_tag(&conn->trans, tag);
-		mm_unlock();
+		log_write_tag(&conn->trans, tag, data->is_add);
 	}
 	return 0;
 }
@@ -404,11 +422,15 @@ int prot_add(connection_t *conn, char *cmd)
 {
 	prot_cmd_func_t func;
 	void *data = NULL;
+	void *dataptr = &data;
+	tag_cmd_data_t tag_data;
 
 	switch (*cmd) {
 		case 'T':
-			func = add_tag_cmd;
-			data = mm_alloc(sizeof(tag_t));
+			func = tag_cmd;
+			tag_data.tag = mm_alloc(sizeof(tag_t));
+			tag_data.is_add = 1;
+			dataptr = &tag_data;
 			break;
 		case 'A':
 			func = add_alias_cmd;
@@ -428,17 +450,24 @@ int prot_add(connection_t *conn, char *cmd)
 		default:
 			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_NONE);
+	return prot_cmd_loop(conn, cmd + 1, dataptr, func, CMDFLAG_NONE);
 }
 
 int prot_modify(connection_t *conn, char *cmd)
 {
 	prot_cmd_func_t func;
 	void *data = NULL;
+	void *dataptr = &data;
+	tag_cmd_data_t tag_data;
 
 	switch (*cmd) {
 		case 'P':
 			func = post_cmd;
+			break;
+		case 'T':
+			memset(&tag_data, 0, sizeof(tag_data));
+			dataptr = &tag_data;
+			func = tag_cmd;
 			break;
 		case 'U':
 			func = user_cmd;
@@ -446,7 +475,7 @@ int prot_modify(connection_t *conn, char *cmd)
 		default:
 			return error1(conn, cmd);
 	}
-	return prot_cmd_loop(conn, cmd + 1, &data, func, CMDFLAG_MODIFY);
+	return prot_cmd_loop(conn, cmd + 1, dataptr, func, CMDFLAG_MODIFY);
 }
 
 typedef struct rel_data {

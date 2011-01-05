@@ -112,7 +112,7 @@ First char is what type of object to add.
 		Capabilies are {"post", "delete", "mkuser", "tag", "untag", "modcap", "mktag"}
 
 M:
-Like A. Only works for P and U for now.
+Like A. Only works for P, T and U for now, and not everything can be changed.
 
 R:
 	First char determines action.
