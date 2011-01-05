@@ -506,6 +506,7 @@ int prot_delete(connection_t *conn, char *cmd)
 	ss128_find(tagaliases, &alias, key);
 	if (!alias) return error1(conn, args);
 	ss128_delete(tagaliases, key);
+	log_write(&conn->trans, "DA%s", args);
 	return 0;
 }
 
