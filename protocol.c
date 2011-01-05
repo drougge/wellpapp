@@ -91,8 +91,9 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array,
 }
 
 typedef struct tag_cmd_data {
-	tag_t *tag;
-	int   is_add;
+	tag_t      *tag;
+	int        is_add;
+	const char *name;
 } tag_cmd_data_t;
 
 static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -117,11 +118,19 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			if (r) return conn->error(conn, cmd);
 			break;
 		case 'N':
-			if (!data->is_add || tag->name) {
+			if ((data->is_add || strcmp(tag->name, args))
+			    && tag_find_name(args, T_DONTCARE)
+			   ) {
 				return conn->error(conn, cmd);
 			}
-			tag->name = mm_strdup(args);
-			tag->fuzzy_name = utf_fuzz_mm(tag->name);
+			if (data->is_add) {
+				if (tag->name) return conn->error(conn, cmd);
+				tag->name = mm_strdup(args);
+				tag->fuzzy_name = utf_fuzz_mm(tag->name);
+			} else {
+				if (data->name) return conn->error(conn, cmd);
+				data->name = args;
+			}
 			break;
 		case 'T':
 			if (!tag) return conn->error(conn, cmd);
@@ -134,11 +143,12 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 	}
 	if (flags & CMDFLAG_LAST) {
 		ss128_key_t  key;
-		unsigned int i;
 		if (!tag || !tag->name) {
 			return conn->error(conn, cmd);
 		}
+		key = ss128_str2key(tag->name);
 		if (data->is_add) {
+			unsigned int i;
 			ptr = (char *)&tag->guid;
 			for (i = 0; i < sizeof(tag->guid); i++) {
 				if (ptr[i]) break;
@@ -148,7 +158,6 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			} else {
 				guid_update_last(tag->guid);
 			}
-			key = ss128_str2key(tag->name);
 			mm_lock();
 			if (ss128_insert(tags, tag, key)) {
 				mm_unlock();
@@ -160,6 +169,14 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 				return conn->error(conn, cmd);
 			}
 			mm_unlock();
+		} else if (data->name && strcmp(data->name, tag->name)) {
+			r = ss128_delete(tags, key);
+			assert(!r);
+			tag->name = mm_strdup(data->name);
+			tag->fuzzy_name = utf_fuzz_mm(tag->name);
+			key = ss128_str2key(tag->name);
+			r = ss128_insert(tags, tag, key);
+			assert(!r);
 		}
 		log_write_tag(&conn->trans, tag, data->is_add);
 	}
