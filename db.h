@@ -304,6 +304,7 @@ int prot_cmd_loop(connection_t *conn, char *cmd, void *data,
 int prot_tag_post(connection_t *conn, char *cmd);
 int prot_add(connection_t *conn, char *cmd);
 int prot_modify(connection_t *conn, char *cmd);
+int prot_delete(connection_t *conn, char *cmd);
 int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
 int prot_implication(connection_t *conn, char *cmd);

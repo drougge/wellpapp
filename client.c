@@ -499,6 +499,9 @@ void client_handle(connection_t *conn, char *buf)
 		case 'M': // 'M'odify something
 			modifying_command(conn, prot_modify, buf + 1);
 			break;
+		case 'D': // 'D'elete something
+			modifying_command(conn, prot_delete, buf + 1);
+			break;
 		case 'R': // 'R'elationship
 			switch (buf[1]) {
 				case 'R':

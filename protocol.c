@@ -495,6 +495,20 @@ int prot_modify(connection_t *conn, char *cmd)
 	return prot_cmd_loop(conn, cmd + 1, dataptr, func, CMDFLAG_MODIFY);
 }
 
+int prot_delete(connection_t *conn, char *cmd)
+{
+	char *args = cmd + 1;
+	char *name = cmd + 2;
+	if (*cmd != 'A') return error1(conn, cmd);
+	if (*args != 'N') return error1(conn, args);
+	void *alias = NULL;
+	ss128_key_t key = ss128_str2key(name);
+	ss128_find(tagaliases, &alias, key);
+	if (!alias) return error1(conn, args);
+	ss128_delete(tagaliases, key);
+	return 0;
+}
+
 typedef struct rel_data {
 	post_t *post;
 	char type;
