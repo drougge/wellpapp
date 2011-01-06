@@ -9,7 +9,7 @@ static void sort_merge(void *left, int left_nmemb, void *right, int right_nmemb,
                        size_t size, sort_compar_t comp, void *data)
 {
 	void *base = left;
-	char *left_copy[left_nmemb * size];
+	char left_copy[left_nmemb * size];
 	memcpy(left_copy, left, sizeof(left_copy));
 	left = left_copy;
 	int li = 0, ri = 0, i = 0;
