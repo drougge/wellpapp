@@ -495,18 +495,74 @@ int prot_modify(connection_t *conn, char *cmd)
 	return prot_cmd_loop(conn, cmd + 1, dataptr, func, CMDFLAG_MODIFY);
 }
 
+typedef struct freetag_data {
+	tag_t *tag;
+	int   bad;
+} freetag_data_t;
+
+static void check_freepost_tag(ss128_key_t key, ss128_value_t value,
+                               void *data_)
+{
+	tag_t *tag = (tag_t *)value;
+	freetag_data_t *data = data_;
+	(void) key;
+	// @@ This should be impllist_iterate
+	impllist_t *impl = tag->implications;
+	while (impl) {
+		for (int i = 0; i < arraylen(impl->tags); i++) {
+			if (impl->tags[i] == data->tag) data->bad = 1;
+		}
+		impl = impl->next;
+	}
+}
+
+static void check_freepost_alias(ss128_key_t key, ss128_value_t value,
+                                 void *data_)
+{
+	tagalias_t *alias = (tagalias_t *)value;
+	freetag_data_t *data = data_;
+	(void) key;
+	if (alias->tag == data->tag) data->bad = 1;
+}
+
 int prot_delete(connection_t *conn, char *cmd)
 {
 	char *args = cmd + 1;
 	char *name = cmd + 2;
-	if (*cmd != 'A') return error1(conn, cmd);
-	if (*args != 'N') return error1(conn, args);
-	void *alias = NULL;
-	ss128_key_t key = ss128_str2key(name);
-	ss128_find(tagaliases, &alias, key);
-	if (!alias) return error1(conn, args);
-	ss128_delete(tagaliases, key);
-	log_write(&conn->trans, "DA%s", args);
+	ss128_key_t key;
+	switch (*cmd) {
+		case 'A':
+			if (*args != 'N') return error1(conn, args);
+			void *alias = NULL;
+			key = ss128_str2key(name);
+			ss128_find(tagaliases, &alias, key);
+			if (!alias) return error1(conn, args);
+			ss128_delete(tagaliases, key);
+			break;
+		case 'T':
+			if (*args != 'G') return error1(conn, args);
+			tag_t *tag = tag_find_guidstr(args + 1);
+			if (!tag) return error1(conn, args);
+			if (tag->posts.count || tag->weak_posts.count) {
+				return error1(conn, args);
+			}
+			freetag_data_t data;
+			data.tag = tag;
+			data.bad = 0;
+			ss128_iterate(tags, check_freepost_tag, &data);
+			ss128_iterate(tagaliases, check_freepost_alias, &data);
+			if (data.bad) return error1(conn, args);
+			key = ss128_str2key(tag->name);
+			int r = ss128_delete(tags, key);
+			assert(!r);
+			r = ss128_delete(tagguids, tag->guid.key);
+			assert(!r);
+			break;
+		default:
+			return error1(conn, cmd);
+			break;
+	}
+	log_write(&conn->trans, "D%s", cmd);
 	return 0;
 }
 

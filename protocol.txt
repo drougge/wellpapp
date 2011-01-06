@@ -119,6 +119,9 @@ D:
 First char is what type of object to delete.
 	A: an alias
 		N: name
+	T: a tag
+		G: guid
+		You can't delete a tag that is referenced from another object.
 
 R:
 	First char determines action.
