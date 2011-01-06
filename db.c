@@ -270,7 +270,7 @@ again:
 					break;
 				}
 			}
-			if (!skip) {
+			if (!skip && list[i].impl->positive) {
 				taglist_add(&res[list[i].weak],
 				           list[i].impl->tag, alloc_mm, NULL);
 			}
