@@ -327,10 +327,10 @@ static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans)
 	char guid[7*4];
 	strncpy(guid, guid_guid2str(tag->guid), sizeof(guid));
 	while (l) {
-		for (int i = i; i < arraylen(l->tags); i++) {
-			if (l->tags[i]) {
+		for (int i = i; i < arraylen(l->impl); i++) {
+			if (l->impl[i].tag) {
 				log_write(trans, "I%s I%s", guid,
-				          guid_guid2str(l->tags[i]->guid));
+				          guid_guid2str(l->impl[i].tag->guid));
 			}
 		}
 		l = l->next;

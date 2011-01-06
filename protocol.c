@@ -509,8 +509,8 @@ static void check_freepost_tag(ss128_key_t key, ss128_value_t value,
 	// @@ This should be impllist_iterate
 	impllist_t *impl = tag->implications;
 	while (impl) {
-		for (int i = 0; i < arraylen(impl->tags); i++) {
-			if (impl->tags[i] == data->tag) data->bad = 1;
+		for (int i = 0; i < arraylen(impl->impl); i++) {
+			if (impl->impl[i].tag == data->tag) data->bad = 1;
 		}
 		impl = impl->next;
 	}

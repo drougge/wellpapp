@@ -95,15 +95,21 @@ typedef enum {
 } guidtype_t;
 
 struct tag;
+typedef struct tag tag_t;
+
 typedef struct post_taglist {
-	struct tag          *tags[14];
+	tag_t               *tags[14];
 	struct post_taglist *next;
 } post_taglist_t;
 
+typedef struct implication {
+	tag_t   *tag;
+	int32_t priority;
+	int     positive;
+} implication_t;
+
 typedef struct impllist {
-	struct tag      *tags[14];
-	int32_t         priority[14];
-	int             positive[14];
+	implication_t   impl[14];
 	struct impllist *next;
 } impllist_t;
 
@@ -163,7 +169,7 @@ typedef struct postlist_node {
 	struct postlist_node *next;
 } postlist_node_t;
 
-typedef struct tag {
+struct tag {
 	const char *name;
 	const char *fuzzy_name;
 	guid_t     guid;
@@ -171,7 +177,7 @@ typedef struct tag {
 	postlist_t posts;
 	postlist_t weak_posts;
 	impllist_t *implications;
-} tag_t;
+};
 
 typedef struct tagalias {
 	const char *name;

@@ -442,8 +442,9 @@ static int show_impl_cmd(connection_t *conn, const char *cmd, void *data,
 	int to_go = 0;
 	const char *newline = "";
 	while (tl) {
-		for (int i = 0; i < arraylen(tl->tags); i++) {
-			if (tl->tags[i]) {
+		for (int i = 0; i < arraylen(tl->impl); i++) {
+			if (tl->impl[i].tag) {
+				implication_t *impl = &tl->impl[i];
 				if (!to_go) {
 					to_go = 10;
 					c_printf(conn, "%sRI%s", newline,
@@ -452,9 +453,9 @@ static int show_impl_cmd(connection_t *conn, const char *cmd, void *data,
 				}
 				to_go--;
 				c_printf(conn, " %c%s:%ld",
-				         tl->positive[i] ? 'I' : 'i',
-				         guid_guid2str(tl->tags[i]->guid),
-				         (long)tl->priority[i]);
+				         impl->positive ? 'I' : 'i',
+				         guid_guid2str(impl->tag->guid),
+				         (long)impl->priority);
 			}
 		}
 		tl = tl->next;

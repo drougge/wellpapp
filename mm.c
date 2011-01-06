@@ -11,6 +11,7 @@
 static const size_t sizes[] = {
 	sizeof(guid_t),
 	sizeof(post_taglist_t),
+	sizeof(implication_t),
 	sizeof(impllist_t),
 	sizeof(postlist_t),
 	sizeof(post_t),
