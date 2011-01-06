@@ -127,11 +127,18 @@ void c_free(connection_t *conn, void *mem, unsigned int size)
 
 void c_flush(connection_t *conn)
 {
-	if (conn->outlen) {
-		ssize_t w = write(conn->sock, conn->outbuf, conn->outlen);
-		assert(w > 0 && (unsigned int)w == conn->outlen);
-		conn->outlen = 0;
+	const char *buf = conn->outbuf;
+	ssize_t left = conn->outlen;
+	while (left && (conn->flags & CONNFLAG_GOING)) {
+		ssize_t w = write(conn->sock, buf, left);
+		if (w < 0) {
+			conn->flags &= ~CONNFLAG_GOING;
+		} else {
+			left -= w;
+			buf += w;
+		}
 	}
+	conn->outlen = 0;
 }
 
 #define OUTBUF_MINFREE 512

@@ -105,6 +105,7 @@ int main(int argc, char **argv)
 	log_init();
 	printf("serving..\n");
 	signal(SIGINT, sig_die);
+	signal(SIGPIPE, SIG_IGN);
 	db_serve();
 	printf("Cleaning up mm..\n");
 	log_cleanup();
