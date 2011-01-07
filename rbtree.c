@@ -60,7 +60,7 @@ static int allocmem(void *res, unsigned int z) {
 	void *ptr;
 
 	ptr = mm_alloc(z);
-	memcpy(res, ptr, sizeof(ptr));
+	memcpy(res, &ptr, sizeof(ptr));
 	return !ptr;
 }
 
