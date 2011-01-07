@@ -567,6 +567,7 @@ void client_handle(connection_t *conn, char *buf)
 				c_flush(conn);
 				log_dump();
 				c_printf(conn, "OK\n");
+				server_running = 0;
 			} else if (!strcmp(buf, " quit")) {
 				server_running = 0;
 				c_printf(conn, "poof!\n");

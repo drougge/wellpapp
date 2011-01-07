@@ -329,8 +329,10 @@ static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans)
 	while (l) {
 		for (int i = i; i < arraylen(l->impl); i++) {
 			if (l->impl[i].tag) {
-				log_write(trans, "I%s I%s", guid,
-				          guid_guid2str(l->impl[i].tag->guid));
+				log_write(trans, "I%s %c%s:%d", guid,
+				          l->impl[i].positive ? 'I' : 'i',
+				          guid_guid2str(l->impl[i].tag->guid),
+				          l->impl[i].priority);
 			}
 		}
 		l = l->next;
