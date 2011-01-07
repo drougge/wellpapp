@@ -162,10 +162,12 @@ static int mm_init_old(void)
 	mm_head_t    head;
 	int          fd;
 	unsigned int i;
+	ssize_t      r;
 
 	fd = mm_open_segment(0, O_RDWR);
 	if (fd == -1) return 1;
-	read(fd, &head, sizeof(head));
+	r = read(fd, &head, sizeof(head));
+	assert(r == sizeof(head));
 	if ((head.magic0 != MM_MAGIC0)
 	    || (head.magic1 != MM_MAGIC1)
 	    || (head.addr != MM_BASE_ADDR)
@@ -236,8 +238,9 @@ static void mm_sync(unsigned int nr)
 
 void mm_cleanup(void)
 {
-	int   i;
-	off_t pos;
+	int     i;
+	off_t   pos;
+	ssize_t r;
 
 	for (i = mm_head->of_segments - 1; i >= 0; i--) {
 		if (i == 0) {
@@ -249,7 +252,8 @@ void mm_cleanup(void)
 	}
 	pos = lseek(mm_lock_fd, 0, SEEK_SET);
 	assert(pos == 0);
-	write(mm_lock_fd, "C", 1);
+	r = write(mm_lock_fd, "C", 1);
+	assert(r == 1);
 	close(mm_lock_fd);
 }
 
