@@ -892,6 +892,7 @@ const guid_t *server_guid = NULL;
 static guid_t server_guid_;
 
 md5_t config_md5;
+extern uint8_t *MM_BASE_ADDR;
 
 void db_read_cfg(const char *filename)
 {
@@ -920,6 +921,9 @@ void db_read_cfg(const char *filename)
 			server_guid = &server_guid_;
 		} else if (!memcmp("port=", buf, 5)) {
 			port = atoi(buf + 5);
+		} else if (!memcmp("mm_base=", buf, 8)) {
+			unsigned long long addr = strtoull(buf + 8, NULL, 0);
+			MM_BASE_ADDR = (uint8_t *)(intptr_t)addr;
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}

@@ -54,7 +54,7 @@ typedef struct mm_head {
 
 #define MM_ALIGN 4
 
-#define MM_BASE_ADDR ((uint8_t *)(1024 * 1024 * 1024))
+uint8_t *MM_BASE_ADDR = 0;
 #define MM_SEGMENT_SIZE (4 * 1024 * 1024)
 #define MM_MAX_SEGMENTS 1024
 
@@ -199,6 +199,7 @@ int mm_init(void)
 	int   r;
 	off_t pos;
 
+	assert(MM_BASE_ADDR);
 	for (i = 0; i < MM_MAX_SEGMENTS; i++) mm_fd[i] = -1;
 	mm_head = (mm_head_t *)MM_BASE_ADDR;
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
