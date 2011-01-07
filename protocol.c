@@ -399,6 +399,7 @@ static int user_cmd(connection_t *conn, const char *cmd, void *data,
 			break;
 		case 'C': // Set cap
 		case 'c': // Remove cap
+			u16 = 0; // GCC is (sometimes) an idiot
 			r = put_enum_value_gen(&u16, cap_names, args);
 			if (r || !moduser) return conn->error(conn, cmd);
 			if (*cmd == 'C') {
