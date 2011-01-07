@@ -39,6 +39,8 @@ int main(void)
 	// I would use /dev/zero, but darwin can't map that.
 	fd = open("suggest_mm_base", O_RDONLY);
 	if (fd == -1) return 1;
+	void *res = mmap(0, SIZE, PROT_READ, MAP_SHARED, fd, 0);
+	printf("%p\n", res);
 	try(fd, addr + middle, len - middle);
 	try(fd, addr, middle);
 	return 0;
