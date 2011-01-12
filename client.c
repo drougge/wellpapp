@@ -12,7 +12,8 @@ typedef enum {
 static const char *orders[] = {"date", "score", NULL};
 
 static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
-                                  "width", "height", "score", "source", NULL};
+                                  "width", "height", "score", "source",
+                                  "implied", NULL};
 
 static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fext=%s", filetype_names[post->filetype]);
@@ -56,6 +57,7 @@ typedef enum {
 	FLAG_RETURN_HEIGHT,
 	FLAG_RETURN_SCORE,
 	FLAG_RETURN_SOURCE,
+	FLAG_RETURN_IMPLIED,
 	FLAG_LAST,
 } flag_t;
 #define FLAG(n) (1 << (n))
@@ -222,16 +224,24 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
 		post_taglist_t *tl = &post->tags;
+		post_taglist_t *impltl = post->implied_tags;
 		const char     *prefix = "";
 again:
 		while (tl) {
 			for (i = 0; i < arraylen(tl->tags); i++) {
 				if (tl->tags[i]) {
+					const tag_t *tag = tl->tags[i];
+					const char  *implprefix = "";
+					if (flags & FLAG(FLAG_RETURN_IMPLIED)
+					    && taglist_contains(impltl, tag)
+					   ) {
+						implprefix = "I";
+					}
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
-						c_printf(conn, " T%s%s", prefix, tl->tags[i]->name);
+						c_printf(conn, " %sT%s%s", implprefix, prefix, tag->name);
 					}
 					if (flags & FLAG(FLAG_RETURN_TAGIDS)) {
-						c_printf(conn, " G%s%s", prefix, guid_guid2str(tl->tags[i]->guid));
+						c_printf(conn, " %sG%s%s", implprefix, prefix, guid_guid2str(tag->guid));
 					}
 				}
 			}
@@ -240,6 +250,7 @@ again:
 		if (!*prefix) {
 			prefix = "~";
 			tl = post->weak_tags;
+			impltl = post->implied_weak_tags;
 			goto again;
 		}
 	}
