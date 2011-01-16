@@ -331,6 +331,7 @@ void log_init(void)
 void log_cleanup(void)
 {
 	struct stat sb;
+	(void) fsync(log_fd);
 	int r = fstat(log_fd, &sb);
 	close(log_fd);
 	if (!r && !sb.st_size) {

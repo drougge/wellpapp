@@ -741,6 +741,14 @@ int connection_count = 0;
 int server_running = 1;
 static user_t anonymous;
 
+void conn_cleanup(void)
+{
+	for(int i = 0; i < arraylen(connections); i++) {
+		connection_t *conn = connections[i];
+		if (conn) c_cleanup(conn);
+	}
+}
+
 static void new_connection(void)
 {
 	int s = accept(fds[MAX_CONNECTIONS].fd, NULL, NULL);

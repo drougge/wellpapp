@@ -108,6 +108,7 @@ int main(int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	db_serve();
 	printf("Cleaning up mm..\n");
+	conn_cleanup();
 	log_cleanup();
 	mm_cleanup();
 	return 0;
