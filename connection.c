@@ -57,6 +57,12 @@ void c_cleanup(connection_t *conn)
 	list_node_t *node;
 	list_node_t *next;
 
+	if (conn->trans.flags & TRANSFLAG_GOING) {
+		log_trans_end(conn);
+	}
+	if (conn->trans.flags & TRANSFLAG_OUTER) {
+		log_trans_end_outer(conn);
+	}
 	node = conn->mem_list.head;
 	while ((next = node->succ)) {
 		free(node);

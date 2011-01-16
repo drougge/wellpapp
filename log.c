@@ -27,15 +27,29 @@ static void trans_sync(trans_t *trans)
 	}
 }
 
-static void log_trans_start_(trans_t *trans, const user_t *user,
-                             time_t now, int fd)
+static int log_trans_start_(trans_t *trans, const user_t *user,
+                            time_t now, int fd, int outer)
 {
 	char buf[36];
 	unsigned int len, r;
 	
 	trans->init_len = 0;
 	trans->buf_used = 0;
-	trans->flags    = TRANSFLAG_GOING | TRANSFLAG_SYNC;
+	if (outer) {
+		if (trans->flags & TRANSFLAG_OUTER) return 1;
+	} else {
+		assert(!(trans->flags & TRANSFLAG_GOING));
+	}
+	if (trans->flags & TRANSFLAG_OUTER) {
+		trans->flags |= TRANSFLAG_GOING;
+		return 0;
+	}
+	if (outer) {
+		trans->flags = TRANSFLAG_OUTER;
+	} else {
+		trans->flags = TRANSFLAG_GOING;
+	}
+	trans->flags   |= TRANSFLAG_SYNC;
 	trans->user     = user;
 	trans->fd       = fd;
 	trans->conn     = NULL;
@@ -52,12 +66,20 @@ static void log_trans_start_(trans_t *trans, const user_t *user,
 	assert(r == len);
 	assert(trans->mark_offset != -1);
 	trans->mark_offset -= 18;
+	return 0;
 }
 
 void log_trans_start(connection_t *conn, time_t now)
 {
-	log_trans_start_(&conn->trans, conn->user, now, log_fd);
+	(void) log_trans_start_(&conn->trans, conn->user, now, log_fd, 0);
 	conn->trans.conn = conn;
+}
+
+int log_trans_start_outer(connection_t *conn, time_t now)
+{
+	int r = log_trans_start_(&conn->trans, conn->user, now, log_fd, 1);
+	conn->trans.conn = conn;
+	return r;
 }
 
 static void trans_line_done_(trans_t *trans)
@@ -117,16 +139,21 @@ again:
 	}
 }
 
-static void log_trans_end_(trans_t *trans)
+static int log_trans_end_(trans_t *trans, int outer)
 {
 	off_t pos, r2;
 	int   r;
 	char  buf[20];
 	int   len;
 	
-	assert(trans->flags & TRANSFLAG_GOING);
-	trans_line_done_(trans);
+	if (outer) {
+		if (!(trans->flags & TRANSFLAG_OUTER)) return 1;
+	} else {
+		assert(trans->flags & TRANSFLAG_GOING);
+	}
+	log_clear_init(trans);
 	trans->flags &= ~TRANSFLAG_GOING;
+	if (trans->flags & TRANSFLAG_OUTER && !outer) return 0;
 	len = snprintf(buf, sizeof(buf), "E%016llx\n",
 	               (unsigned long long)trans->id);
 	assert(len == 18);
@@ -143,11 +170,18 @@ static void log_trans_end_(trans_t *trans)
 	assert(r == 1);
 	assert(r2 != -1);
 	trans_unlock(trans);
+	trans->flags = 0;
+	return 0;
 }
 
 void log_trans_end(connection_t *conn)
 {
-	log_trans_end_(&conn->trans);
+	(void) log_trans_end_(&conn->trans, 0);
+}
+
+int log_trans_end_outer(connection_t *conn)
+{
+	return log_trans_end_(&conn->trans, 1);
 }
 
 void log_set_init(trans_t *trans, const char *fmt, ...)
@@ -369,13 +403,13 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp)
 	trans_t trans;
 
 	(void)key;
-	log_trans_start_(&trans, logconn->user, post->modified, fd);
+	(void )log_trans_start_(&trans, logconn->user, post->modified, fd, 0);
 	trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&trans, post);
 	log_set_init(&trans, "TP%s", md5_md52str(post->md5));
 	post_taglist(&trans, post->implied_tags, &post->tags, "");
 	post_taglist(&trans, post->implied_weak_tags, post->weak_tags, "~");
-	log_trans_end_(&trans);
+	(void) log_trans_end_(&trans, 0);
 }
 
 static void user_iter(ss128_key_t key, ss128_value_t value, void *trans)
@@ -402,12 +436,13 @@ void log_dump(void)
 	/* Users, tags, tagaliases and implications are dumped in a single   *
 	 * transaction with the current time. Posts are dumped in individual *
 	 * transactions with the modification time of the post.              */
-	log_trans_start_(&dump_trans, logconn->user, time(NULL), dump_fd);
+	(void) log_trans_start_(&dump_trans, logconn->user, time(NULL),
+	                        dump_fd, 0);
 	ss128_iterate(users, user_iter, &dump_trans);
 	ss128_iterate(tags, tag_iter, &dump_trans);
 	ss128_iterate(tags, tag_iter_impl, &dump_trans);
 	ss128_iterate(tagaliases, tagalias_iter, &dump_trans);
-	log_trans_end_(&dump_trans);
+	(void) log_trans_end_(&dump_trans, 0);
 	ss128_iterate(posts, post_iter, &dump_fd);
 
 	len = snprintf(buf, sizeof(buf), "L%016llx\n",

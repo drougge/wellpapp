@@ -22,6 +22,7 @@ R - relationship management
 I - implication management
 N - nop (to keep server from closing idle connection)
 a - authenticate
+t - transactions
 Q - quit
 
 S:
@@ -169,6 +170,16 @@ Replies "Q *", closes connection.
 
 a:
 "aUSERNAME PASSWORD". This should be fixed of course.. Replies "OK" or "E".
+
+t:
+	Transactions are not ACID transactions, they are merely a way to get
+	"OK" before the log is committed to disk. There is no facility to undo
+	a transaction. (Other than editing the log of course.)
+	Everything in the same transaction is considered to happen at the same
+	time, and if the server is stopped with a transaction still in progress
+	everything from it will be discarded on restart. So keep them short.
+	"tB" begins a transaction, "tE" ends it. Both reply "OK" (or "E" if one
+	is already/not in progress).
 
 Encoded strings are base64 with "_-" as the last two chars. All strings are
 always a multiple of 3 characters long, padded with NULs (0, 1 or 2) as

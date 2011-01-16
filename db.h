@@ -232,6 +232,7 @@ typedef uint64_t trans_id_t;
 typedef enum {
 	TRANSFLAG_SYNC = 1,
 	TRANSFLAG_GOING = 2,
+	TRANSFLAG_OUTER = 4,
 } transflag_t;
 
 struct connection;
@@ -362,7 +363,9 @@ void mm_print(void);
 void client_handle(connection_t *conn, char *buf);
 
 void log_trans_start(connection_t *conn, time_t now);
+int log_trans_start_outer(connection_t *conn, time_t now);
 void log_trans_end(connection_t *conn);
+int log_trans_end_outer(connection_t *conn);
 void log_set_init(trans_t *trans, const char *fmt, ...);
 void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);

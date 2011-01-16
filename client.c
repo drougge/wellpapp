@@ -568,6 +568,22 @@ void client_handle(connection_t *conn, char *buf)
 				}
 			} while (0);
 			break;
+		case 't': // 't'ransaction
+			if ((buf[1] != 'B' && buf[1] != 'E') || buf[2]) {
+				c_close_error(conn, E_COMMAND);
+			}
+			int bad;
+			if (buf[1] == 'B') {
+				bad = log_trans_start_outer(conn, time(NULL));
+			} else { // 'E'
+				bad = log_trans_end_outer(conn);
+			}
+			if (bad) {
+				c_printf(conn, "E\n");
+			} else {
+				c_printf(conn, "OK\n");
+			}
+			break;
 		case ' ': // Special commands. Hopefully tmp.
 			if (connection_count > 1) {
 				c_printf(conn, "E other connections\n");
