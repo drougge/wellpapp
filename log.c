@@ -40,9 +40,7 @@ static void log_trans_start_(trans_t *trans, const user_t *user,
 	trans->fd       = fd;
 	trans->conn     = NULL;
 	trans->now      = now;
-	mm_lock();
 	trans->id = next_trans_id++;
-	mm_unlock();
 	len = snprintf(buf, sizeof(buf), "T%016llxU%016llx\n",
 	               (unsigned long long)trans->id,
 	               (unsigned long long)trans->now);

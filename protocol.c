@@ -158,17 +158,13 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			} else {
 				guid_update_last(tag->guid);
 			}
-			mm_lock();
 			if (ss128_insert(tags, tag, key)) {
-				mm_unlock();
 				return conn->error(conn, cmd);
 			}
 			if (ss128_insert(tagguids, tag, tag->guid.key)) {
 				ss128_delete(tags, key);
-				mm_unlock();
 				return conn->error(conn, cmd);
 			}
-			mm_unlock();
 		} else if (data->name && strcmp(data->name, tag->name)) {
 			r = ss128_delete(tags, key);
 			assert(!r);
@@ -207,14 +203,11 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 		}
 		key = ss128_str2key(tagalias->name);
-		mm_lock();
 		if (!ss128_find(tagaliases, NULL, key)
 		 || ss128_insert(tagaliases, tagalias, key)) {
-		 	mm_unlock();
 		 	return conn->error(conn, cmd);
 		}
 		log_write_tagalias(&conn->trans, tagalias);
-		mm_unlock();
 	}
 	return 0;
 }
@@ -354,14 +347,11 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 		    || post->filetype == (uint16_t)~0) {
 			return conn->error(conn, cmd);
 		}
-		mm_lock();
 		r = ss128_insert(posts, post, post->md5.key);
 		if (r) {
-			mm_unlock();
 			return conn->error(conn, cmd);
 		}
 		log_write_post(&conn->trans, post);
-		mm_unlock();
 	}
 	return 0;
 }
@@ -427,9 +417,7 @@ static int user_cmd(connection_t *conn, const char *cmd, void *data,
 			return conn->error(conn, cmd);
 		}
 		key = ss128_str2key(moduser->name);
-		mm_lock();
 		r = ss128_insert(users, moduser, key);
-		mm_unlock();
 		if (r) return conn->error(conn, cmd);
 		log_write_user(&conn->trans, moduser);
 	}

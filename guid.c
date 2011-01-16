@@ -38,7 +38,6 @@ void guid_update_last(guid_t guid)
 	for (int i = 0; i < 7; i++) {
 		if (guid.data_u8[i] != server_guid->data_u8[i]) return;
 	}
-	mm_lock();
 	if (ntohl(guid.data_u32[2]) > tag_guid_last[0]) {
 		tag_guid_last[0] = ntohl(guid.data_u32[2]);
 		tag_guid_last[1] = ntohl(guid.data_u32[3]);
@@ -47,7 +46,6 @@ void guid_update_last(guid_t guid)
 	    && ntohl(guid.data_u32[3]) > tag_guid_last[1]) {
 		tag_guid_last[1] = ntohl(guid.data_u32[3]);
 	}
-	mm_unlock();
 }
 
 static int guid_c2i(int c)

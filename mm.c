@@ -325,15 +325,3 @@ void mm_print(void)
 	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", ULL mm_head->used, ULL mm_head->size, ULL mm_head->free, ULL mm_head->wasted, mm_head->of_segments);
 	printf("%llu bytes small, %llu bytes aligned.\n", ULL mm_head->used_small, ULL (mm_head->used - mm_head->used_small));
 }
-
-void mm_lock(void)
-{
-	int r = flock(mm_fd[0], LOCK_EX);
-	assert(!r);
-}
-
-void mm_unlock(void)
-{
-	int r = flock(mm_fd[0], LOCK_UN);
-	assert(!r);
-}
