@@ -231,6 +231,7 @@ typedef uint64_t trans_id_t;
 
 typedef enum {
 	TRANSFLAG_SYNC = 1,
+	TRANSFLAG_GOING = 2,
 } transflag_t;
 
 struct connection;

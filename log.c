@@ -35,7 +35,7 @@ static void log_trans_start_(trans_t *trans, const user_t *user,
 	
 	trans->init_len = 0;
 	trans->buf_used = 0;
-	trans->flags    = TRANSFLAG_SYNC;
+	trans->flags    = TRANSFLAG_GOING | TRANSFLAG_SYNC;
 	trans->user     = user;
 	trans->fd       = fd;
 	trans->conn     = NULL;
@@ -124,7 +124,9 @@ static void log_trans_end_(trans_t *trans)
 	char  buf[20];
 	int   len;
 	
+	assert(trans->flags & TRANSFLAG_GOING);
 	trans_line_done_(trans);
+	trans->flags &= ~TRANSFLAG_GOING;
 	len = snprintf(buf, sizeof(buf), "E%016llx\n",
 	               (unsigned long long)trans->id);
 	assert(len == 18);
