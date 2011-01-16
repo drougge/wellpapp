@@ -684,6 +684,7 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 	FILE       *fh;
 	char       buf[4096];
 	trans_id_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
+	time_t     transnow[MAX_CONCURRENT_TRANSACTIONS];
 	int        len;
 
 	fh = fopen(filename, "r");
@@ -698,10 +699,12 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 		if (*buf == 'T') { // New transaction
 			assert(len == 34);
 			if (buf[17] == 'O') { // Complete transaction
-				int trans_pos = find_trans(trans, 0);
+				int trans_pos = find_trans(trans, tid);
+				assert(trans_pos == -1);
+				trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
-				logconn->trans.now = strtoull(buf + 18, &end, 16);
+				transnow[trans_pos] = strtoull(buf + 18, &end, 16);
 				assert(end == buf + 34);
 			} else if (buf[17] == 'U') { // Unfinished transaction
 				// Do nothing
@@ -710,7 +713,9 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 			}
 		} else if (*buf == 'D') { // Data from transaction
 			assert(len > 18);
-			if (find_trans(trans, tid) >= 0) {
+			int trans_pos = find_trans(trans, tid);
+			if (trans_pos >= 0) {
+				logconn->trans.now = transnow[trans_pos];
 				populate_from_log_line(buf + 18);
 			} else {
 				printf("Skipping data from incomplete transaction: %s\n", buf);
