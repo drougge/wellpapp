@@ -7,9 +7,10 @@ typedef enum {
 	ORDER_NONE,
 	ORDER_DATE,
 	ORDER_SCORE,
+	ORDER_GROUP,
 } order_t;
 
-static const char *orders[] = {"date", "score", NULL};
+static const char *orders[] = {"date", "score", "group", NULL};
 
 static const char *flagnames[] = {"tagname", "tagguid", "ext", "created",
                                   "width", "height", "score", "source",
@@ -173,9 +174,14 @@ static int build_search(connection_t *conn, char *cmd, search_t *search)
 	if (!search->of_tags && !search->post) {
 		return conn->error(conn, "E Specify at least one included tag");
 	}
-	/* Searching is faster if ordered by post-count */
-	sort(search->tags, search->of_tags, sizeof(search_tag_t),
-	     sort_search, NULL);
+	/* Searching is faster if ordered by post-count,  *
+	 * but group ordering is implicit in match order. */
+	int can_sort = 1;
+	for (unsigned int i = 0; i < search->of_orders; i++) {
+		if (search->orders[i] == ORDER_GROUP) can_sort = 0;
+	}
+	if (can_sort) sort(search->tags, search->of_tags, sizeof(search_tag_t),
+	                   sort_search, NULL);
 	return 0;
 }
 
@@ -193,8 +199,15 @@ static int sorter_score(const post_t *p1, const post_t *p2)
 	return 0;
 }
 
+static int sorter_group(const post_t *p1, const post_t *p2)
+{
+	(void) p1;
+	(void) p2;
+	return 0; // This just keeps the ordering from the tag
+}
+
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
-static sorter_f sorters[] = {sorter_date, sorter_score};
+static sorter_f sorters[] = {sorter_date, sorter_score, sorter_group};
 
 static int sorter(const void *_p1, const void *_p2, void *_search)
 {
