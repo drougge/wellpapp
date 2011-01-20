@@ -316,6 +316,7 @@ int prot_delete(connection_t *conn, char *cmd);
 int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
 int prot_implication(connection_t *conn, char *cmd);
+int prot_order(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name, truth_t alias);

@@ -20,6 +20,7 @@ M - modify an existing object
 D - delete an existing object
 R - relationship management
 I - implication management
+O - order management
 N - nop (to keep server from closing idle connection)
 a - authenticate
 t - transactions
@@ -161,6 +162,17 @@ I:
 			RIg2tKGC-By0kHB-aaaaaa-aaaaay ig2tKGC-By0kHy-aaaaaa-aaaaas:10
 	Example:
 		Ig2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas:10
+
+O:
+	First specify Gguid for the tag to order posts for.
+	Then specify a list of Pmd5 for the posts to order.
+	If a single post is specified, this post is ordered first.
+	If more than one post is specified, the first post will not be moved,
+	and the following posts will be placed immediately after it (in the
+	order specified).
+	The order of posts that have not been ordered is unspecified.
+	It is not possible to order the posts on a tag that has weak or
+	implied posts.
 
 N:
 Replies "OK".

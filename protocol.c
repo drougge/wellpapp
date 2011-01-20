@@ -657,6 +657,145 @@ int prot_implication(connection_t *conn, char *cmd)
 	return prot_cmd_loop(conn, end + 1, &data, impl_cmd, CMDFLAG_MODIFY);
 }
 
+typedef struct orderdata {
+	tag_t  *tag;
+	postlist_node_t *node;
+	int pos;
+} orderdata_t;
+
+static void order_move_back(postlist_node_t *from_node, int from_pos,
+                            postlist_node_t *to_node, int to_pos)
+{
+	if (++to_pos == arraylen(to_node->posts)) {
+		assert(to_node->next);
+		to_pos = 0;
+		to_node = to_node->next;
+	}
+	post_t *value = to_node->posts[to_pos];
+	to_node->posts[to_pos] = from_node->posts[from_pos];
+	while(from_node != to_node || to_pos < from_pos) {
+		if (++to_pos == arraylen(to_node->posts)) {
+			assert(to_node->next);
+			to_pos = 0;
+			to_node = to_node->next;
+		}
+		post_t *next_value = to_node->posts[to_pos];
+		to_node->posts[to_pos] = value;
+		value = next_value;
+	}
+}
+
+static void order_move_forward(postlist_node_t *from_node, int from_pos,
+                               postlist_node_t *to_node, int to_pos)
+{
+	post_t *value = from_node->posts[from_pos];
+	while(from_node != to_node || to_pos > from_pos) {
+		post_t *next;
+		if (from_pos < arraylen(from_node->posts) - 1) {
+			next = from_node->posts[from_pos + 1];
+		} else {
+			next = from_node->next->posts[0];
+		}
+		from_node->posts[from_pos] = next;
+		if (++from_pos == arraylen(from_node->posts)) {
+			assert(from_node->next);
+			from_node = from_node->next;
+			from_pos = 0;
+		}
+	}
+	to_node->posts[to_pos] = value;
+}
+
+static int order_cmd(connection_t *conn, const char *cmd, void *data_,
+                     prot_cmd_flag_t flags)
+{
+	orderdata_t *data = data_;
+	post_t *post;
+	if (*cmd != 'P') return conn->error(conn, cmd);
+	if (post_find_md5str(&post, cmd + 1)) return conn->error(conn, cmd);
+	if (!post_has_tag(post, data->tag, T_NO)) return conn->error(conn, cmd);
+	int pos;
+	int past = 0;
+	int found = 0;
+	int first = 0;
+	postlist_node_t *node = data->tag->posts.head;
+again:
+	for (int i = 0; i < arraylen(node->posts); i++) {
+		if (node->posts[i] == post) {
+			pos = i;
+			found = 1;
+			break;
+		}
+	}
+	if (!found) {
+		assert(node->next);
+		if (node == data->node) past = 1;
+		node = node->next;
+		goto again;
+	}
+	if (node == data->node) {
+		if (pos > data->pos) past = 1;
+		if (pos == data->pos) return conn->error(conn, cmd);
+	}
+	if (!data->node && (flags & CMDFLAG_LAST)) {
+		// This is the only post, put it first.
+		if (node != data->tag->posts.head || pos) {
+			data->node = data->tag->posts.head;
+			data->pos = 0;
+			past = 1;
+			first = 1;
+		}
+	}
+	if (data->node) {
+		if (past) {
+			order_move_back(node, pos, data->node, data->pos);
+		} else {
+			order_move_forward(node, pos, data->node, data->pos);
+		}
+		if (first) {
+			node = data->tag->posts.head;
+			node->posts[1] = node->posts[0];
+			node->posts[0] = post;
+		}
+	}
+	data->node = node;
+	data->pos = pos;
+	log_write(&conn->trans, "%s", cmd);
+	return 0;
+}
+
+typedef struct order_check {
+	int ok;
+	tag_t *tag;
+} order_check_t;
+
+static void order_check_implied(void *data_, post_t *post)
+{
+	order_check_t *chk = data_;
+	if (taglist_contains(post->implied_tags, chk->tag)) chk->ok = 0;
+}
+
+int prot_order(connection_t *conn, char *cmd)
+{
+	orderdata_t data;
+	if (*cmd != 'G') return conn->error(conn, cmd);
+	char *end = strchr(cmd, ' ');
+	if (!end) return conn->error(conn, cmd);
+	*end = 0;
+	tag_t *tag = tag_find_guidstr(cmd + 1);
+	if (!tag || tag->weak_posts.count) return conn->error(conn, cmd);
+	order_check_t chk;
+	chk.ok  = 1;
+	chk.tag = tag;
+	postlist_iterate(&tag->posts, &chk, order_check_implied);
+	if (!chk.ok) return conn->error(conn, cmd);
+	data.tag  = tag;
+	data.node = NULL;
+	data.pos  = -1;
+	log_set_init(&conn->trans, "O%s", cmd);
+	return prot_cmd_loop(conn, end + 1, &data, order_cmd, CMDFLAG_MODIFY);
+}
+
 user_t *prot_auth(char *cmd)
 {
 	char   *pass;

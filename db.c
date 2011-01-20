@@ -662,6 +662,9 @@ static void populate_from_log_line(char *line)
 		case 'I': // 'I'mplication
 			r = prot_implication(logconn, line + 1);
 			break;
+		case 'O': // 'O'rder
+			r = prot_order(logconn, line + 1);
+			break;
 		default:
 			printf("Log: What? %s\n", line);
 			r = 1;
