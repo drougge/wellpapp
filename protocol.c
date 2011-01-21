@@ -758,8 +758,16 @@ again:
 			node->posts[0] = post;
 		}
 	}
-	data->node = node;
-	data->pos = pos;
+	if (!data->node) {
+		data->node = node;
+		data->pos = pos;
+	} else if (past) {
+		if (++data->pos == arraylen(data->node->posts)) {
+			assert(data->node->next);
+			data->node = data->node->next;
+			data->pos = 0;
+		}
+	}
 	log_write(&conn->trans, "%s", cmd);
 	return 0;
 }
