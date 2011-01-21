@@ -79,6 +79,8 @@ typedef struct search {
 	order_t      orders[PROT_ORDERS_PER_SEARCH];
 	unsigned int of_orders;
 	int          flags;
+	long         range_start;
+	long         range_end;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
@@ -161,6 +163,21 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 				search->post = &null_post;
 			}
 			break;
+		case 'R': // 'R'ange
+			if (search->range_start != -1) {
+				return conn->error(conn, cmd);
+			}
+			char *end;
+			search->range_start = strtol(args, &end, 16);
+			if (*end != ':') return conn->error(conn, cmd);
+			if (end[1]) {
+				long rend = strtol(end + 1, &end, 16);
+				if (*end || rend < search->range_start) {
+					 return conn->error(conn, cmd);
+				}
+				search->range_end = rend;
+			}
+			break;
 		default:
 			return c_close_error(conn, E_SYNTAX);
 			break;
@@ -171,6 +188,8 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 static int build_search(connection_t *conn, char *cmd, search_t *search)
 {
 	memset(search, 0, sizeof(*search));
+	search->range_start = -1;
+	search->range_end = LONG_MAX - 1;
 	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
 	if (!search->of_tags && !search->post) {
 		return conn->error(conn, "E Specify at least one included tag");
@@ -279,7 +298,6 @@ again:
 static void do_search(connection_t *conn, search_t *search)
 {
 	result_t result;
-	unsigned int i;
 
 	memset(&result, 0, sizeof(result));
 	if (search->post) {
@@ -292,7 +310,7 @@ static void do_search(connection_t *conn, search_t *search)
 		}
 		goto done;
 	}
-	for (i = 0; i < search->of_tags; i++) {
+	for (unsigned int i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
 		if (result_intersect(conn, &result, t->tag, t->weak)) {
 			c_close_error(conn, E_MEM);
@@ -300,7 +318,7 @@ static void do_search(connection_t *conn, search_t *search)
 		}
 		if (!result.of_posts) goto done;
 	}
-	for (i = 0; i < search->of_excluded_tags; i++) {
+	for (unsigned int i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
 		if (result_remove_tag(conn, &result, t->tag, t->weak)) {
 			c_close_error(conn, E_MEM);
@@ -308,10 +326,19 @@ static void do_search(connection_t *conn, search_t *search)
 		}
 		if (!result.of_posts) goto done;
 	}
+	long start = 0;
+	long stop = result.of_posts;
+	if (search->range_start != -1) {
+		c_printf(conn, "RR%x\n", result.of_posts);
+		start = search->range_start;
+		stop = search->range_end + 1;
+		if (stop > (long)result.of_posts) stop = result.of_posts;
+		if (start >= stop) goto done;
+	}
 	if (result.of_posts) {
 		sort(result.posts, result.of_posts, sizeof(post_t *),
 		     sorter, search);
-		for (i = 0; i < result.of_posts; i++) {
+		for (long i = start; i < stop; i++) {
 			return_post(conn, result.posts[i], search->flags);
 		}
 	}

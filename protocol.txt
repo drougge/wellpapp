@@ -36,6 +36,7 @@ tag ("T").
 		O: Ordering of results
 		F: Flag (request some data to be returned)
 		M: Find specific post.
+		R: Range of results to return.
 	T and t:
 		Specify tag by name ("N") or guid ("G").
 		Prefix tag-spec with "~" to find only weak tags, or "!" to
@@ -61,6 +62,11 @@ tag ("T").
 	M:
 		md5 of post. Can not be specified together with "T" or "t".
 		Can only be specified once.
+	R:
+		first:last result you want to see. You can leave out either
+		(or both) ends. If you specify R, the reply will start with
+		RRcount (where count is the number of results).
+		First, last and count are unsigned numbers.
 	Returned posts are ordered according to O arguments, or not at all.
 	Returned data for each post in not ordered, except that the Nth
 	tagname is for the same tag as the Nth tagguid.
