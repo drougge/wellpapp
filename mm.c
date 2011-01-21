@@ -53,11 +53,10 @@ typedef struct mm_head {
 } mm_head_t;
 
 #define MM_ALIGN 4
-
-uint8_t *MM_BASE_ADDR = 0;
 #define MM_SEGMENT_SIZE (4 * 1024 * 1024)
 #define MM_MAX_SEGMENTS 1024
 
+uint8_t *MM_BASE_ADDR = 0;
 static int mm_fd[MM_MAX_SEGMENTS];
 
 static mm_head_t *mm_head;
@@ -83,11 +82,17 @@ static int mm_open_segment(unsigned int nr, int flags)
 static void *mm_map_segment(unsigned int nr)
 {
 	uint8_t *addr, *want_addr;
+	static volatile int touch = 0;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
 	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE,
 	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, mm_fd[nr], 0);
 	assert(addr == want_addr);
+	// Try to make sure everything is faulted in.
+	// I don't trust [posix_]madvise.
+	for (int i = 0; i < MM_SEGMENT_SIZE; i += 4096) {
+		touch += addr[i];
+	}
 	return addr;
 }
 
