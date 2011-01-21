@@ -238,6 +238,8 @@ typedef enum {
 struct connection;
 typedef struct connection connection_t;
 
+#define PROT_MAXLEN 4096
+
 typedef struct trans {
 	off_t        mark_offset;
 	trans_id_t   id;
@@ -248,10 +250,8 @@ typedef struct trans {
 	const user_t *user;
 	connection_t *conn;
 	time_t       now;
-	char         buf[4000];
+	char         buf[PROT_MAXLEN + 256];
 } trans_t;
-
-#define PROT_MAXLEN 4096
 
 typedef int (*prot_err_func_t)(connection_t *conn, const char *msg);
 typedef int (*prot_cmd_func_t)(connection_t *conn, const char *cmd,
