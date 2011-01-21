@@ -733,6 +733,11 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 			callback(buf);
 		}
 	}
+	struct stat sb;
+	int r = fstat(fileno(fh), &sb);
+	assert(!r);
+	fclose(fh);
+	mm_last_log(sb.st_size, sb.st_mtime);
 	return 0;
 }
 

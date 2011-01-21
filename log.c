@@ -341,6 +341,8 @@ void log_cleanup(void)
 			       basedir, (unsigned long long)*logindex - 1);
 		assert(len < (int)sizeof(filename));
 		if (!unlink(filename)) *logindex -= 1;
+	} else if (!r) {
+		mm_last_log(sb.st_size, sb.st_mtime);
 	}
 }
 

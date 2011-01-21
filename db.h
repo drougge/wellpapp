@@ -356,6 +356,7 @@ ss128_key_t ss128_str2key(const char *str);
 
 int  mm_init(void);
 void mm_cleanup(void);
+void mm_last_log(off_t size, time_t mtime);
 void *mm_alloc(unsigned int size);
 void *mm_alloc_s(unsigned int size);
 void mm_free(void *mem);
@@ -404,6 +405,7 @@ extern ss128_head_t *tagguids;
 extern ss128_head_t *users;
 
 extern uint64_t *logindex;
+extern uint64_t *first_logindex;
 extern uint64_t *logdumpindex;
 
 extern const char * const *filetype_names;

@@ -22,6 +22,12 @@ static const size_t sizes[] = {
 	sizeof(user_t),
 };
 
+typedef struct logstat {
+	time_t mtime;
+	off_t  size;
+	struct logstat *next;
+} logstat_t;
+
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d4845 /* "MMHE" */
 #define MM_FLAG_CLEAN 1
@@ -36,6 +42,7 @@ typedef struct mm_head {
 	uint64_t      wasted;
 	uint64_t      used_small;
 	uint64_t      logindex;
+	uint64_t      first_logindex;
 	uint64_t      logdumpindex;
 	uint32_t      tag_guid_last[2];
 	ss128_head_t  posts;
@@ -48,6 +55,7 @@ typedef struct mm_head {
 	uint8_t       *bottom;
 	md5_t         config_md5;
 	size_t        struct_sizes[arraylen(sizes)];
+	logstat_t     logstat;
 	uint32_t      clean;
 	uint32_t      magic1;
 } mm_head_t;
@@ -63,6 +71,7 @@ static mm_head_t *mm_head;
 
 uint32_t *tag_guid_last;
 uint64_t *logindex;
+uint64_t *first_logindex;
 uint64_t *logdumpindex;
 
 static int mm_open_segment(unsigned int nr, int flags)
@@ -166,7 +175,6 @@ static int mm_init_old(void)
 {
 	mm_head_t    head;
 	int          fd;
-	unsigned int i;
 	ssize_t      r;
 
 	fd = mm_open_segment(0, O_RDWR);
@@ -186,10 +194,40 @@ static int mm_init_old(void)
 	}
 	mm_map_segment(0);
 	mm_head->clean = 0;
-	for (i = 1; i < head.of_segments; i++) {
+	for (unsigned int i = 1; i < head.of_segments; i++) {
 		fd = mm_open_segment(i, O_RDWR);
 		assert(fd >= 0);
 		mm_map_segment(i);
+	}
+	int logs_ok = 1;
+	logstat_t *l = &head.logstat;
+	for (uint64_t i = head.first_logindex; i < head.logindex; i++) {
+		int len;
+		char filename[1024];
+		struct stat sb;
+		len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
+		               basedir, (unsigned long long)i);
+		assert(len < (int)sizeof(filename));
+		if (stat(filename, &sb)) {
+			fprintf(stderr, "Log %016llx missing.\n",
+			        (unsigned long long)i);
+			exit(1);
+		}
+		if (sb.st_size != l->size || sb.st_mtime != l->mtime) {
+			logs_ok = 0;
+		}
+		l = l->next;
+	}
+	if (!logs_ok) {
+		for (unsigned int i = 1; i < head.of_segments; i++) {
+			mm_unmap_segment(i);
+			close(mm_fd[i]);
+			mm_fd[i] = -1;
+		}
+		mm_unmap_segment(0);
+		close(mm_fd[0]);
+		mm_fd[0] = -1;
+		return 1;
 	}
 	return 0;
 }
@@ -215,6 +253,7 @@ int mm_init(void)
 	tagguids      = &mm_head->tagguids;
 	users         = &mm_head->users;
 	logindex      = &mm_head->logindex;
+	first_logindex= &mm_head->first_logindex;
 	logdumpindex  = &mm_head->logdumpindex;
 
 	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
@@ -240,6 +279,18 @@ static void mm_sync(unsigned int nr)
 {
 	int r = fsync(mm_fd[nr]);
 	assert(!r);
+}
+
+void mm_last_log(off_t size, time_t mtime)
+{
+	logstat_t *l = &mm_head->logstat;
+	int64_t i = mm_head->first_logindex;
+	for (; i < (int64_t)mm_head->logindex - 1; i++) {
+		l = l->next;
+	}
+	if (!l->next) l->next = mm_alloc(sizeof *l);
+	l->size = size;
+	l->mtime = mtime;
 }
 
 void mm_cleanup(void)

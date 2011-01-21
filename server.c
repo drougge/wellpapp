@@ -22,12 +22,10 @@ static uint64_t str2u64(const char *str)
 	return val;
 }
 
-static uint64_t next_log = 0;
-
 static void log_next(const char *line)
 {
 	assert(*line == 'L');
-	next_log = str2u64(line + 1);
+	*logindex = *first_logindex = str2u64(line + 1);
 }
 
 static void populate_from_dump(void)
@@ -57,23 +55,23 @@ static void populate_from_dump(void)
 		               basedir, (unsigned long long)last_dump);
 		assert(len < (int)sizeof(buf));
 		*logdumpindex = last_dump + 1;
-		next_log = ~0ULL;
+		*logindex = ~0ULL;
 		populate_from_log(buf, log_next);
-		assert(next_log != ~0ULL);
+		assert(*logindex != ~0ULL);
 	}
 	while (1) {
 		int r;
 
-		printf("Reading log %016llx..\n", (unsigned long long)next_log);
+		printf("Reading log %016llx..\n", (unsigned long long)*logindex);
 		len = snprintf(buf, sizeof(buf), "%s/log/%016llx",
-		               basedir, (unsigned long long)next_log);
+		               basedir, (unsigned long long)*logindex);
 		assert(len < (int)sizeof(buf));
+		(*logindex)++;
 		r = populate_from_log(buf, NULL);
 		if (r) break;
-		next_log++;
 	}
 	printf("Log recovery complete.\n");
-	*logindex = next_log;
+	(*logindex)--;
 }
 
 static void sig_die(int sig)
