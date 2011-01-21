@@ -212,7 +212,7 @@ static void efs_rbtree_balance_after_insert(efs_base_t *base, efs_rbtree_head_t 
 
 int efs_rbtree_insert(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_value_t value, efs_rbtree_key_t key) {
 	efs_rbtree_node_t *node;
-	efs_rbtree_node_t *newnode;
+	efs_rbtree_node_t *newnode = 0;
 	int               child;
 
 	err1(efs_rbtree_node_alloc(base, head, &newnode, value, key));
