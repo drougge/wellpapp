@@ -635,7 +635,7 @@ static int read_log_line(FILE *fh, char *buf, int len)
 	return len;
 }
 
-static void populate_from_log_line(char *line)
+static int populate_from_log_line(char *line)
 {
 	int r;
 	switch (*line) {
@@ -669,7 +669,7 @@ static void populate_from_log_line(char *line)
 			printf("Log: What? %s\n", line);
 			r = 1;
 	}
-	assert(!r);
+	return r;
 }
 
 #define MAX_CONCURRENT_TRANSACTIONS 64
@@ -689,6 +689,7 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 	trans_id_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
 	time_t     transnow[MAX_CONCURRENT_TRANSACTIONS];
 	int        len;
+	long       line_nr = 0;
 
 	fh = fopen(filename, "r");
 	if (!fh) {
@@ -698,9 +699,10 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
 		char       *end;
 		trans_id_t tid = strtoull(buf + 1, &end, 16);
-		assert(end == buf + 17);
+		line_nr++;
+		err1(end != buf + 17);
 		if (*buf == 'T') { // New transaction
-			assert(len == 34);
+			err1(len != 34);
 			if (buf[17] == 'O') { // Complete transaction
 				int trans_pos = find_trans(trans, tid);
 				assert(trans_pos == -1);
@@ -708,28 +710,28 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
 				transnow[trans_pos] = strtoull(buf + 18, &end, 16);
-				assert(end == buf + 34);
+				err1(end != buf + 34);
 			} else if (buf[17] == 'U') { // Unfinished transaction
 				// Do nothing
 			} else { // What?
-				assert(0);
+				goto err;
 			}
 		} else if (*buf == 'D') { // Data from transaction
-			assert(len > 18);
+			err1(len <= 18);
 			int trans_pos = find_trans(trans, tid);
 			if (trans_pos >= 0) {
 				logconn->trans.now = transnow[trans_pos];
-				populate_from_log_line(buf + 18);
+				err1(populate_from_log_line(buf + 18));
 			} else {
 				printf("Skipping data from incomplete transaction: %s\n", buf);
 			}
 		} else if (*buf == 'E') { // End of transaction
 			int pos;
-			assert(len == 17);
+			err1(len != 17);
 			pos = find_trans(trans, tid);
 			if (pos != -1) trans[pos] = 0;
 		} else { // What?
-			assert(callback);
+			err1(!callback);
 			callback(buf);
 		}
 	}
@@ -739,6 +741,9 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 	fclose(fh);
 	mm_last_log(sb.st_size, sb.st_mtime);
 	return 0;
+err:
+	printf("Failed on line %ld:\n%s\n", line_nr, buf);
+	exit(1);
 }
 
 #define MAX_CONNECTIONS 100
