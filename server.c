@@ -80,6 +80,15 @@ static void sig_die(int sig)
 	server_running = 0;
 }
 
+extern guid_t *server_guid;
+static int blacklisted_guid(void)
+{
+	guid_t example;
+	int r = guid_str2guid(&example, "fSaP69-3QS9RA-aaaaaa-aaaaaa", GUIDTYPE_SERVER);
+	assert(!r);
+	return !memcmp(&example, server_guid, sizeof(example));
+}
+
 int main(int argc, char **argv)
 {
 	user_t       loguser_;
@@ -99,6 +108,10 @@ int main(int argc, char **argv)
 	db_read_cfg(argv[1]);
 	printf("initing mm..\n");
 	if (mm_init()) populate_from_dump();
+	if (!*logdumpindex && blacklisted_guid()) {
+		printf("Don't use the example GUID\n");
+		return 1;
+	}
 	mm_print();
 	log_init();
 	printf("serving..\n");
