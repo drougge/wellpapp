@@ -204,7 +204,9 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 		}
 		key = ss128_str2key(tagalias->name);
 		if (!ss128_find(tagaliases, NULL, key)
-		 || ss128_insert(tagaliases, tagalias, key)) {
+		    || !ss128_find(tags, NULL, key)
+		    || ss128_insert(tagaliases, tagalias, key)
+		   ) {
 		 	return conn->error(conn, cmd);
 		}
 		log_write_tagalias(&conn->trans, tagalias);
