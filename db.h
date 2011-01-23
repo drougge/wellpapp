@@ -133,8 +133,6 @@ typedef struct post {
 	uint16_t       height;
 	uint16_t       filetype;
 	uint16_t       rating;
-	uint16_t       of_holes;
-	uint16_t       of_weak_holes;
 	uint32_t       of_tags;
 	uint32_t       of_weak_tags;
 	postlist_t     related_posts;

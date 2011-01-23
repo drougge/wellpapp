@@ -395,36 +395,36 @@ int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
 	return 1;
 }
 
-static int post_tag_rem_i(post_t *post, tag_t *tag)
+static int taglist_remove(post_taglist_t *tl, const tag_t *tag)
 {
-	post_taglist_t *tl;
-	postlist_t     *pl;
-	int finished = 0;
-	uint16_t *of_holes;
-
-	assert(post);
-	assert(tag);
-	tl = &post->tags;
-	pl = &tag->posts;
-	of_holes = &post->of_holes;
-again:
 	while (tl) {
-		unsigned int i;
-		for (i = 0; i < arraylen(tl->tags); i++) {
+		for (unsigned int i = 0; i < arraylen(tl->tags); i++) {
 			if (tl->tags[i] == tag) {
 				tl->tags[i] = NULL;
-				(*of_holes)++;
-				return postlist_remove(pl, post);
+				return 0;
 			}
 		}
 		tl = tl->next;
 	}
-	if (finished) return 1;
-	finished = 1;
-	tl = post->weak_tags;
-	pl = &tag->weak_posts;
-	of_holes = &post->of_weak_holes;
-	goto again;
+	return 1;
+}
+
+static int post_tag_rem_i(post_t *post, tag_t *tag)
+{
+	assert(post);
+	assert(tag);
+	if (taglist_contains(post->implied_tags, tag)
+	    || taglist_contains(post->implied_weak_tags, tag)
+	   ) return 1;
+	if (!taglist_remove(&post->tags, tag)) {
+		post->of_tags--;
+		return postlist_remove(&tag->posts, post);
+	}
+	if (!taglist_remove(post->weak_tags, tag)) {
+		post->of_weak_tags--;
+		return postlist_remove(&tag->weak_posts, post);
+	}
+	return 1;
 }
 
 int post_tag_rem(post_t *post, tag_t *tag)
@@ -438,12 +438,20 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak)
 {
 	post_taglist_t *tl;
 	post_taglist_t *ptl = NULL;
-	uint16_t       *of_holes;
 	int i;
 
 	assert(post);
 	assert(tag);
 	assert(weak == T_YES || weak == T_NO);
+	if (taglist_contains(post->implied_tags, tag)) {
+		int r = taglist_remove(post->implied_tags, tag);
+		assert(!r);
+		if (!weak) return 0;
+	} else if (taglist_contains(post->implied_weak_tags, tag)) {
+		int r = taglist_remove(post->implied_weak_tags, tag);
+		assert(!r);
+		if (weak) return 0;
+	}
 	if (post_has_tag(post, tag, weak)) return 1;
 	if (post_has_tag(post, tag, !weak)) {
 		if (post_tag_rem_i(post, tag)) return 1;
@@ -453,18 +461,15 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak)
 		tl = post->weak_tags;
 		if (!tl) tl = post->weak_tags = mm_alloc(sizeof(*tl));
 		post->of_weak_tags++;
-		of_holes = &post->of_weak_holes;
 	} else {
 		postlist_add(&tag->posts, post);
 		tl = &post->tags;
 		post->of_tags++;
-		of_holes = &post->of_holes;
 	}
 	while (tl) {
 		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
-				(*of_holes)--;
 				return 0;
 			}
 		}
@@ -473,7 +478,6 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak)
 	}
 	tl = mm_alloc(sizeof(*tl));
 	tl->tags[0]  = tag;
-	*of_holes   += arraylen(tl->tags) - 1;
 	ptl->next    = tl;
 	return 0;
 }
