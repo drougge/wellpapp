@@ -616,7 +616,9 @@ static int impl_cmd(connection_t *conn, const char *cmd, void *data_,
 		*colon = 0;
 	}
 	tag_t *implied_tag = tag_find_guidstr(cmd + 1);
-	if (!implied_tag) return conn->error(conn, cmd);
+	if (!implied_tag || implied_tag == data->tag) {
+		return conn->error(conn, cmd);
+	}
 	int positive;
 	switch (*cmd) {
 		case 'I':
