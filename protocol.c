@@ -119,7 +119,7 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			break;
 		case 'N':
 			if ((data->is_add || strcmp(tag->name, args))
-			    && tag_find_name(args, T_DONTCARE)
+			    && tag_find_name(args, T_DONTCARE, NULL)
 			   ) {
 				return conn->error(conn, cmd);
 			}

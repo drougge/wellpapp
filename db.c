@@ -581,19 +581,24 @@ tag_t *tag_find_guidstr(const char *guidstr)
 	return tag_find_guid(guid);
 }
 
-tag_t *tag_find_name(const char *name, truth_t alias)
+tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias)
 {
 	ss128_key_t hash = ss128_str2key(name);
-	void        *tag = NULL;
+	void *found = NULL;
+	tag_t *tag = NULL;
 
 	if (alias != T_YES) {
-		ss128_find(tags, &tag, hash);
+		ss128_find(tags, &found, hash);
+		tag = found;
+		if (r_tagalias) *r_tagalias = NULL;
 	}
 	if (!tag && alias != T_NO) {
-		ss128_find(tagaliases, &tag, hash);
-		if (tag) tag = ((tagalias_t *)tag)->tag;
+		ss128_find(tagaliases, &found, hash);
+		tagalias_t *tagalias = found;
+		if (tagalias) tag = tagalias->tag;
+		if (r_tagalias) *r_tagalias = tagalias;
 	}
-	return (tag_t *)tag;
+	return tag;
 }
 
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak)

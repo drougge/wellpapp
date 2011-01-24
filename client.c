@@ -119,7 +119,7 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			if (*args == 'G') {
 				tag = tag_find_guidstr(args + 1);
 			} else if (*args == 'N') {
-				tag = tag_find_name(args + 1, T_DONTCARE);
+				tag = tag_find_name(args + 1, T_DONTCARE, NULL);
 			} else {
 				return conn->error(conn, cmd);
 			}
@@ -347,12 +347,16 @@ done:
 	result_free(conn, &result);
 }
 
-static void c_print_tag(connection_t *conn, const tag_t *tag)
+static void c_print_tag(connection_t *conn, const tag_t *tag,
+                        const tagalias_t *tagalias)
 {
 	if (!tag) return;
 	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 	c_printf(conn, "N%s ", tag->name);
 	c_printf(conn, "T%s ", tagtype_names[tag->type]);
+	if (tagalias) {
+		c_printf(conn, "A%s ", tagalias->name);
+	}
 	c_printf(conn, "P%x ", tag->posts.count);
 	c_printf(conn, "W%x\n", tag->weak_posts.count);
 }
@@ -365,12 +369,13 @@ typedef struct {
 } tag_search_data_t;
 
 static void tag_search_i(const char *name, const tag_t *tag,
-                         tag_search_data_t *data)
+                         const tagalias_t *tagalias, tag_search_data_t *data)
 {
-	if (data->partial) {
-		if (strstr(name, data->text)) c_print_tag(data->conn, tag);
-	} else {
-		if (!strcmp(name, data->text)) c_print_tag(data->conn, tag);
+	if (data->partial && strstr(name, data->text)) {
+		c_print_tag(data->conn, tag, tagalias);
+	}
+	if (!data->partial && !strcmp(name, data->text)) {
+		c_print_tag(data->conn, tag, tagalias);
 	}
 }
 
@@ -378,8 +383,9 @@ static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_)
 {
 	tag_search_data_t *data = data_;
 	const tag_t       *tag = (const tag_t *)value;
+	const char *name = data->fuzzy ? tag->fuzzy_name : tag->name;
 	(void)key;
-	tag_search_i(data->fuzzy ? tag->fuzzy_name : tag->name, tag, data);
+	tag_search_i(name, tag, NULL, data);
 }
 
 static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
@@ -387,9 +393,9 @@ static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
 {
 	tag_search_data_t *data = data_;
 	const tagalias_t  *tagalias = (const tagalias_t *)value;
+	const char *name = data->fuzzy ? tagalias->fuzzy_name : tagalias->name;
 	(void)key;
-	tag_search_i(data->fuzzy ? tagalias->fuzzy_name : tagalias->name,
-	             tagalias->tag, data);
+	tag_search_i(name, tagalias->tag, tagalias, data);
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -415,11 +421,13 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 		guid_t guid;
 		if (fuzzy) goto err;
 		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) goto err;
-		c_print_tag(conn, tag_find_guid(guid));
+		c_print_tag(conn, tag_find_guid(guid), NULL);
 	} else {
 		if (*cmd != 'N' && *cmd != 'P') goto err;
 		if (*cmd == 'N' && !fuzzy) {
-			c_print_tag(conn, tag_find_name(cmd + 1, aliases));
+			tagalias_t *tagalias;
+			tag_t *tag = tag_find_name(cmd + 1, aliases, &tagalias);
+			c_print_tag(conn, tag, tagalias);
 		} else {
 			tag_search_data_t data;
 			char              *fuzztext;

@@ -76,12 +76,15 @@ tag ("T").
 		RGyBYR8f-qto48a-aaaaaa-aaaaa0 P0123456789abcdef0123456789abcdef Tfoo T~bar G~foYYLK-qto48a-aaaaaa-aaaa79 Fext=jpeg
 
 	T:
-	First either 'E'xact or 'F'uzzy, optionally 'A' to include aliases, 
+	First either 'E'xact or 'F'uzzy, optionally 'A' to include aliases,
 	and then one of G, N or P:
 		G: 'G'UID (only with E)
 		N: Complete 'N'ame
 		P: 'P'artial name
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count".
+	If your search matches an alias there is also an Aalias in there.
+	If one tag matches several times (on different aliases) it's returned
+	several times, with different A records.
 	Example:
 		STEANnekomimi
 

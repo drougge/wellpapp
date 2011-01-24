@@ -317,7 +317,7 @@ int prot_implication(connection_t *conn, char *cmd);
 int prot_order(connection_t *conn, char *cmd);
 user_t *prot_auth(char *cmd);
 
-tag_t *tag_find_name(const char *name, truth_t alias);
+tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
