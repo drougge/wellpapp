@@ -85,6 +85,7 @@ tag ("T").
 	If your search matches an alias there is also an Aalias in there.
 	If one tag matches several times (on different aliases) it's returned
 	several times, with different A records.
+	If you search with STEAG you get all aliases, on a single line.
 	Example:
 		STEANnekomimi
 

@@ -347,8 +347,23 @@ done:
 	result_free(conn, &result);
 }
 
+typedef struct c_print_alias {
+	connection_t *conn;
+	const tag_t  *tag;
+} c_print_alias_t;
+
+static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
+{
+	c_print_alias_t *data = data_;
+	tagalias_t *tagalias = (tagalias_t *)value;
+	(void) key;
+	if (tagalias->tag == data->tag) {
+		c_printf(data->conn, "A%s ", tagalias->name);
+	}
+}
+
 static void c_print_tag(connection_t *conn, const tag_t *tag,
-                        const tagalias_t *tagalias)
+                        const tagalias_t *tagalias, int all_aliases)
 {
 	if (!tag) return;
 	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
@@ -356,6 +371,12 @@ static void c_print_tag(connection_t *conn, const tag_t *tag,
 	c_printf(conn, "T%s ", tagtype_names[tag->type]);
 	if (tagalias) {
 		c_printf(conn, "A%s ", tagalias->name);
+	}
+	if (all_aliases) {
+		c_print_alias_t data;
+		data.conn = conn;
+		data.tag  = tag;
+		ss128_iterate(tagaliases, c_print_alias_cb, &data);
 	}
 	c_printf(conn, "P%x ", tag->posts.count);
 	c_printf(conn, "W%x\n", tag->weak_posts.count);
@@ -372,10 +393,10 @@ static void tag_search_i(const char *name, const tag_t *tag,
                          const tagalias_t *tagalias, tag_search_data_t *data)
 {
 	if (data->partial && strstr(name, data->text)) {
-		c_print_tag(data->conn, tag, tagalias);
+		c_print_tag(data->conn, tag, tagalias, 0);
 	}
 	if (!data->partial && !strcmp(name, data->text)) {
-		c_print_tag(data->conn, tag, tagalias);
+		c_print_tag(data->conn, tag, tagalias, 0);
 	}
 }
 
@@ -421,13 +442,13 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 		guid_t guid;
 		if (fuzzy) goto err;
 		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) goto err;
-		c_print_tag(conn, tag_find_guid(guid), NULL);
+		c_print_tag(conn, tag_find_guid(guid), NULL, aliases);
 	} else {
 		if (*cmd != 'N' && *cmd != 'P') goto err;
 		if (*cmd == 'N' && !fuzzy) {
 			tagalias_t *tagalias;
 			tag_t *tag = tag_find_name(cmd + 1, aliases, &tagalias);
-			c_print_tag(conn, tag, tagalias);
+			c_print_tag(conn, tag, tagalias, 0);
 		} else {
 			tag_search_data_t data;
 			char              *fuzztext;
