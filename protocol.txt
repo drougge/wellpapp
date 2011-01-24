@@ -166,6 +166,10 @@ I:
 		Can return several lines for the same tag.
 		Example reply:
 			RIg2tKGC-By0kHB-aaaaaa-aaaaay ig2tKGC-By0kHy-aaaaaa-aaaaas:10
+	R:
+		Show what implies a tag. Returns lines like S, with only one
+		implication per line. (The second tag is always the one you
+		specified after R.)
 	Example:
 		Ig2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas:10
 

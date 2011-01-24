@@ -516,6 +516,47 @@ static int show_impl_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
+typedef struct rev_impl_data {
+	connection_t *conn;
+	tag_t *tag;
+} rev_impl_data_t;
+
+static void show_rev_impl_cb(ss128_key_t key, ss128_value_t value, void *data_)
+{
+	(void) key;
+	tag_t *tag = (tag_t *)value;
+	rev_impl_data_t *data = data_;
+	impllist_t *impllist = tag->implications;
+	while (impllist) {
+		for (int i = 0; i < arraylen(impllist->impl); i++) {
+			implication_t *impl = &impllist->impl[i];
+			if (impl->tag == data->tag) {
+				c_printf(data->conn, "RI%s ",
+				         guid_guid2str(tag->guid));
+				c_printf(data->conn, "%c%s:%ld\n",
+					 impl->positive ? 'I' : 'i',
+					 guid_guid2str(impl->tag->guid),
+					 (long)impl->priority);
+				return;
+			}
+		}
+		impllist = impllist->next;
+	}
+}
+
+static int show_rev_impl_cmd(connection_t *conn, const char *cmd, void *data,
+                             prot_cmd_flag_t flags)
+{
+	(void) data;
+	(void) flags;
+	rev_impl_data_t revdata;
+	revdata.conn = conn;
+	revdata.tag = tag_find_guidstr(cmd);
+	if (!revdata.tag) return 1;
+	ss128_iterate(tags, show_rev_impl_cb, &revdata);
+	return 0;
+}
+
 static void modifying_command(connection_t *conn,
                               int (*func)(connection_t *, char *), char *cmd)
 {
@@ -584,6 +625,11 @@ void client_handle(connection_t *conn, char *buf)
 				case 'S':
 					prot_cmd_loop(conn, buf + 2, NULL,
 					              show_impl_cmd, 0);
+					c_printf(conn, "OK\n");
+					break;
+				case 'R':
+					prot_cmd_loop(conn, buf + 2, NULL,
+					              show_rev_impl_cmd, 0);
 					c_printf(conn, "OK\n");
 					break;
 				default:
