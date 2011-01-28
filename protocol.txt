@@ -81,6 +81,7 @@ tag ("T").
 		G: 'G'UID (only with E)
 		N: Complete 'N'ame
 		P: 'P'artial name
+		I: 'I'nitial part of name
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count".
 	If your search matches an alias there is also an Aalias in there.
 	If one tag matches several times (on different aliases) it's returned

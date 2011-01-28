@@ -392,18 +392,26 @@ static void c_print_tag(connection_t *conn, const tag_t *tag,
 typedef struct {
 	connection_t *conn;
 	const char   *text;
+	int          tlen;
 	int          fuzzy;
-	int          partial;
+	char         type;
 } tag_search_data_t;
 
 static void tag_search_i(const char *name, const tag_t *tag,
                          const tagalias_t *tagalias, tag_search_data_t *data)
 {
-	if (data->partial && strstr(name, data->text)) {
-		c_print_tag(data->conn, tag, tagalias, 0);
-	}
-	if (!data->partial && !strcmp(name, data->text)) {
-		c_print_tag(data->conn, tag, tagalias, 0);
+	if (data->type == 'P') {
+		if (strstr(name, data->text)) {
+			c_print_tag(data->conn, tag, tagalias, 0);
+		}
+	} else {
+		int nlen = strlen(name);
+		if ((nlen == data->tlen
+		     || (nlen > data->tlen && data->type == 'I')
+		    ) && !memcmp(name, data->text, data->tlen)
+		   ) {
+			c_print_tag(data->conn, tag, tagalias, 0);
+		}
 	}
 }
 
@@ -445,14 +453,15 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 		aliases = T_DONTCARE;
 		cmd++;
 	}
-	if (*cmd == 'G') {
+	char c = *cmd;
+	if (c == 'G') {
 		guid_t guid;
 		if (fuzzy) goto err;
 		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) goto err;
 		c_print_tag(conn, tag_find_guid(guid), NULL, aliases);
 	} else {
-		if (*cmd != 'N' && *cmd != 'P') goto err;
-		if (*cmd == 'N' && !fuzzy) {
+		if (c != 'N' && c != 'P' && c != 'I') goto err;
+		if (c == 'N' && !fuzzy) {
 			tagalias_t *tagalias;
 			tag_t *tag = tag_find_name(cmd + 1, aliases, &tagalias);
 			c_print_tag(conn, tag, tagalias, 0);
@@ -460,8 +469,8 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 			tag_search_data_t data;
 			char              *fuzztext;
 			unsigned int      fuzzlen;
-			data.conn    = conn;
-			data.partial = (*cmd == 'P');
+			data.conn = conn;
+			data.type = c;
 			if (fuzzy) {
 				if (utf_fuzz_c(conn, cmd + 1, &fuzztext,
 				               &fuzzlen)) {
@@ -473,6 +482,7 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 				data.text  = cmd + 1;
 				data.fuzzy = 0;
 			}
+			data.tlen = strlen(data.text);
 			ss128_iterate(tags, tag_search_P, &data);
 			if (aliases) {
 				ss128_iterate(tagaliases, tag_search_P_alias,
