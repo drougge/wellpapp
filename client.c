@@ -199,7 +199,7 @@ static int build_search(connection_t *conn, char *cmd, search_t *search)
 	search->range_end = LONG_MAX - 1;
 	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
 	if (!search->of_tags && !search->post) {
-		return conn->error(conn, "E Specify at least one included tag");
+		return 0;
 	}
 	/* Searching is faster if ordered by post-count,  *
 	 * but group ordering is implicit in match order. */
@@ -302,6 +302,21 @@ again:
 	c_printf(conn, "\n");
 }
 
+typedef struct post2result_data {
+	connection_t *conn;
+	result_t     *result;
+	unsigned int error : 1;
+} post2result_data_t;
+
+static void post2result(ss128_key_t key, ss128_value_t value, void *data_)
+{
+	(void) key;
+	post_t *post = (post_t *)value;
+	post2result_data_t *data = data_;
+	if (data->error) return;
+	data->error |= result_add_post(data->conn, data->result, post);
+}
+
 static void do_search(connection_t *conn, search_t *search)
 {
 	result_t result;
@@ -332,6 +347,17 @@ static void do_search(connection_t *conn, search_t *search)
 			return;
 		}
 		if (!result.of_posts) goto done;
+	}
+	if (!result.of_posts) { // No criteria -> return all posts
+		post2result_data_t data;
+		data.conn   = conn;
+		data.result = &result;
+		data.error  = 0;
+		ss128_iterate(posts, post2result, &data);
+		if (data.error) {
+			c_close_error(conn, E_MEM);
+			return;
+		}
 	}
 	long start = 0;
 	long stop = result.of_posts;
