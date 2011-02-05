@@ -90,10 +90,122 @@ static int put_enum_value_gen(uint16_t *res, const char * const *array,
 	return 1;
 }
 
+static void tag_delete(tag_t *tag)
+{
+	ss128_key_t key = ss128_str2key(tag->name);
+	int r = ss128_delete(tags, key);
+	assert(!r);
+	r = ss128_delete(tagguids, tag->guid.key);
+	assert(!r);
+}
+
+typedef struct mergedata {
+	tag_t   *tag;
+	tag_t   *rmtag;
+	truth_t weak;
+	int     bad;
+} mergedata_t;
+
+static void merge_tags_chk_cb(void *data_, post_t *post)
+{
+	mergedata_t *data = data_;
+	data->bad |= post_has_tag(post, data->tag, data->weak);
+}
+
+static void merge_tags_cb(void *data_, post_t *post)
+{
+	mergedata_t *data = data_;
+	if (!post_has_tag(post, data->tag, data->weak)) {
+		int r = post_tag_add(post, data->tag, data->weak);
+		assert(!r);
+	}
+	int r = post_tag_rem(post, data->rmtag);
+	assert(!r);
+}
+
+typedef struct mergedata_alias {
+	tag_t *from;
+	tag_t *into;
+} mergedata_alias_t;
+
+static void merge_tags_realias(ss128_key_t key, ss128_value_t value,
+                               void *data_)
+{
+	(void) key;
+	tagalias_t *tagalias = (tagalias_t *)value;
+	mergedata_alias_t *data = data_;
+	if (tagalias->tag == data->from) tagalias->tag = data->into;
+}
+
+static void merge_tags_chk_impl(ss128_key_t key, ss128_value_t value,
+                                void *data_)
+{
+	(void) key;
+	tag_t *tag = (tag_t *)value;
+	mergedata_t *data = data_;
+	impllist_t *impl = tag->implications;
+	while (impl) {
+		for (int i = 0; i < arraylen(impl->impl); i++) {
+			if (impl->impl[i].tag == data->tag) data->bad = 1;
+		}
+		impl = impl->next;
+	}
+}
+
+static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
+{
+	(void)conn;
+	if (!into || !from) return 1;
+	mergedata_t data;
+	data.bad  = 0;
+	data.tag  = from;
+	data.weak = T_YES;
+	postlist_iterate(&into->posts, &data, merge_tags_chk_cb);
+	data.weak = T_NO;
+	postlist_iterate(&into->weak_posts, &data, merge_tags_chk_cb);
+	data.tag  = into;
+	data.weak = T_YES;
+	postlist_iterate(&from->posts, &data, merge_tags_chk_cb);
+	data.weak = T_NO;
+	postlist_iterate(&from->weak_posts, &data, merge_tags_chk_cb);
+	data.tag = from;
+	ss128_iterate(tags, merge_tags_chk_impl, &data);
+	if (data.bad) return 1;
+	// Ok, there are no conflicts.
+
+	data.tag   = into;
+	data.rmtag = from;
+	data.weak  = T_NO;
+	postlist_iterate(&from->posts, &data, merge_tags_cb);
+	data.weak  = T_YES;
+	postlist_iterate(&from->weak_posts, &data, merge_tags_cb);
+	// into now has all the posts from from.
+
+	// create from->name as alias for into.
+	tagalias_t *tagalias;
+	tagalias = mm_alloc(sizeof(*tagalias));
+	tagalias->name = mm_strdup(from->name);
+	tagalias->fuzzy_name = mm_strdup(from->fuzzy_name);
+	tagalias->tag = into;
+	ss128_key_t key = ss128_str2key(tagalias->name);
+	int r = ss128_insert(tagaliases, tagalias, key);
+	assert(!r);
+	// Redirect aliases from from to into
+	mergedata_alias_t aliasdata;
+	aliasdata.from = from;
+	aliasdata.into = into;
+	ss128_iterate(tagaliases, merge_tags_realias, &aliasdata);
+
+	tag_delete(from);
+	return 0;
+}
+
 typedef struct tag_cmd_data {
 	tag_t      *tag;
-	int        is_add;
 	const char *name;
+	int        is_add;
+	int        merge;
+	guid_t     merge_guid;
 } tag_cmd_data_t;
 
 static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -138,6 +250,18 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 				return conn->error(conn, cmd);
 			}
 			break;
+		case 'M':
+			if (data->is_add || data->merge) {
+				return conn->error(conn, cmd);
+			}
+			tag_t *merge_tag = tag_find_guidstr(args);
+			if (!merge_tag) return conn->error(conn, cmd);
+			data->merge = 1;
+			data->merge_guid = merge_tag->guid;
+			if (merge_tags(conn, tag, merge_tag)) {
+				return conn->error(conn, cmd);
+			}
+			break;
 		default:
 			return conn->error(conn, cmd);
 	}
@@ -174,7 +298,9 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			r = ss128_insert(tags, tag, key);
 			assert(!r);
 		}
-		log_write_tag(&conn->trans, tag, data->is_add);
+		guid_t *merge = NULL;
+		if (data->merge) merge = &data->merge_guid;
+		log_write_tag(&conn->trans, tag, data->is_add, merge);
 	}
 	return 0;
 }
@@ -436,6 +562,7 @@ int prot_add(connection_t *conn, char *cmd)
 	switch (*cmd) {
 		case 'T':
 			func = tag_cmd;
+			memset(&tag_data, 0, sizeof(tag_data));
 			tag_data.tag = mm_alloc(sizeof(tag_t));
 			tag_data.is_add = 1;
 			dataptr = &tag_data;
@@ -543,11 +670,7 @@ int prot_delete(connection_t *conn, char *cmd)
 			ss128_iterate(tags, check_freepost_tag, &data);
 			ss128_iterate(tagaliases, check_freepost_alias, &data);
 			if (data.bad) return error1(conn, args);
-			key = ss128_str2key(tag->name);
-			int r = ss128_delete(tags, key);
-			assert(!r);
-			r = ss128_delete(tagguids, tag->guid.key);
-			assert(!r);
+			tag_delete(tag);
 			break;
 		default:
 			return error1(conn, cmd);
