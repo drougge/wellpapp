@@ -1,4 +1,4 @@
-/* Merge sort, but can be replaced by whatever. */
+/* Merge sort, but can be replaced by any stable sort. */
 /* Could undoubtedly be sped up by stoping partitioning sooner. */
 /* May not be optimal to duplicate the left array. */
 
@@ -15,18 +15,17 @@ static void sort_merge(void *left, int left_nmemb, void *right, int right_nmemb,
 	int li = 0, ri = 0, i = 0;
 	while (li < left_nmemb && ri < right_nmemb) {
 		int c = comp(ELEM(left, li), ELEM(right, ri), data);
-		if (c < 0) {
+		if (c <= 0) {
 			memcpy(ELEM(base, i), ELEM(left, li), size);
 			i++;
 			li++;
-		} else if (c > 0) {
+		} else {
 			void *dest = ELEM(base, i);
 			void *src = ELEM(right, ri);
-			if (dest != src) memcpy(dest, src, size);
+			if (dest == src) break;
+			memcpy(dest, src, size);
 			i++;
 			ri++;
-		} else {
-			break;
 		}
 	}
 	memcpy(ELEM(base, i), ELEM(left, li), size * (left_nmemb - li));
