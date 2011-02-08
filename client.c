@@ -10,17 +10,22 @@ typedef enum {
 	ORDER_GROUP,
 } order_t;
 
-static const char *orders[] = {"date", "score", "group", NULL};
-
 static const char *flagnames[] = {"tagname", "tagguid", "implied", "ext",
                                   "created", "width", "height", "score",
-                                  "source", "title", NULL};
+                                  "source", "title", "imgdate", "modified",
+                                  NULL};
 
 static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fext=%s", filetype_names[post->filetype]);
 }
 static void FLAGPRINT_CREATED(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fcreated=%llx", (unsigned long long)post->created);
+}
+static void FLAGPRINT_IMGDATE(connection_t *conn, post_t *post) {
+	c_printf(conn, " Fimgdate=%llx", (unsigned long long)post->image_date);
+}
+static void FLAGPRINT_MODIFIED(connection_t *conn, post_t *post) {
+	c_printf(conn, " Fmodified=%llx", (unsigned long long)post->modified);
 }
 static void FLAGPRINT_WIDTH(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fwidth=%x", post->width);
@@ -54,6 +59,8 @@ static const flag_printer_t flag_printers[] = {
 	FLAGPRINT_SCORE,
 	FLAGPRINT_SOURCE,
 	FLAGPRINT_TITLE,
+	FLAGPRINT_IMGDATE,
+	FLAGPRINT_MODIFIED,
 };
 
 typedef enum {
@@ -67,6 +74,8 @@ typedef enum {
 	FLAG_RETURN_SCORE,
 	FLAG_RETURN_SOURCE,
 	FLAG_RETURN_TITLE,
+	FLAG_RETURN_IMGDATE,
+	FLAG_RETURN_MODIFIED,
 	FLAG_LAST,
 } flag_t;
 #define FLAG(n) (1 << (n))
@@ -90,6 +99,44 @@ typedef struct search {
 	long         range_end;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
+
+
+#define SORTER(field) \
+	static int sorter_ ## field(const post_t *p1, const post_t *p2) \
+	{ \
+		if (p1->field < p2->field) return -1; \
+		if (p1->field > p2->field) return 1; \
+		return 0; \
+	}
+SORTER(created)
+SORTER(image_date)
+SORTER(score)
+SORTER(modified)
+SORTER(width)
+SORTER(height)
+SORTER(of_tags)
+static int sorter_area(const post_t *p1, const post_t *p2)
+{
+	unsigned int p1a = (unsigned int)p1->width * p1->height;
+	unsigned int p2a = (unsigned int)p2->width * p2->height;
+	if (p1a < p2a) return -1;
+	if (p1a > p2a) return 1;
+	return 0;
+}
+static int sorter_group(const post_t *p1, const post_t *p2)
+{
+	(void) p1;
+	(void) p2;
+	return 0; // This just keeps the ordering from the tag
+}
+
+typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
+static sorter_f sorters[] = {sorter_created, sorter_image_date, sorter_score,
+                             sorter_group, sorter_modified, sorter_width,
+                             sorter_height, sorter_area, sorter_of_tags};
+static const char *orders[] = {"created", "imagedate", "score", "group",
+                               "modified", "width", "height", "area",
+                               "tagcount", NULL};
 
 static int sort_search(const void *_t1, const void *_t2, void *_data)
 {
@@ -211,30 +258,6 @@ static int build_search(connection_t *conn, char *cmd, search_t *search)
 	                   sort_search, NULL);
 	return 0;
 }
-
-static int sorter_date(const post_t *p1, const post_t *p2)
-{
-	if (p1->created < p2->created) return -1;
-	if (p1->created > p2->created) return 1;
-	return 0;
-}
-
-static int sorter_score(const post_t *p1, const post_t *p2)
-{
-	if (p1->score < p2->score) return -1;
-	if (p1->score > p2->score) return 1;
-	return 0;
-}
-
-static int sorter_group(const post_t *p1, const post_t *p2)
-{
-	(void) p1;
-	(void) p2;
-	return 0; // This just keeps the ordering from the tag
-}
-
-typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
-static sorter_f sorters[] = {sorter_date, sorter_score, sorter_group};
 
 static int sorter(const void *_p1, const void *_p2, void *_search)
 {

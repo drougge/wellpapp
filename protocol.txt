@@ -42,7 +42,17 @@ tag ("T").
 		Prefix tag-spec with "~" to find only weak tags, or "!" to
 		find only strong tags.
 	O:
-		Currently "date" or "score". Prefix with - to reverse sort.
+		What to sort by. Prefix with - to reverse sort.
+		Possible values:
+			created (the date this post was created in wellpapp)
+			imgdate (the date of the image, probably read from exif)
+			modified (when the post was last modified)
+			score (user set integer)
+			width, height, area (dimensions of image)
+			tagcount (number of set tags)
+			group
+		Group sorting is special, it sorts by the group ordering of
+		the first tag in the search, and can not be reversed.
 	F:
 		Available flags:
 			tagname: Return name of set tags.
@@ -51,6 +61,8 @@ tag ("T").
 				extension. Currently one of "jpeg", "gif",
 				"png", "bmp" or "swf".
 			created: Time as a unix timestamp (UTC). (unsigned)
+			imgdate: Time as a unix timestamp (UTC). (unsigned)
+			modified: Time as a unix timestamp (UTC). (unsigned)
 			width: Width in pixels. (unsigned)
 			height: Height in pixels. (unsigned)
 			score: signed integer.
