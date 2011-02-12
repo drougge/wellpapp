@@ -577,6 +577,7 @@ int prot_add(connection_t *conn, char *cmd)
 			data = mm_alloc(sizeof(post_t));
 			((post_t *)data)->created  = time(NULL);
 			((post_t *)data)->filetype = (uint16_t)~0;
+			((post_t *)data)->rotate   = -1;
 			break;
 		case 'U':
 			func = user_cmd;
