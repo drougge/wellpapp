@@ -13,7 +13,7 @@ typedef enum {
 static const char *flagnames[] = {"tagname", "tagguid", "implied", "ext",
                                   "created", "width", "height", "score",
                                   "source", "title", "imgdate", "modified",
-                                  NULL};
+                                  "rotate", NULL};
 
 static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fext=%s", filetype_names[post->filetype]);
@@ -35,6 +35,9 @@ static void FLAGPRINT_HEIGHT(connection_t *conn, post_t *post) {
 }
 static void FLAGPRINT_SCORE(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fscore=%d", post->score);
+}
+static void FLAGPRINT_ROTATE(connection_t *conn, post_t *post) {
+	c_printf(conn, " Frotate=%d", post->rotate);
 }
 static void FLAGPRINT_SOURCE(connection_t *conn, post_t *post) {
 	if (post->source) {
@@ -61,6 +64,7 @@ static const flag_printer_t flag_printers[] = {
 	FLAGPRINT_TITLE,
 	FLAGPRINT_IMGDATE,
 	FLAGPRINT_MODIFIED,
+	FLAGPRINT_ROTATE,
 };
 
 typedef enum {
@@ -76,6 +80,7 @@ typedef enum {
 	FLAG_RETURN_TITLE,
 	FLAG_RETURN_IMGDATE,
 	FLAG_RETURN_MODIFIED,
+	FLAG_RETURN_ROTATE,
 	FLAG_LAST,
 } flag_t;
 #define FLAG(n) (1 << (n))
