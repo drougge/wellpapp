@@ -106,15 +106,17 @@ typedef struct mergedata {
 	int     bad;
 } mergedata_t;
 
-static void merge_tags_chk_cb(void *data_, post_t *post)
+static void merge_tags_chk_cb(list_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
+	post_t *post = ((postlist_node_t *)ln)->post;
 	data->bad |= post_has_tag(post, data->tag, data->weak);
 }
 
-static void merge_tags_cb(void *data_, post_t *post)
+static void merge_tags_cb(list_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
+	post_t *post = ((postlist_node_t *)ln)->post;
 	if (!post_has_tag(post, data->tag, data->weak)) {
 		int r = post_tag_add(post, data->tag, data->weak);
 		assert(!r);
@@ -160,14 +162,14 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 	data.bad  = 0;
 	data.tag  = from;
 	data.weak = T_YES;
-	postlist_iterate(&into->posts, &data, merge_tags_chk_cb);
+	list_iterate(&into->posts.h.l, &data, merge_tags_chk_cb);
 	data.weak = T_NO;
-	postlist_iterate(&into->weak_posts, &data, merge_tags_chk_cb);
+	list_iterate(&into->weak_posts.h.l, &data, merge_tags_chk_cb);
 	data.tag  = into;
 	data.weak = T_YES;
-	postlist_iterate(&from->posts, &data, merge_tags_chk_cb);
+	list_iterate(&from->posts.h.l, &data, merge_tags_chk_cb);
 	data.weak = T_NO;
-	postlist_iterate(&from->weak_posts, &data, merge_tags_chk_cb);
+	list_iterate(&from->weak_posts.h.l, &data, merge_tags_chk_cb);
 	data.tag = from;
 	ss128_iterate(tags, merge_tags_chk_impl, &data);
 	if (data.bad) return 1;
@@ -176,9 +178,9 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 	data.tag   = into;
 	data.rmtag = from;
 	data.weak  = T_NO;
-	postlist_iterate(&from->posts, &data, merge_tags_cb);
+	list_iterate(&from->posts.h.l, &data, merge_tags_cb);
 	data.weak  = T_YES;
-	postlist_iterate(&from->weak_posts, &data, merge_tags_cb);
+	list_iterate(&from->weak_posts.h.l, &data, merge_tags_cb);
 	// into now has all the posts from from.
 
 	// create from->name as alias for into.
@@ -565,6 +567,8 @@ int prot_add(connection_t *conn, char *cmd)
 			func = tag_cmd;
 			memset(&tag_data, 0, sizeof(tag_data));
 			tag_data.tag = mm_alloc(sizeof(tag_t));
+			list_newlist(&tag_data.tag->posts.h.l);
+			list_newlist(&tag_data.tag->weak_posts.h.l);
 			tag_data.is_add = 1;
 			dataptr = &tag_data;
 			break;
@@ -575,9 +579,11 @@ int prot_add(connection_t *conn, char *cmd)
 		case 'P':
 			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
-			((post_t *)data)->created  = time(NULL);
-			((post_t *)data)->filetype = (uint16_t)~0;
-			((post_t *)data)->rotate   = -1;
+			post_t *post = data;
+			post->created  = time(NULL);
+			post->filetype = (uint16_t)~0;
+			post->rotate   = -1;
+			list_newlist(&post->related_posts.h.l);
 			break;
 		case 'U':
 			func = user_cmd;
@@ -789,51 +795,7 @@ int prot_implication(connection_t *conn, char *cmd)
 typedef struct orderdata {
 	tag_t  *tag;
 	postlist_node_t *node;
-	int pos;
 } orderdata_t;
-
-static void order_move_back(postlist_node_t *from_node, int from_pos,
-                            postlist_node_t *to_node, int to_pos)
-{
-	if (++to_pos == arraylen(to_node->posts)) {
-		assert(to_node->next);
-		to_pos = 0;
-		to_node = to_node->next;
-	}
-	post_t *value = to_node->posts[to_pos];
-	to_node->posts[to_pos] = from_node->posts[from_pos];
-	while(from_node != to_node || to_pos < from_pos) {
-		if (++to_pos == arraylen(to_node->posts)) {
-			assert(to_node->next);
-			to_pos = 0;
-			to_node = to_node->next;
-		}
-		post_t *next_value = to_node->posts[to_pos];
-		to_node->posts[to_pos] = value;
-		value = next_value;
-	}
-}
-
-static void order_move_forward(postlist_node_t *from_node, int from_pos,
-                               postlist_node_t *to_node, int to_pos)
-{
-	post_t *value = from_node->posts[from_pos];
-	while(from_node != to_node || to_pos > from_pos) {
-		post_t *next;
-		if (from_pos < arraylen(from_node->posts) - 1) {
-			next = from_node->posts[from_pos + 1];
-		} else {
-			next = from_node->next->posts[0];
-		}
-		from_node->posts[from_pos] = next;
-		if (++from_pos == arraylen(from_node->posts)) {
-			assert(from_node->next);
-			from_node = from_node->next;
-			from_pos = 0;
-		}
-	}
-	to_node->posts[to_pos] = value;
-}
 
 static int order_cmd(connection_t *conn, const char *cmd, void *data_,
                      prot_cmd_flag_t flags)
@@ -843,60 +805,30 @@ static int order_cmd(connection_t *conn, const char *cmd, void *data_,
 	if (*cmd != 'P') return conn->error(conn, cmd);
 	if (post_find_md5str(&post, cmd + 1)) return conn->error(conn, cmd);
 	if (!post_has_tag(post, data->tag, T_NO)) return conn->error(conn, cmd);
-	int pos;
-	int past = 0;
-	int found = 0;
-	int first = 0;
-	postlist_node_t *node = data->tag->posts.head;
-again:
-	for (int i = 0; i < arraylen(node->posts); i++) {
-		if (node->posts[i] == post) {
-			pos = i;
-			found = 1;
-			break;
-		}
+	postlist_node_t *pn = data->tag->posts.h.p.head;
+	while (pn->ln.succ) {
+		if (pn->post == post) break;
+		pn = (postlist_node_t *)pn->ln.succ;
 	}
-	if (!found) {
-		assert(node->next);
-		if (node == data->node) past = 1;
-		node = node->next;
-		goto again;
-	}
-	if (node == data->node) {
-		if (pos > data->pos) past = 1;
-		if (pos == data->pos) return conn->error(conn, cmd);
-	}
-	if (!data->node && (flags & CMDFLAG_LAST)) {
-		// This is the only post, put it first.
-		if (node != data->tag->posts.head || pos) {
-			data->node = data->tag->posts.head;
-			data->pos = 0;
-			past = 1;
-			first = 1;
-		}
+	if (!pn->ln.succ) return conn->error(conn, cmd);
+	if (!data->tag->posts.ordered) {
+		// This tag was unordered, put first post first.
+		data->tag->posts.ordered = 1;
+		list_remove(&pn->ln);
+		list_addhead(&data->tag->posts.h.l, &pn->ln);
 	}
 	if (data->node) {
-		if (past) {
-			order_move_back(node, pos, data->node, data->pos);
-		} else {
-			order_move_forward(node, pos, data->node, data->pos);
-		}
-		if (first) {
-			node = data->tag->posts.head;
-			node->posts[1] = node->posts[0];
-			node->posts[0] = post;
-		}
+		list_remove(&pn->ln);
+		pn->ln.pred = &data->node->ln;
+		pn->ln.succ = data->node->ln.succ;
+		data->node->ln.succ->pred = &pn->ln;
+		data->node->ln.succ = &pn->ln;
+	} else if (flags & CMDFLAG_LAST) {
+		// This is the only post, put it first.
+		list_remove(&pn->ln);
+		list_addhead(&data->tag->posts.h.l, &pn->ln);
 	}
-	if (!data->node) {
-		data->node = node;
-		data->pos = pos;
-	} else if (past) {
-		if (++data->pos == arraylen(data->node->posts)) {
-			assert(data->node->next);
-			data->node = data->node->next;
-			data->pos = 0;
-		}
-	}
+	data->node = pn;
 	log_write(&conn->trans, "%s", cmd);
 	return 0;
 }
@@ -906,9 +838,10 @@ typedef struct order_check {
 	tag_t *tag;
 } order_check_t;
 
-static void order_check_implied(void *data_, post_t *post)
+static void order_check_implied(list_node_t *ln, void *data_)
 {
 	order_check_t *chk = data_;
+	post_t *post = ((postlist_node_t *)ln)->post;
 	if (taglist_contains(post->implied_tags, chk->tag)) chk->ok = 0;
 }
 
@@ -924,11 +857,10 @@ int prot_order(connection_t *conn, char *cmd)
 	order_check_t chk;
 	chk.ok  = 1;
 	chk.tag = tag;
-	postlist_iterate(&tag->posts, &chk, order_check_implied);
+	list_iterate(&tag->posts.h.l, &chk, order_check_implied);
 	if (!chk.ok) return conn->error(conn, cmd);
 	data.tag  = tag;
 	data.node = NULL;
-	data.pos  = -1;
 	log_set_init(&conn->trans, "O%s", cmd);
 	return prot_cmd_loop(conn, end + 1, &data, order_cmd, CMDFLAG_MODIFY);
 }

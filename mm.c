@@ -50,6 +50,7 @@ typedef struct mm_head {
 	ss128_head_t  tagaliases;
 	ss128_head_t  tagguids;
 	ss128_head_t  users;
+	list_head_t   postlist_nodes;
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
@@ -168,6 +169,7 @@ static void mm_init_new(void)
 	r |= ss128_init(tagaliases);
 	r |= ss128_init(tagguids);
 	r |= ss128_init(users);
+	list_newlist(postlist_nodes);
 	assert(!r);
 }
 
@@ -255,6 +257,7 @@ int mm_init(void)
 	logindex      = &mm_head->logindex;
 	first_logindex= &mm_head->first_logindex;
 	logdumpindex  = &mm_head->logdumpindex;
+	postlist_nodes = &mm_head->postlist_nodes;
 
 	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
 	assert(len < (int)sizeof(fn));

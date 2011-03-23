@@ -52,7 +52,6 @@ typedef struct ss128_head {
 typedef struct list_node {
 	struct list_node *succ;
 	struct list_node *pred;
-	unsigned int     size;
 } list_node_t;
 
 typedef struct list_head {
@@ -114,10 +113,21 @@ typedef struct impllist {
 } impllist_t;
 
 struct postlist_node;
+typedef struct postlist_node postlist_node_t;
+
+typedef struct postlist_head {
+	postlist_node_t *head;
+	postlist_node_t *tail;
+	postlist_node_t *tailpred;
+} postlist_head_t;
+
 typedef struct postlist {
-	struct postlist_node *head;
+	union {
+		list_head_t     l;
+		postlist_head_t p;
+	} h;
 	uint32_t count;
-	uint32_t holes;
+	int ordered;
 } postlist_t;
 
 typedef struct post {
@@ -163,10 +173,10 @@ typedef struct field {
 
 extern const field_t post_fields[];
 
-typedef struct postlist_node {
-	post_t *posts[30];
-	struct postlist_node *next;
-} postlist_node_t;
+struct postlist_node {
+	list_node_t ln;
+	post_t      *post;
+};
 
 struct tag {
 	const char *name;
@@ -261,6 +271,11 @@ typedef enum {
 	CONNFLAG_LOG   = 2, // This is the log-reader.
 } connflag_t;
 
+typedef struct memlist_node {
+	list_node_t  ln;
+	unsigned int size;
+} memlist_node_t;
+
 struct connection {
 	const user_t    *user;
 	prot_err_func_t error;
@@ -338,9 +353,6 @@ void conn_cleanup(void);
 void db_serve(void);
 void db_read_cfg(const char *filename);
 int str2id(const char *str, const char * const *ids);
-typedef void (*postlist_callback_t)(void *data, post_t *post);
-void postlist_iterate(postlist_t *pl, void *data,
-                      postlist_callback_t callback);
 
 typedef void (*ss128_callback_t)(ss128_key_t key, ss128_value_t value,
               void *data);
@@ -397,11 +409,20 @@ const char *utf_fuzz_mm(const char *str);
 typedef int (*sort_compar_t)(const void *a, const void *b, void *data);
 void sort(void *base, int nmemb, size_t size, sort_compar_t comp, void *data);
 
+void list_newlist(list_head_t *list);
+void list_addhead(list_head_t *list, list_node_t *node);
+void list_addtail(list_head_t *list, list_node_t *node);
+void list_remove(list_node_t *node);
+list_node_t *list_remhead(list_head_t *list);
+typedef void (*list_callback_t)(list_node_t *node, void *data);
+void list_iterate(list_head_t *list, void *data, list_callback_t callback);
+
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;
 extern ss128_head_t *tagguids;
 extern ss128_head_t *users;
+extern list_head_t  *postlist_nodes;
 
 extern uint64_t *logindex;
 extern uint64_t *first_logindex;

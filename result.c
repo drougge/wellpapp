@@ -65,20 +65,14 @@ int result_intersect(connection_t *conn, result_t *result,
 		postlist_node_t *pn;
 again:
 		if (weak) {
-			pn = tag->weak_posts.head;
+			pn = tag->weak_posts.h.p.head;
 		} else {
-			pn = tag->posts.head;
+			pn = tag->posts.h.p.head;
 		}
-		while (pn) {
-			unsigned int i;
-			for (i = 0; i < arraylen(pn->posts); i++) {
-				if (pn->posts[i]) {
-					int r = result_add_post(conn, &new_result,
-					                        pn->posts[i]);
-					if (r) return 1;
-				}
-			}
-			pn = pn->next;
+		while (pn->ln.succ) {
+			int r = result_add_post(conn, &new_result, pn->post);
+			if (r) return 1;
+			pn = (postlist_node_t *)pn->ln.succ;
 		}
 		if (weak == T_DONTCARE) {
 			weak = T_NO;

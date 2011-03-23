@@ -25,22 +25,20 @@ ss128_head_t *tagaliases;
 ss128_head_t *tagguids;
 ss128_head_t *posts;
 ss128_head_t *users;
+list_head_t  *postlist_nodes;
 
 // @@TODO: Locking/locklessness.
 
-void postlist_iterate(postlist_t *pl, void *data,
-                      postlist_callback_t callback)
+static postlist_node_t *postlist_alloc(void)
 {
-	postlist_node_t *pn = pl->head;
-	while (pn) {
-		unsigned int i;
-		for (i = 0; i < arraylen(pn->posts); i++) {
-			if (pn->posts[i]) {
-				callback(data, pn->posts[i]);
-			}
-		}
-		pn = pn->next;
-	}
+	postlist_node_t *pn = (postlist_node_t *)list_remhead(postlist_nodes);
+	if (!pn) return mm_alloc(sizeof(postlist_node_t));
+	return pn;
+}
+
+static void postlist_free(postlist_node_t *pn)
+{
+	list_addhead(postlist_nodes, &pn->ln);
 }
 
 static int postlist_remove(postlist_t *pl, post_t *post)
@@ -50,62 +48,35 @@ static int postlist_remove(postlist_t *pl, post_t *post)
 	assert(pl);
 	assert(post);
 
-	pn = pl->head;
-	while (pn) {
-		unsigned int i;
-		for (i = 0; i < arraylen(pn->posts); i++) {
-			if (pn->posts[i] == post) {
-				pn->posts[i] = NULL;
-				pl->count--;
-				pl->holes++;
-				return 0;
-			}
+	pn = pl->h.p.head;
+	while (pn->ln.succ) {
+		if (pn->post == post) {
+			list_remove(&pn->ln);
+			postlist_free(pn);
+			pl->count--;
+			return 0;
 		}
-		pn = pn->next;
+		pn = (postlist_node_t *)pn->ln.succ;
 	}
 	return 1;
 }
 
 static void postlist_add(postlist_t *pl, post_t *post)
 {
-	postlist_node_t *pn;
-
 	assert(pl);
 	assert(post);
-
 	pl->count++;
-	if (pl->holes) {
-		pn = pl->head;
-		while (pn) {
-			unsigned int i;
-			for (i = 0; i < arraylen(pn->posts); i++) {
-				if (!pn->posts[i]) {
-					pn->posts[i] = post;
-					pl->holes--;
-					return;
-				}
-			}
-			pn = pn->next;
-		}
-		assert(!pl->holes);
-		return; // NOTREACHED
-	}
-	pn = mm_alloc(sizeof(*pn));
-	pn->posts[0]  = post;
-	pl->holes    += arraylen(pn->posts) - 1;
-	pn->next      = pl->head;
-	pl->head      = pn;
+	postlist_node_t *pn = postlist_alloc();
+	pn->post = post;
+	list_addtail(&pl->h.l, &pn->ln);
 }
 
 static int postlist_contains(const postlist_t *pl, const post_t *post)
 {
-	const postlist_node_t *pn = pl->head;
-	while (pn) {
-		unsigned int i;
-		for (i = 0; i < arraylen(pn->posts); i++) {
-			if (pn->posts[i] == post) return 1;
-		}
-		pn = pn->next;
+	const postlist_node_t *pn = pl->h.p.head;
+	while (pn->ln.succ) {
+		if (pn->post == post) return 1;
+		pn = (postlist_node_t *)pn->ln.succ;
 	}
 	return 0;
 }
@@ -333,15 +304,15 @@ again:
 	if (again) goto again;
 }
 
-static void post_recompute_implications_iter(void *data, post_t *post)
+static void post_recompute_implications_iter(list_node_t *ln, void *data)
 {
 	(void) data;
-	post_recompute_implications(post);
+	post_recompute_implications(((postlist_node_t *)ln)->post);
 }
 
 static void postlist_recompute_implications(postlist_t *pl)
 {
-	postlist_iterate(pl, NULL, post_recompute_implications_iter);
+	list_iterate(&pl->h.l, NULL, post_recompute_implications_iter);
 }
 
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority)

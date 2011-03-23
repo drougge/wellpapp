@@ -13,27 +13,6 @@ static const char *errors[] = {
 	"bad utf8 sequence",
 };
 
-static void list_newlist(list_head_t *list)
-{
-	list->head = (list_node_t *)&list->tail;
-	list->tail = NULL;
-	list->tailpred = (list_node_t *)list;
-}
-
-static void list_addtail(list_head_t *list, list_node_t *node)
-{
-	node->succ = (list_node_t *)&list->tail;
-	node->pred = list->tailpred;
-	list->tailpred->succ = node;
-	list->tailpred = node;
-}
-
-static void list_remove(list_node_t *node)
-{
-	node->pred->succ = node->succ;
-	node->succ->pred = node->pred;
-}
-
 int c_init(connection_t **res_conn, int sock, user_t *user,
            prot_err_func_t error)
 {
@@ -77,14 +56,14 @@ int c_alloc(connection_t *conn, void **res, unsigned int size)
 	unsigned int new_size;
 	void *mem;
 
-	new_size = size + sizeof(list_node_t);
+	new_size = size + sizeof(memlist_node_t);
 	assert(new_size > size);
 	new_used = conn->mem_used + new_size;
 	assert(new_used > conn->mem_used && new_used > new_size);
 	mem = malloc(new_size);
 	if (mem) {
-		list_node_t *node = mem;
-		list_addtail(&conn->mem_list, node);
+		memlist_node_t *node = mem;
+		list_addtail(&conn->mem_list, &node->ln);
 		node->size = size;
 		conn->mem_used = new_used;
 		*res = node + 1;
@@ -118,12 +97,12 @@ void c_free(connection_t *conn, void *mem, unsigned int size)
 {
 	unsigned int new_used;
 	unsigned int new_size;
-	list_node_t *node;
+	memlist_node_t *node;
 
-	new_size = size + sizeof(list_node_t);
+	new_size = size + sizeof(*node);
 	assert(new_size > size);
-	node = ((list_node_t *)mem) - 1;
-	list_remove(node);
+	node = ((memlist_node_t *)mem) - 1;
+	list_remove(&node->ln);
 	assert(node->size == size);
 	new_used = conn->mem_used - new_size;
 	assert(new_used < conn->mem_used);
