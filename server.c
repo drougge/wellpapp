@@ -113,6 +113,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	mm_print();
+	mm_start_walker();
 	log_init();
 	printf("serving..\n");
 	signal(SIGINT, sig_die);

@@ -3,7 +3,7 @@ CFLAGS  += -std=gnu99 -pedantic -Wall -Werror -W -Wundef -Wshadow -Wpointer-arit
 OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
      connection.o utf.o sort.o list.o
 
-LIBS= -lutf8proc -lcrypto
+LIBS= -lutf8proc -lcrypto -lm -pthread
 
 default: server
 

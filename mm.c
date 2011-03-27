@@ -4,6 +4,10 @@
 #include <sys/mman.h>
 #include <sys/file.h>
 
+#include <pthread.h>
+#include <math.h>
+#include <errno.h>
+
 #ifndef MAP_NOCORE
 #define MAP_NOCORE 0
 #endif
@@ -75,6 +79,8 @@ uint64_t *logindex;
 uint64_t *first_logindex;
 uint64_t *logdumpindex;
 
+unsigned int cache_walk_speed = 0;
+
 static int mm_open_segment(unsigned int nr, int flags)
 {
 	char fn[1024];
@@ -140,6 +146,52 @@ static void mm_new_segment(void)
 		mm_head->bottom  = addr;
 		mm_head->top     = addr + MM_SEGMENT_SIZE;
 		mm_head->of_segments++;
+	}
+}
+
+int walker_value = 0;
+static volatile int walker_running = 0;
+static void *cache_walker(void *dummy)
+{
+	(void) dummy;
+	walker_running = 1;
+	while (walker_running) {
+		unsigned char *p = mm_head->addr;
+		unsigned char *end = p + mm_head->size;
+		int v = 0;
+		unsigned int left = cache_walk_speed;
+		while (p < end && walker_running) {
+			v += *p;
+			p += 4096;
+			if (--left == 0) {
+				left = cache_walk_speed;
+				usleep(100000);
+			}
+		}
+		// Set an external variable to make sure the compiler can't
+		// optimize out the memory reads.
+		walker_value = v;
+		left = 600 / sqrt(cache_walk_speed);
+		while (left-- && walker_running) sleep(1);
+	}
+	walker_running = -1;
+	return NULL;
+}
+
+void mm_start_walker(void)
+{
+	pthread_t thread;
+	if (!cache_walk_speed) {
+		printf("Not walking cache - This may lead to terrible "
+		       "performance,\nbut leaves more memory for other "
+		       "applications\n");
+		return;
+	}
+	if (pthread_create(&thread, NULL, cache_walker, NULL)) {
+		int e = errno;
+		fprintf(stderr, "WARNING: Failed to launch cache walker thread\n");
+		errno = e;
+		perror("pthread_create");
 	}
 }
 
@@ -302,6 +354,12 @@ void mm_cleanup(void)
 	off_t   pos;
 	ssize_t r;
 
+	if (walker_running == 1) {
+		walker_running = 0;
+		while (walker_running != -1) {
+			usleep(100000);
+		}
+	}
 	for (i = mm_head->of_segments - 1; i >= 0; i--) {
 		if (i == 0) {
 			mm_sync(0);

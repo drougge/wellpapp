@@ -380,6 +380,7 @@ void *mm_alloc_s(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);
 void mm_print(void);
+void mm_start_walker(void);
 
 void client_handle(connection_t *conn, char *buf);
 

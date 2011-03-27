@@ -901,6 +901,7 @@ static guid_t server_guid_;
 
 md5_t config_md5;
 extern uint8_t *MM_BASE_ADDR;
+extern unsigned int cache_walk_speed;
 
 void db_read_cfg(const char *filename)
 {
@@ -932,6 +933,8 @@ void db_read_cfg(const char *filename)
 		} else if (!memcmp("mm_base=", buf, 8)) {
 			unsigned long long addr = strtoull(buf + 8, NULL, 0);
 			MM_BASE_ADDR = (uint8_t *)(intptr_t)addr;
+		} else if (!memcmp("cache_walk_speed=", buf, 17)) {
+			cache_walk_speed = atoi(buf + 17);
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
