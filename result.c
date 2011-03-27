@@ -69,10 +69,10 @@ again:
 		} else {
 			pn = tag->posts.h.p.head;
 		}
-		while (pn->ln.succ) {
+		while (pn->n.p.succ) {
 			int r = result_add_post(conn, &new_result, pn->post);
 			if (r) return 1;
-			pn = (postlist_node_t *)pn->ln.succ;
+			pn = pn->n.p.succ;
 		}
 		if (weak == T_DONTCARE) {
 			weak = T_NO;

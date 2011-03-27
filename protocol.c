@@ -806,27 +806,27 @@ static int order_cmd(connection_t *conn, const char *cmd, void *data_,
 	if (post_find_md5str(&post, cmd + 1)) return conn->error(conn, cmd);
 	if (!post_has_tag(post, data->tag, T_NO)) return conn->error(conn, cmd);
 	postlist_node_t *pn = data->tag->posts.h.p.head;
-	while (pn->ln.succ) {
+	while (pn->n.p.succ) {
 		if (pn->post == post) break;
-		pn = (postlist_node_t *)pn->ln.succ;
+		pn = pn->n.p.succ;
 	}
-	if (!pn->ln.succ) return conn->error(conn, cmd);
+	if (!pn->n.p.succ) return conn->error(conn, cmd);
 	if (!data->tag->posts.ordered) {
 		// This tag was unordered, put first post first.
 		data->tag->posts.ordered = 1;
-		list_remove(&pn->ln);
-		list_addhead(&data->tag->posts.h.l, &pn->ln);
+		list_remove(&pn->n.l);
+		list_addhead(&data->tag->posts.h.l, &pn->n.l);
 	}
 	if (data->node) {
-		list_remove(&pn->ln);
-		pn->ln.pred = &data->node->ln;
-		pn->ln.succ = data->node->ln.succ;
-		data->node->ln.succ->pred = &pn->ln;
-		data->node->ln.succ = &pn->ln;
+		list_remove(&pn->n.l);
+		pn->n.l.pred = &data->node->n.l;
+		pn->n.l.succ = data->node->n.l.succ;
+		data->node->n.l.succ->pred = &pn->n.l;
+		data->node->n.l.succ = &pn->n.l;
 	} else if (flags & CMDFLAG_LAST) {
 		// This is the only post, put it first.
-		list_remove(&pn->ln);
-		list_addhead(&data->tag->posts.h.l, &pn->ln);
+		list_remove(&pn->n.l);
+		list_addhead(&data->tag->posts.h.l, &pn->n.l);
 	}
 	data->node = pn;
 	log_write(&conn->trans, "%s", cmd);

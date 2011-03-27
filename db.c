@@ -38,7 +38,7 @@ static postlist_node_t *postlist_alloc(void)
 
 static void postlist_free(postlist_node_t *pn)
 {
-	list_addhead(postlist_nodes, &pn->ln);
+	list_addhead(postlist_nodes, &pn->n.l);
 }
 
 static int postlist_remove(postlist_t *pl, post_t *post)
@@ -49,14 +49,14 @@ static int postlist_remove(postlist_t *pl, post_t *post)
 	assert(post);
 
 	pn = pl->h.p.head;
-	while (pn->ln.succ) {
+	while (pn->n.p.succ) {
 		if (pn->post == post) {
-			list_remove(&pn->ln);
+			list_remove(&pn->n.l);
 			postlist_free(pn);
 			pl->count--;
 			return 0;
 		}
-		pn = (postlist_node_t *)pn->ln.succ;
+		pn = pn->n.p.succ;
 	}
 	return 1;
 }
@@ -68,15 +68,15 @@ static void postlist_add(postlist_t *pl, post_t *post)
 	pl->count++;
 	postlist_node_t *pn = postlist_alloc();
 	pn->post = post;
-	list_addtail(&pl->h.l, &pn->ln);
+	list_addtail(&pl->h.l, &pn->n.l);
 }
 
 static int postlist_contains(const postlist_t *pl, const post_t *post)
 {
 	const postlist_node_t *pn = pl->h.p.head;
-	while (pn->ln.succ) {
+	while (pn->n.p.succ) {
 		if (pn->post == post) return 1;
-		pn = (postlist_node_t *)pn->ln.succ;
+		pn = pn->n.p.succ;
 	}
 	return 0;
 }

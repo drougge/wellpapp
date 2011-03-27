@@ -173,8 +173,15 @@ typedef struct field {
 
 extern const field_t post_fields[];
 
+struct postlist_node_node {
+	postlist_node_t *succ;
+	postlist_node_t *pred;
+};
 struct postlist_node {
-	list_node_t ln;
+	union {
+		list_node_t l;
+		struct postlist_node_node p;
+	} n;
 	post_t      *post;
 };
 
