@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <openssl/md5.h>
 #include <utf8proc.h>
+#include <bzlib.h>
 
 #ifndef INFTIM
 #define INFTIM -1
@@ -605,16 +606,61 @@ int post_find_md5str(post_t **res_post, const char *md5str)
 	return ss128_find(posts, (void *)res_post, md5.key);
 }
 
-static int read_log_line(FILE *fh, char *buf, int len)
+typedef struct logfh {
+	FILE   *fh;
+	BZFILE *bzfh;
+	int    pos;
+	int    len;
+	int    eof;
+	char   buf[4096];
+} logfh_t;
+
+static int read_log_line(logfh_t *fh, char *buf, int len)
 {
-	if (!fgets(buf, len, fh)) {
-		assert(feof(fh));
+	int blen = 0;
+	if (fh->eof > 1) {
+		*buf = '\0';
 		return 0;
 	}
-	len = strlen(buf) - 1;
-	assert(len > 8 && buf[len] == '\n');
-	buf[len] = 0;
-	return len;
+again:
+	while (fh->pos < fh->len) {
+		int c = fh->buf[fh->pos++];
+		if (++blen == len || c == '\n') {
+			*buf = '\0';
+			assert(blen > 8);
+			return blen - 1;
+		}
+		*(buf++) = c;
+	}
+	fh->pos = 0;
+	if (fh->eof) {
+		fh->len = 0;
+	} else if (fh->bzfh) {
+		int e = 0;
+		fh->len = BZ2_bzRead(&e, fh->bzfh, fh->buf, sizeof(fh->buf));
+		if (e == BZ_STREAM_END) {
+			fh->eof = 1;
+		} else {
+			assert(e == BZ_OK);
+		}
+	} else {
+		fh->len = fread(fh->buf, 1, sizeof(fh->buf), fh->fh);
+	}
+	if (fh->len <= 0) {
+		assert(feof(fh->fh));
+		if (fh->bzfh) {
+			int e = 0;
+			void *bzptr;
+			int bzlen;
+			BZ2_bzReadGetUnused(&e, fh->bzfh, &bzptr, &bzlen);
+			assert(e == BZ_OK && bzlen == 0);
+		}
+		fh->eof = 2;
+		*buf = '\0';
+		assert(blen >= 8 || blen == 0);
+		return blen;
+	}
+	goto again;
 }
 
 static int populate_from_log_line(char *line)
@@ -666,19 +712,28 @@ static int find_trans(trans_id_t *trans, trans_id_t needle)
 
 int populate_from_log(const char *filename, void (*callback)(const char *line))
 {
-	FILE       *fh;
+	logfh_t    fh;
 	char       buf[4096];
 	trans_id_t trans[MAX_CONCURRENT_TRANSACTIONS] = {0};
 	time_t     transnow[MAX_CONCURRENT_TRANSACTIONS];
 	int        len;
 	long       line_nr = 0;
+	int        bze = 0;
 
-	fh = fopen(filename, "r");
-	if (!fh) {
+	memset(&fh, 0, sizeof(fh));
+	fh.fh = fopen(filename, "r");
+	if (!fh.fh) {
 		assert(errno == ENOENT);
-		return 1;
+		snprintf(buf, sizeof(buf), "%s.bz2", filename);
+		fh.fh = fopen(buf, "rb");
+		if (!fh.fh) {
+			assert(errno == ENOENT);
+			return 1;
+		}
+		fh.bzfh = BZ2_bzReadOpen(&bze, fh.fh, 0, 0, NULL, 0);
+		assert(bze == BZ_OK && fh.bzfh);
 	}
-	while ((len = read_log_line(fh, buf, sizeof(buf)))) {
+	while ((len = read_log_line(&fh, buf, sizeof(buf)))) {
 		char       *end;
 		trans_id_t tid = strtoull(buf + 1, &end, 16);
 		line_nr++;
@@ -717,10 +772,14 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 			callback(buf);
 		}
 	}
+	if (fh.bzfh) {
+		BZ2_bzReadClose(&bze, fh.bzfh);
+		assert(bze == BZ_OK);
+	}
 	struct stat sb;
-	int r = fstat(fileno(fh), &sb);
+	int r = fstat(fileno(fh.fh), &sb);
 	assert(!r);
-	fclose(fh);
+	fclose(fh.fh);
 	mm_last_log(sb.st_size, sb.st_mtime);
 	return 0;
 err:

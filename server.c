@@ -16,9 +16,9 @@ static uint64_t str2u64(const char *str)
 {
 	uint64_t val;
 	char    *end;
-	assert(strlen(str) == 16);
+	int     len = strlen(str);
 	val = strtoull(str, &end, 16);
-	assert(!*end);
+	assert((len == 16 && !*end) || (len == 20 && !strcmp(end, ".bz2")));
 	return val;
 }
 

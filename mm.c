@@ -261,11 +261,14 @@ static int mm_init_old(void)
 		struct stat sb;
 		len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
 		               basedir, (unsigned long long)i);
-		assert(len < (int)sizeof(filename));
+		assert(len < (int)sizeof(filename) - 5);
 		if (stat(filename, &sb)) {
-			fprintf(stderr, "Log %016llx missing.\n",
-			        (unsigned long long)i);
-			exit(1);
+			strcat(filename, ".bz2");
+			if (stat(filename, &sb)) {
+				fprintf(stderr, "Log %016llx missing.\n",
+					(unsigned long long)i);
+				exit(1);
+			}
 		}
 		if (sb.st_size != l->size || sb.st_mtime != l->mtime) {
 			logs_ok = 0;
