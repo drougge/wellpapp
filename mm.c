@@ -225,6 +225,18 @@ static void mm_init_new(void)
 	assert(!r);
 }
 
+static int mm_statlog(unsigned long long idx, struct stat *sb)
+{
+	char fn[1024];
+	int len = snprintf(fn, sizeof(fn), "%s/log/%016llx", basedir, idx);
+	assert(len < (int)sizeof(fn) - 5);
+	if (stat(fn, sb)) {
+		strcat(fn, ".bz2");
+		if (stat(fn, sb)) return 1;
+	}
+	return 0;
+}
+
 static int mm_init_old(void)
 {
 	mm_head_t    head;
@@ -255,26 +267,19 @@ static int mm_init_old(void)
 	}
 	int logs_ok = 1;
 	logstat_t *l = &head.logstat;
+	struct stat sb;
 	for (uint64_t i = head.first_logindex; i < head.logindex; i++) {
-		int len;
-		char filename[1024];
-		struct stat sb;
-		len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
-		               basedir, (unsigned long long)i);
-		assert(len < (int)sizeof(filename) - 5);
-		if (stat(filename, &sb)) {
-			strcat(filename, ".bz2");
-			if (stat(filename, &sb)) {
-				fprintf(stderr, "Log %016llx missing.\n",
-					(unsigned long long)i);
-				exit(1);
-			}
+		if (mm_statlog(i, &sb)) {
+			fprintf(stderr, "Log %016llx missing.\n",
+				(unsigned long long)i);
+			exit(1);
 		}
 		if (sb.st_size != l->size || sb.st_mtime != l->mtime) {
 			logs_ok = 0;
 		}
 		l = l->next;
 	}
+	if (!mm_statlog(head.logindex, &sb)) logs_ok = 0;
 	if (!logs_ok) {
 		for (unsigned int i = 1; i < head.of_segments; i++) {
 			mm_unmap_segment(i);
