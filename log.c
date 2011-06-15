@@ -2,7 +2,6 @@
 
 #include <stdarg.h>
 #include <sys/file.h>
-#include <sys/stat.h>
 
 static int log_fd;
 static trans_id_t next_trans_id = 1;
