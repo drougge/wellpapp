@@ -5,9 +5,15 @@
 
 typedef enum {
 	ORDER_NONE,
-	ORDER_DATE,
+	ORDER_CREATED,
+	ORDER_IMAGEDATE,
 	ORDER_SCORE,
 	ORDER_GROUP,
+	ORDER_MODIFIED,
+	ORDER_WIDTH,
+	ORDER_HEIGHT,
+	ORDER_AREA,
+	ORDER_TAGCOUNT,
 } order_t;
 
 static const char *flagnames[] = {"tagname", "tagguid", "implied", "ext",
@@ -143,13 +149,31 @@ static const char *orders[] = {"created", "imagedate", "score", "group",
                                "modified", "width", "height", "area",
                                "tagcount", NULL};
 
+static uint32_t tag_count(tag_t *tag, truth_t weak)
+{
+	switch (weak) {
+		case T_NO:
+			return tag->posts.count;
+			break;
+		case T_YES:
+			return tag->weak_posts.count;
+			break;
+		case T_DONTCARE:
+		default:
+			return tag->posts.count + tag->weak_posts.count;
+			break;
+	}
+}
+
 static int sort_search(const void *_t1, const void *_t2, void *_data)
 {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
+	uint32_t c1 = tag_count(t1->tag, t1->weak);
+	uint32_t c2 = tag_count(t2->tag, t2->weak);
 	(void) _data;
-	if (t1->tag->posts.count < t2->tag->posts.count) return -1;
-	if (t1->tag->posts.count > t2->tag->posts.count) return 1;
+	if (c1 < c2) return -1;
+	if (c1 > c2) return 1;
 	return 0;
 }
 
