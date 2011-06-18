@@ -212,6 +212,22 @@ static int sort_tag(const void *_t1, const void *_t2, void *_data)
 	return 0;
 }
 
+static int parse_range(const char *args, long *r_start, long *r_end)
+{
+	if (*r_start != -1) return 1;
+	char *end;
+	*r_start = strtol(args, &end, 16);
+	if (*end != ':') return 1;
+	if (end[1]) {
+		long rend = strtol(end + 1, &end, 16);
+		if (*end || rend < *r_start) {
+			 return 1;
+		}
+		*r_end = rend;
+	}
+	return 0;
+}
+
 static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
                             prot_cmd_flag_t flags)
 {
@@ -282,18 +298,9 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 			}
 			break;
 		case 'R': // 'R'ange
-			if (search->range_start != -1) {
-				return conn->error(conn, cmd);
-			}
-			char *end;
-			search->range_start = strtol(args, &end, 16);
-			if (*end != ':') return conn->error(conn, cmd);
-			if (end[1]) {
-				long rend = strtol(end + 1, &end, 16);
-				if (*end || rend < search->range_start) {
-					 return conn->error(conn, cmd);
-				}
-				search->range_end = rend;
+			if (parse_range(args, &search->range_start,
+			                &search->range_end)) {
+				conn->error(conn, cmd);
 			}
 			break;
 		default:
@@ -505,8 +512,10 @@ typedef struct {
 	int          tlen;
 	int          fuzzy;
 	const tag_t  **tag;
-	int          tag_pos;
-	int          tag_len;
+	long         range_start;
+	long         range_end;
+	long         tag_pos;
+	long         tag_len;
 	int          order;
 	truth_t      aliases;
 	dberror_t    error;
@@ -611,10 +620,22 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 					sort(data->tag, data->tag_pos,
 					     sizeof(*data->tag), sort_tag, &data->order);
 				}
-				for (int i = 0; i < data->tag_pos; i++) {
+				unsigned int z = sizeof(*data->tag) * data->tag_len;
+				long start = 0;
+				long stop  = data->tag_pos;
+				if (data->range_start != -1) {
+					c_printf(conn, "RR%lx\n", data->tag_pos);
+					start = data->range_start;
+					stop  = data->range_end + 1;
+					if (stop > data->tag_pos) {
+						stop = data->tag_pos;
+					}
+					if (start >= stop) goto done;
+				}
+				for (long i = start; i < stop; i++) {
 					c_print_tag(conn, data->tag[i], aliases);
 				}
-				unsigned int z = sizeof(*data->tag) * data->tag_len;
+done:
 				c_free(conn, data->tag, z);
 			}
 		}
@@ -631,9 +652,19 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 	tag_search_data_t *data = data_;
 
 	if (data->type) {
-		if (*cmd != 'O') goto err;
-		data->order = data->order = str2id(cmd + 1, tag_orders);
-		if (!data->order) goto err;
+		switch (*cmd) {
+			case 'O': // 'O'rder
+				data->order = str2id(cmd + 1, tag_orders);
+				if (!data->order) goto err;
+				break;
+			case 'R': // 'R'ange
+				if (parse_range(cmd + 1, &data->range_start,
+				                &data->range_end)) goto err;
+				break;
+			default:
+				goto err;
+				break;
+		}
 	} else {
 		if (*cmd == 'F') {
 			data->fuzzy = 1;
@@ -674,6 +705,8 @@ static void tag_search(connection_t *conn, char *cmd)
 	data.tag      = NULL;
 	data.tag_pos  = 0;
 	data.tag_len  = 0;
+	data.range_start = -1;
+	data.range_end   = LONG_MAX - 1;
 	if (!prot_cmd_loop(conn, cmd, &data, tag_search_cmd, 0)) {
 		c_printf(conn, "OK\n");
 	}
