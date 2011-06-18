@@ -94,13 +94,15 @@ tag ("T").
 		N: Complete 'N'ame
 		P: 'P'artial name
 		I: 'I'nitial part of name
+	Optionally takes an O argument for ordering, with the possible values:
+		post: Number of posts
+		weak: Number of weak posts
+		allpost: Sum of the above
+	Order can be prefixed with - to reverse sorting ("O-weak")
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count".
-	If your search matches an alias there is also an Aalias in there.
-	If one tag matches several times (on different aliases) it's returned
-	several times, with different A records.
-	If you search with STEAG you get all aliases, on a single line.
+	If you search for aliases there may also any number of Aalias in there.
 	Example:
-		STEANnekomimi
+		STEAIneko Oallpost
 
 T:
 Arguments:

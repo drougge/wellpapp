@@ -16,6 +16,13 @@ typedef enum {
 	ORDER_TAGCOUNT,
 } order_t;
 
+typedef enum {
+	TAG_ORDER_NONE,
+	TAG_ORDER_POST,
+	TAG_ORDER_WEAK,
+	TAG_ORDER_ALLPOST,
+} tag_order_t;
+
 static const char *flagnames[] = {"tagname", "tagguid", "implied", "ext",
                                   "created", "width", "height", "score",
                                   "source", "title", "imgdate", "modified",
@@ -148,8 +155,9 @@ static sorter_f sorters[] = {sorter_created, sorter_image_date, sorter_score,
 static const char *orders[] = {"created", "imagedate", "score", "group",
                                "modified", "width", "height", "area",
                                "tagcount", NULL};
+static const char *tag_orders[] = {"post", "weak", "allpost", NULL};
 
-static uint32_t tag_count(tag_t *tag, truth_t weak)
+static uint32_t tag_count(const tag_t *tag, truth_t weak)
 {
 	switch (weak) {
 		case T_NO:
@@ -174,6 +182,33 @@ static int sort_search(const void *_t1, const void *_t2, void *_data)
 	(void) _data;
 	if (c1 < c2) return -1;
 	if (c1 > c2) return 1;
+	return 0;
+}
+
+static int sort_tag(const void *_t1, const void *_t2, void *_data)
+{
+	const tag_t *t1 = *(const tag_t * const *)_t1;
+	const tag_t *t2 = *(const tag_t * const *)_t2;
+	int order = *(int *)_data;
+	truth_t weak;
+	switch (abs(order)) {
+		case TAG_ORDER_POST:
+			weak = T_NO;
+			break;
+		case TAG_ORDER_WEAK:
+			weak = T_YES;
+			break;
+		case TAG_ORDER_ALLPOST:
+			weak = T_DONTCARE;
+			break;
+		default:
+			return 0;
+			break;
+	}
+	uint32_t c1 = tag_count(t1, weak);
+	uint32_t c2 = tag_count(t2, weak);
+	if (c1 < c2) return order < 0 ? 1 : -1;
+	if (c1 > c2) return order < 0 ? -1 : 1;
 	return 0;
 }
 
@@ -447,17 +482,13 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 	}
 }
 
-static void c_print_tag(connection_t *conn, const tag_t *tag,
-                        const tagalias_t *tagalias, int all_aliases)
+static void c_print_tag(connection_t *conn, const tag_t *tag, int aliases)
 {
 	if (!tag) return;
 	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
 	c_printf(conn, "N%s ", tag->name);
 	c_printf(conn, "T%s ", tagtype_names[tag->type]);
-	if (tagalias) {
-		c_printf(conn, "A%s ", tagalias->name);
-	}
-	if (all_aliases) {
+	if (aliases) {
 		c_print_alias_t data;
 		data.conn = conn;
 		data.tag  = tag;
@@ -470,17 +501,51 @@ static void c_print_tag(connection_t *conn, const tag_t *tag,
 typedef struct {
 	connection_t *conn;
 	const char   *text;
+	guid_t       guid;
 	int          tlen;
 	int          fuzzy;
+	const tag_t  **tag;
+	int          tag_pos;
+	int          tag_len;
+	int          order;
+	truth_t      aliases;
+	dberror_t    error;
 	char         type;
 } tag_search_data_t;
 
-static void tag_search_i(const char *name, const tag_t *tag,
-                         const tagalias_t *tagalias, tag_search_data_t *data)
+static void tag_search_add_res(tag_search_data_t *data, const tag_t *tag,
+                               int check_dup)
 {
+	if (data->error) return;
+	if (check_dup) {
+		// This is terrible inefficient
+		for (int i = 0; i < data->tag_len; i++) {
+			if (data->tag[i] == tag) return;
+		}
+	}
+	if (data->tag_pos == data->tag_len) {
+		int old_len = data->tag_len;
+		int new_len = old_len ? old_len * 2 : 16;
+		int r;
+		data->tag = c_realloc(data->conn, data->tag,
+		                      sizeof(*data->tag) * old_len,
+		                      sizeof(*data->tag) * new_len, &r);
+		if (r) {
+			data->error = E_MEM;
+			return;
+		}
+		data->tag_len = new_len;
+	}
+	data->tag[data->tag_pos++] = tag;
+}
+
+static void tag_search_i(const char *name, const tag_t *tag,
+                         int check_dup, tag_search_data_t *data)
+{
+	if (data->error) return;
 	if (data->type == 'P') {
 		if (strstr(name, data->text)) {
-			c_print_tag(data->conn, tag, tagalias, 0);
+			tag_search_add_res(data, tag, check_dup);
 		}
 	} else {
 		int nlen = strlen(name);
@@ -488,7 +553,7 @@ static void tag_search_i(const char *name, const tag_t *tag,
 		     || (nlen > data->tlen && data->type == 'I')
 		    ) && !memcmp(name, data->text, data->tlen)
 		   ) {
-			c_print_tag(data->conn, tag, tagalias, 0);
+			tag_search_add_res(data, tag, check_dup);
 		}
 	}
 }
@@ -499,7 +564,7 @@ static void tag_search_P(ss128_key_t key, ss128_value_t value, void *data_)
 	const tag_t       *tag = (const tag_t *)value;
 	const char *name = data->fuzzy ? tag->fuzzy_name : tag->name;
 	(void)key;
-	tag_search_i(name, tag, NULL, data);
+	tag_search_i(name, tag, 0, data);
 }
 
 static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
@@ -509,66 +574,87 @@ static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
 	const tagalias_t  *tagalias = (const tagalias_t *)value;
 	const char *name = data->fuzzy ? tagalias->fuzzy_name : tagalias->name;
 	(void)key;
-	tag_search_i(name, tagalias->tag, tagalias, data);
+	tag_search_i(name, tagalias->tag, 1, data);
+}
+
+static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
+{
+	char c = data->type;
+	int aliases = data->aliases;
+	if (c == 'G') {
+		c_print_tag(conn, tag_find_guid(data->guid), aliases);
+	} else {
+		if (c != 'N' && c != 'P' && c != 'I') goto err;
+		if (c == 'N' && !data->fuzzy) {
+			tag_t *tag = tag_find_name(data->text, aliases, NULL);
+			c_print_tag(conn, tag, aliases);
+		} else {
+			char              *fuzztext;
+			unsigned int      fuzzlen;
+			if (data->fuzzy) {
+				if (utf_fuzz_c(conn, data->text, &fuzztext,
+				               &fuzzlen)) {
+					return c_close_error(conn, E_MEM);
+				}
+				data->text = fuzztext;
+			}
+			data->tlen = strlen(data->text);
+			ss128_iterate(tags, tag_search_P, data);
+			if (aliases) {
+				ss128_iterate(tagaliases, tag_search_P_alias,
+				              data);
+			}
+			if (data->fuzzy) c_free(conn, fuzztext, fuzzlen);
+			if (data->error) return c_close_error(conn, data->error);
+			if (data->tag_pos) {
+				if (data->order) {
+					sort(data->tag, data->tag_pos,
+					     sizeof(*data->tag), sort_tag, &data->order);
+				}
+				for (int i = 0; i < data->tag_pos; i++) {
+					c_print_tag(conn, data->tag[i], aliases);
+				}
+				unsigned int z = sizeof(*data->tag) * data->tag_len;
+				c_free(conn, data->tag, z);
+			}
+		}
+	}
+	return 0;
+err:
+	conn->error(conn, "");
+	return 1;
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
                          prot_cmd_flag_t flags)
 {
-	int     fuzzy   = 0;
-	truth_t aliases = T_NO;
+	tag_search_data_t *data = data_;
 
-	(void)data_;
-	(void)flags;
-
-	if (*cmd == 'F') {
-		fuzzy = 1;
-	} else if (*cmd != 'E') {
-		goto err;
-	}
-	cmd++;
-	if (*cmd == 'A') {
-		aliases = T_DONTCARE;
-		cmd++;
-	}
-	char c = *cmd;
-	if (c == 'G') {
-		guid_t guid;
-		if (fuzzy) goto err;
-		if (guid_str2guid(&guid, cmd + 1, GUIDTYPE_TAG)) goto err;
-		c_print_tag(conn, tag_find_guid(guid), NULL, aliases);
+	if (data->type) {
+		if (*cmd != 'O') goto err;
+		data->order = data->order = str2id(cmd + 1, tag_orders);
+		if (!data->order) goto err;
 	} else {
-		if (c != 'N' && c != 'P' && c != 'I') goto err;
-		if (c == 'N' && !fuzzy) {
-			tagalias_t *tagalias;
-			tag_t *tag = tag_find_name(cmd + 1, aliases, &tagalias);
-			c_print_tag(conn, tag, tagalias, 0);
+		if (*cmd == 'F') {
+			data->fuzzy = 1;
+		} else if (*cmd != 'E') {
+			goto err;
+		}
+		cmd++;
+		if (*cmd == 'A') {
+			data->aliases = T_DONTCARE;
+			cmd++;
+		}
+		data->type = *cmd;
+		if (data->type == 'G') {
+			if (data->fuzzy) goto err;
+			if (guid_str2guid(&data->guid, cmd + 1, GUIDTYPE_TAG)) goto err;
 		} else {
-			tag_search_data_t data;
-			char              *fuzztext;
-			unsigned int      fuzzlen;
-			data.conn = conn;
-			data.type = c;
-			if (fuzzy) {
-				if (utf_fuzz_c(conn, cmd + 1, &fuzztext,
-				               &fuzzlen)) {
-					return c_close_error(conn, E_MEM);
-				}
-				data.text  = fuzztext;
-				data.fuzzy = 1;
-			} else {
-				data.text  = cmd + 1;
-				data.fuzzy = 0;
-			}
-			data.tlen = strlen(data.text);
-			ss128_iterate(tags, tag_search_P, &data);
-			if (aliases) {
-				ss128_iterate(tagaliases, tag_search_P_alias,
-				              &data);
-			}
-			if (fuzzy) c_free(conn, fuzztext, fuzzlen);
+			data->text = cmd + 1;
 		}
 	}
+
+	if (flags & CMDFLAG_LAST) return tag_search_cmd_last(conn, data);
 	return 0;
 err:
 	conn->error(conn, cmd);
@@ -577,7 +663,18 @@ err:
 
 static void tag_search(connection_t *conn, char *cmd)
 {
-	if (!prot_cmd_loop(conn, cmd, NULL, tag_search_cmd, 0)) {
+	tag_search_data_t data;
+	data.conn     = conn;
+	data.text     = NULL;
+	data.fuzzy    = 0;
+	data.aliases  = T_NO;
+	data.type     = 0;
+	data.order    = TAG_ORDER_NONE;
+	data.error    = 0;
+	data.tag      = NULL;
+	data.tag_pos  = 0;
+	data.tag_len  = 0;
+	if (!prot_cmd_loop(conn, cmd, &data, tag_search_cmd, 0)) {
 		c_printf(conn, "OK\n");
 	}
 }
