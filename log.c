@@ -8,14 +8,12 @@ static trans_id_t next_trans_id = 1;
 
 static void trans_lock(trans_t *trans)
 {
-	int r = flock(trans->fd, LOCK_EX);
-	assert(!r);
+	(void) trans;
 }
 
 static void trans_unlock(trans_t *trans)
 {
-	int r = flock(trans->fd, LOCK_UN);
-	assert(!r);
+	(void) trans;
 }
 
 static void trans_sync(trans_t *trans)
