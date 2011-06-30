@@ -324,7 +324,7 @@ void log_init(void)
 	len = snprintf(filename, sizeof(filename), "%s/log/%016llx",
 	               basedir, (unsigned long long)*logindex);
 	assert(len < (int)sizeof(filename));
-	log_fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK | O_EXCL, 0666);
+	log_fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	assert(log_fd != -1);
 	*logindex += 1;
 }
@@ -433,7 +433,7 @@ void log_dump(void)
 	len = snprintf(filename, sizeof(filename), "%s/dump/%016llx",
 	               basedir, (unsigned long long)*logdumpindex);
 	assert(len < (int)sizeof(filename));
-	dump_fd = open(filename, O_WRONLY | O_CREAT | O_EXLOCK | O_EXCL, 0666);
+	dump_fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	assert(dump_fd != -1);
 	*logdumpindex += 1;
 

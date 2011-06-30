@@ -127,7 +127,7 @@ static void mm_new_segment(void)
 	unsigned int z;
 
 	nr = mm_head ? mm_head->of_segments : 0;
-	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_TRUNC | O_EXLOCK);
+	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_TRUNC);
 	assert(fd >= 0);
 	memset(buf, 0, sizeof(buf));
 	z = MM_SEGMENT_SIZE;
@@ -333,11 +333,21 @@ int mm_init(void)
 
 	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
 	assert(len < (int)sizeof(fn));
-	mm_lock_fd = open(fn, O_RDWR | O_CREAT | O_EXLOCK, 0600);
+	mm_lock_fd = open(fn, O_RDWR | O_CREAT, 0600);
 	if (mm_lock_fd == -1) {
 		char buf[len + 28];
 		snprintf(buf, sizeof(buf), "Failed to open lockfile (%s)", fn);
 		perror(buf);
+		exit(1);
+	}
+	struct flock lock;
+	memset(&lock, 0, sizeof(lock));
+	lock.l_type = F_WRLCK;
+	lock.l_whence = SEEK_SET;
+	lock.l_start = 0;
+	lock.l_len = 1;
+	if (fcntl(mm_lock_fd, F_SETLK, &lock)) {
+		fprintf(stderr, "Lockfile locked, another server running?\n");
 		exit(1);
 	}
 	assertdir("dump");
