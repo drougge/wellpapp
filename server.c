@@ -104,12 +104,15 @@ int main(int argc, char **argv)
 	logconn->flags = CONNFLAG_LOG;
 	logconn->trans.conn = logconn;
 
-	assert(argc == 2);
+	if (argc != 2) {
+		fprintf(stderr, "Usage: %s configfile\n", argv[0]);
+		return 1;
+	}
 	db_read_cfg(argv[1]);
 	printf("initing mm..\n");
 	if (mm_init()) populate_from_dump();
 	if (!*logdumpindex && blacklisted_guid()) {
-		printf("Don't use the example GUID\n");
+		fprintf(stderr, "Don't use the example GUID\n");
 		return 1;
 	}
 	mm_print();

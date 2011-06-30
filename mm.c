@@ -293,6 +293,19 @@ static int mm_init_old(void)
 	return 0;
 }
 
+static void assertdir(const char *name)
+{
+	char fn[1024];
+	struct stat sb;
+	int len = snprintf(fn, sizeof(fn), "%s/%s", basedir, name);
+	assert(len < (int)sizeof(fn));
+	int r = stat(fn, &sb);
+	if (r || !S_ISDIR(sb.st_mode)) {
+		fprintf(stderr, "Directory %s doesn't exist\n", fn);
+		exit(1);
+	}
+}
+
 /* Note that this returns 1 for a new cache, not failure as such. */
 int mm_init(void)
 {
@@ -321,7 +334,15 @@ int mm_init(void)
 	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
 	assert(len < (int)sizeof(fn));
 	mm_lock_fd = open(fn, O_RDWR | O_CREAT | O_EXLOCK, 0600);
-	assert(mm_lock_fd != -1);
+	if (mm_lock_fd == -1) {
+		char buf[len + 28];
+		snprintf(buf, sizeof(buf), "Failed to open lockfile (%s)", fn);
+		perror(buf);
+		exit(1);
+	}
+	assertdir("dump");
+	assertdir("log");
+	assertdir("mm_cache");
 	len = read(mm_lock_fd, &clean, 1);
 	if (len != 1) clean = 'U';
 	pos = lseek(mm_lock_fd, 0, SEEK_SET);

@@ -970,7 +970,10 @@ void db_read_cfg(const char *filename)
 
 	MD5_Init(&ctx);
 	fh = fopen(filename, "r");
-	assert(fh);
+	if (!fh) {
+		fprintf(stderr, "Failed to open config (%s)\n", filename);
+		exit(1);
+	}
 	while (fgets(buf, sizeof(buf), fh)) {
 		int len = strlen(buf);
 		assert(len && buf[len - 1] == '\n');
