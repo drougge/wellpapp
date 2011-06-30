@@ -99,6 +99,13 @@ static void tag_delete(tag_t *tag)
 	assert(!r);
 }
 
+static void post_delete(post_t *post)
+{
+	int r = ss128_delete(posts, post->md5.key);
+	assert(!r);
+	// @@ We could reuse the post, but for now we just leak it.
+}
+
 typedef struct mergedata {
 	tag_t   *tag;
 	tag_t   *rmtag;
@@ -655,6 +662,7 @@ int prot_delete(connection_t *conn, char *cmd)
 {
 	char *args = cmd + 1;
 	char *name = cmd + 2;
+	post_t *post;
 	ss128_key_t key;
 	switch (*cmd) {
 		case 'A':
@@ -679,6 +687,16 @@ int prot_delete(connection_t *conn, char *cmd)
 			ss128_iterate(tagaliases, check_freepost_alias, &data);
 			if (data.bad) return error1(conn, args);
 			tag_delete(tag);
+			break;
+		case 'P':
+			if (post_find_md5str(&post, args)) {
+				return error1(conn, args);
+			}
+			if (post->of_tags || post->of_weak_tags
+			    || post->related_posts.h.l.head->succ) {
+				return error1(conn, args);
+			}
+			post_delete(post);
 			break;
 		default:
 			return error1(conn, cmd);

@@ -164,6 +164,10 @@ First char is what type of object to delete.
 	T: a tag
 		G: guid
 		You can't delete a tag that is referenced from another object.
+	P: a post
+		md5 directly after P.
+		You can't delete a post that is referenced from another object
+		(tags or related posts).
 
 R:
 	First char determines action.
