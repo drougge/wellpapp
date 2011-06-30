@@ -244,10 +244,10 @@ const char *utf8proc_errmsg(ssize_t errcode);
  *  Returns a static error string for the given error code.
  */
 
-ssize_t utf8proc_iterate(const uint8_t *str, ssize_t strlen, int32_t *dst);
+ssize_t utf8proc_iterate(const uint8_t *str, ssize_t str_len, int32_t *dst);
 /*
  *  Reads a single char from the UTF-8 sequence being pointed to by 'str'.
- *  The maximum number of bytes read is 'strlen', unless 'strlen' is
+ *  The maximum number of bytes read is 'str_len', unless 'str_len' is
  *  negative.
  *  If a valid unicode char could be read, it is stored in the variable
  *  being pointed to by 'dst', otherwise that variable will be set to -1.
@@ -309,14 +309,14 @@ ssize_t utf8proc_decompose_char(
  */
 
 ssize_t utf8proc_decompose(
-  const uint8_t *str, ssize_t strlen,
+  const uint8_t *str, ssize_t str_len,
   int32_t *buffer, ssize_t bufsize, int options
 );
 /*
  *  Does the same as 'utf8proc_decompose_char', but acts on a whole UTF-8
  *  string, and orders the decomposed sequences correctly.
  *  If the NULLTERM flag in 'options' is set, processing will be stopped,
- *  when a NULL byte is encounted, otherwise 'strlen' bytes are processed.
+ *  when a NULL byte is encounted, otherwise 'str_len' bytes are processed.
  *  The result in form of unicode code points is written into the buffer
  *  being pointed to by 'buffer', having the length of 'bufsize' entries.
  *  In case of success the number of chars written is returned,
@@ -350,14 +350,14 @@ ssize_t utf8proc_reencode(int32_t *buffer, ssize_t length, int options);
  */
 
 ssize_t utf8proc_map(
-  const uint8_t *str, ssize_t strlen, uint8_t **dstptr, int options
+  const uint8_t *str, ssize_t str_len, uint8_t **dstptr, int options
 );
 /*
  *  Maps the given UTF-8 string being pointed to by 'str' to a new UTF-8
  *  string, which is allocated dynamically, and afterwards pointed to by
  *  the pointer being pointed to by 'dstptr'.
  *  If the NULLTERM flag in the 'options' field is set, the length is
- *  determined by a NULL terminator, otherwise the parameter 'strlen' is
+ *  determined by a NULL terminator, otherwise the parameter 'str_len' is
  *  evaluated to determine the string length, but in any case the result
  *  will be NULL terminated (though it might contain NULL characters
  *  before). Other flags in the 'options' field are passed to the functions
