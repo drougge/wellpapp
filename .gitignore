@@ -1,0 +1,8 @@
+tags
+server
+suggest_mm_base
+pgtest
+pearsonr
+*.o
+*.a
+*.conf
