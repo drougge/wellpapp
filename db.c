@@ -862,7 +862,7 @@ void db_serve(void)
 	r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	assert(!r);
 	memset(&addr, 0, sizeof(addr));
-#ifndef __linux__
+#if !defined(__linux__) && !defined(__svr4__)
 	addr.sin_len    = sizeof(addr);
 #endif
 	addr.sin_family = AF_INET;
