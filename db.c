@@ -3,6 +3,7 @@
 #include <time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <poll.h>
 #include <errno.h>
 #include <openssl/md5.h>
@@ -841,7 +842,8 @@ static char *utf_compose(connection_t *conn)
 	return (char *)buf;
 }
 
-static int port = 0;
+static int bind_port = 0;
+static in_addr_t bind_addr = 0;
 
 void db_serve(void)
 {
@@ -866,8 +868,9 @@ void db_serve(void)
 	addr.sin_len    = sizeof(addr);
 #endif
 	addr.sin_family = AF_INET;
-	assert(port);
-	addr.sin_port   = htons(port);
+	assert(bind_port);
+	addr.sin_addr.s_addr = bind_addr;
+	addr.sin_port   = htons(bind_port);
 	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
 	assert(!r);
 	r = listen(s, 5);
@@ -991,7 +994,10 @@ void db_read_cfg(const char *filename)
 			assert(!r);
 			server_guid = &server_guid_;
 		} else if (!memcmp("port=", buf, 5)) {
-			port = atoi(buf + 5);
+			bind_port = atoi(buf + 5);
+		} else if (!memcmp("addr=", buf, 5)) {
+			bind_addr = inet_addr(buf + 5);
+			assert(bind_addr != INADDR_NONE);
 		} else if (!memcmp("mm_base=", buf, 8)) {
 			unsigned long long addr = strtoull(buf + 8, NULL, 0);
 			MM_BASE_ADDR = (uint8_t *)(intptr_t)addr;
