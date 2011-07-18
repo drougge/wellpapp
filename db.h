@@ -129,7 +129,6 @@ typedef struct postlist {
 		postlist_head_t p;
 	} h;
 	uint32_t count;
-	int ordered;
 } postlist_t;
 
 typedef struct post {
@@ -195,6 +194,8 @@ struct tag {
 	postlist_t posts;
 	postlist_t weak_posts;
 	impllist_t *implications;
+	unsigned int ordered    : 1;
+	unsigned int unsettable : 1;
 };
 
 typedef struct tagalias {
@@ -395,8 +396,8 @@ void log_clear_init(trans_t *trans);
 void log_write(trans_t *trans, const char *fmt, ...);
 void log_init(void);
 void log_cleanup(void);
-void log_write_tag(trans_t *trans, const tag_t *tag, int is_add, guid_t *merge);
-void log_write_tagmod(trans_t *trans, const tag_t *tag);
+void log_write_tag(trans_t *trans, const tag_t *tag, int is_add,
+                   int write_flags, guid_t *merge);
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
 void log_write_post(trans_t *trans, const post_t *post);
 void log_write_user(trans_t *trans, const user_t *user);

@@ -28,6 +28,7 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 				weak = T_YES;
 			}
 			tag_t *tag = tag_find_guidstr(args);
+			if (tag && *cmd == 'T' && tag->unsettable) tag = NULL;
 			if (!tag) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
 				int r = post_tag_add(*post, tag, weak);
@@ -210,11 +211,12 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 }
 
 typedef struct tag_cmd_data {
-	tag_t      *tag;
-	const char *name;
-	int        is_add;
-	int        merge;
-	guid_t     merge_guid;
+	tag_t        *tag;
+	const char   *name;
+	guid_t       merge_guid;
+	unsigned int is_add : 1;
+	unsigned int merge : 1;
+	unsigned int flag_unsettable : 1;
 } tag_cmd_data_t;
 
 static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -225,6 +227,7 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 	int        r = 1;
 	const char *args = cmd + 1;
 	char       *ptr;
+	int         u_value;
 
 	if (!*cmd || !*args) return conn->error(conn, cmd);
 	switch (*cmd) {
@@ -271,6 +274,18 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 				return conn->error(conn, cmd);
 			}
 			break;
+		case 'F':
+			u_value = 1;
+			if (*args == '-') {
+				u_value = 0;
+				args++;
+			}
+			if (strcmp(args, "unsettable")) {
+				return conn->error(conn, cmd);
+			}
+			tag->unsettable = u_value;
+			data->flag_unsettable = 1;
+			break;
 		default:
 			return conn->error(conn, cmd);
 	}
@@ -309,7 +324,8 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 		}
 		guid_t *merge = NULL;
 		if (data->merge) merge = &data->merge_guid;
-		log_write_tag(&conn->trans, tag, data->is_add, merge);
+		log_write_tag(&conn->trans, tag, data->is_add,
+		              data->flag_unsettable, merge);
 	}
 	return 0;
 }
@@ -829,9 +845,9 @@ static int order_cmd(connection_t *conn, const char *cmd, void *data_,
 		pn = pn->n.p.succ;
 	}
 	if (!pn->n.p.succ) return conn->error(conn, cmd);
-	if (!data->tag->posts.ordered) {
+	if (!data->tag->ordered) {
 		// This tag was unordered, put first post first.
-		data->tag->posts.ordered = 1;
+		data->tag->ordered = 1;
 		list_remove(&pn->n.l);
 		list_addhead(&data->tag->posts.h.l, &pn->n.l);
 	}
