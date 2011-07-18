@@ -502,7 +502,10 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int aliases)
 		ss128_iterate(tagaliases, c_print_alias_cb, &data);
 	}
 	c_printf(conn, "P%x ", tag->posts.count);
-	c_printf(conn, "W%x\n", tag->weak_posts.count);
+	c_printf(conn, "W%x", tag->weak_posts.count);
+	if (tag->ordered) c_printf(conn, " Fordered");
+	if (tag->unsettable) c_printf(conn, " Funsettable");
+	c_printf(conn, "\n");
 }
 
 typedef struct {
