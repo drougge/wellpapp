@@ -77,7 +77,7 @@ typedef enum {
 	CAP_SUPER  = 128, // Can modify things that are not supposed to be modified.
 } capability_t;
 #define CAP_MAX CAP_SUPER
-#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG)
+#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG | CAP_SUPER)
 
 typedef union md5 {
 	uint8_t     m[16];
