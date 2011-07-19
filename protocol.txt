@@ -55,9 +55,9 @@ tag ("T").
 		the first tag in the search, and can not be reversed.
 	F:
 		Available flags:
-			tagname: Return name of set tags. (T)
-			tagguid: Return guid of set tags. (G)
-			tagdata: Return T P W and F for tags (as DT, DP, ...)
+			tagname: Return name of set tags.
+			tagguid: Return guid of set tags.
+			tagdata: Return other data for set tags.
 			ext: Return file-type in the form of a likely
 				extension. Currently one of "jpeg", "gif",
 				"png", "bmp" or "swf".
@@ -70,8 +70,8 @@ tag ("T").
 			source: Encoded string.
 			implied: Separate implied tags from actually set ones.
 				Implied tags are always returned, but if you
-				request this you get IT, IG, IDP ... for the
-				implied ones.
+				request this you get I in the flags for implied
+				ones.
 	M:
 		md5 of post. Can not be specified together with "T" or "t".
 		Can only be specified once.
@@ -81,12 +81,14 @@ tag ("T").
 		RRcount (where count is the number of results).
 		First, last and count are unsigned numbers.
 	Returned posts are ordered according to O arguments, or not at all.
-	Returned data for each post in not ordered, except that data for each
-	tag is introduced by a colon.
+	Returned data for each post in not ordered, except tags come last.
+	Each tag is introduced by a colon immediately followed by flags for
+	this tag, I for implied and ~ for weak, and then the same format as
+	returned from tag searches (with the data you requested only).
 	Example:
-		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext
+		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext Ftagname Ftagguid
 	Example reply:
-		RP0123456789abcdef0123456789abcdef Fext=jpeg : GyBYR8f-qto48a-aaaaaa-aaaaa0 Tfoo DTunspecified DP5 DW0 : DFunsettable T~bar DTmeta G~foYYLK-qto48a-aaaaaa-aaaa79 DP9 DW2
+		RP0123456789abcdef0123456789abcdef Fext=jpeg : GyBYR8f-qto48a-aaaaaa-aaaaa0 Nfoo :~ Nbar GfoYYLK-qto48a-aaaaaa-aaaa79 :
 
 	T:
 	First either 'E'xact or 'F'uzzy, optionally 'A' to include aliases,
