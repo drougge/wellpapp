@@ -368,14 +368,19 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 #define POST_FIELD_DEF(name, type, cap, array)                   \
                       {#name, sizeof(((post_t *)0)->name),       \
                        offsetof(post_t, name), type, cap, array}
+#define POST_FIELD_DEF2(str, name, type, cap, array)             \
+                       {#str, sizeof(((post_t *)0)->name),       \
+                        offsetof(post_t, name), type, cap, array}
 
 const field_t post_fields[] = {
 	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
 	POST_FIELD_DEF(created  , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
-	POST_FIELD_DEF(image_date, FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
-	POST_FIELD_DEF(image_date_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
+	POST_FIELD_DEF2(image_date, imgdate, FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
+	POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
+	POST_FIELD_DEF(imgdate  , FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
+	POST_FIELD_DEF(imgdate_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , CAP_POST, NULL),
 	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , CAP_POST, &filetype_names),
 	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , CAP_POST, &rating_names),

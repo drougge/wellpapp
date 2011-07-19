@@ -35,7 +35,7 @@ static void FLAGPRINT_CREATED(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fcreated=%llx", (unsigned long long)post->created);
 }
 static void FLAGPRINT_IMGDATE(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fimgdate=%llx", (unsigned long long)post->image_date);
+	c_printf(conn, " Fimgdate=%llx", (unsigned long long)post->imgdate);
 }
 static void FLAGPRINT_MODIFIED(connection_t *conn, post_t *post) {
 	c_printf(conn, " Fmodified=%llx", (unsigned long long)post->modified);
@@ -127,7 +127,7 @@ static post_t null_post; /* search->post for not found posts */
 		return 0; \
 	}
 SORTER(created)
-SORTER(image_date)
+SORTER(imgdate)
 SORTER(score)
 SORTER(modified)
 SORTER(width)
@@ -149,7 +149,7 @@ static int sorter_group(const post_t *p1, const post_t *p2)
 }
 
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
-static sorter_f sorters[] = {sorter_created, sorter_image_date, sorter_score,
+static sorter_f sorters[] = {sorter_created, sorter_imgdate, sorter_score,
                              sorter_group, sorter_modified, sorter_width,
                              sorter_height, sorter_area, sorter_of_tags};
 static const char *orders[] = {"created", "imagedate", "score", "group",

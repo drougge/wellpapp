@@ -137,8 +137,8 @@ typedef struct post {
 	const char     *title;
 	time_t         modified;
 	time_t         created;
-	time_t         image_date;
-	uint16_t       image_date_fuzz;
+	time_t         imgdate;
+	uint16_t       imgdate_fuzz;
 	int16_t        score;
 	uint16_t       width;
 	uint16_t       height;
