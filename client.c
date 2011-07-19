@@ -531,7 +531,7 @@ static void tag_search_add_res(tag_search_data_t *data, const tag_t *tag,
 	if (data->error) return;
 	if (check_dup) {
 		// This is terrible inefficient
-		for (int i = 0; i < data->tag_len; i++) {
+		for (int i = 0; i < data->tag_pos; i++) {
 			if (data->tag[i] == tag) return;
 		}
 	}
