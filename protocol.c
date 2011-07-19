@@ -383,6 +383,7 @@ const field_t post_fields[] = {
 	POST_FIELD_DEF(imgdate_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
 	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , CAP_POST, NULL),
 	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , CAP_POST, &filetype_names),
+	POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, CAP_POST, &filetype_names),
 	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , CAP_POST, &rating_names),
 	POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , CAP_POST, NULL),
 	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , CAP_POST, NULL),

@@ -141,7 +141,7 @@ First char is what type of object to add.
 		created: uint, unix timestamp (UTC)
 		imgdate: uint, unix timestamp (UTC)
 		score: signed int
-		filetype: enum {"jpeg", "gif", "png", "bmp", "swf"}
+		ext: enum {"jpeg", "gif", "png", "bmp", "swf"}
 		rating: enum as specified in config
 		rotate: signed int, image should be rotatede this many degrees
 			Clients will probably only handle 0, 90, 180 and 270.
