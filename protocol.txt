@@ -81,12 +81,12 @@ tag ("T").
 		RRcount (where count is the number of results).
 		First, last and count are unsigned numbers.
 	Returned posts are ordered according to O arguments, or not at all.
-	Returned data for each post in not ordered, except that the Nth
-	tagname is for the same tag as the Nth tagguid and Nth group of tagdata.
+	Returned data for each post in not ordered, except that data for each
+	tag is introduced by a colon.
 	Example:
 		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext
 	Example reply:
-		RGyBYR8f-qto48a-aaaaaa-aaaaa0 P0123456789abcdef0123456789abcdef Tfoo T~bar G~foYYLK-qto48a-aaaaaa-aaaa79 DTunspecified DP5 DW0 Fext=jpeg DTmeta DP9 DW2 DFunsettable
+		RP0123456789abcdef0123456789abcdef Fext=jpeg : GyBYR8f-qto48a-aaaaaa-aaaaa0 Tfoo DTunspecified DP5 DW0 : DFunsettable T~bar DTmeta G~foYYLK-qto48a-aaaaaa-aaaa79 DP9 DW2
 
 	T:
 	First either 'E'xact or 'F'uzzy, optionally 'A' to include aliases,

@@ -360,6 +360,11 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 {
 	int i;
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
+	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
+		if (flags & FLAG(i)) {
+			flag_printers[i](conn, post);
+		}
+	}
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
 		post_taglist_t *tl = &post->tags;
 		post_taglist_t *impltl = post->implied_tags;
@@ -375,6 +380,7 @@ again:
 					   ) {
 						implprefix = "I";
 					}
+					c_printf(conn, " :");
 					if (flags & FLAG(FLAG_RETURN_TAGNAMES)) {
 						c_printf(conn, " %sT%s%s", implprefix, prefix, tag->name);
 					}
@@ -395,11 +401,6 @@ again:
 			tl = post->weak_tags;
 			impltl = post->implied_weak_tags;
 			goto again;
-		}
-	}
-	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
-		if (flags & FLAG(i)) {
-			flag_printers[i](conn, post);
 		}
 	}
 	c_printf(conn, "\n");
