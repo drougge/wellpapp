@@ -23,8 +23,8 @@ typedef enum {
 	TAG_ORDER_ALLPOST,
 } tag_order_t;
 
-static const char *flagnames[] = {"tagname", "tagguid", "implied", "ext",
-                                  "created", "width", "height", "score",
+static const char *flagnames[] = {"tagname", "tagguid", "implied", "tagdata",
+                                  "ext", "created", "width", "height", "score",
                                   "source", "title", "imgdate", "modified",
                                   "rotate", NULL};
 
@@ -68,6 +68,7 @@ static const flag_printer_t flag_printers[] = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	FLAGPRINT_EXTENSION,
 	FLAGPRINT_CREATED,
 	FLAGPRINT_WIDTH,
@@ -84,6 +85,7 @@ typedef enum {
 	FLAG_RETURN_TAGNAMES,
 	FLAG_RETURN_TAGIDS,
 	FLAG_RETURN_IMPLIED,
+	FLAG_RETURN_TAGDATA,
 	FLAG_RETURN_EXTENSION,
 	FLAG_RETURN_CREATED,
 	FLAG_RETURN_WIDTH,
@@ -352,6 +354,8 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 	return 0;
 }
 
+static void c_print_tag(connection_t *conn, const tag_t *tag,
+                        const char *prefix, int aliases);
 static void return_post(connection_t *conn, post_t *post, int flags)
 {
 	int i;
@@ -376,6 +380,11 @@ again:
 					}
 					if (flags & FLAG(FLAG_RETURN_TAGIDS)) {
 						c_printf(conn, " %sG%s%s", implprefix, prefix, guid_guid2str(tag->guid));
+					}
+					if (flags & FLAG(FLAG_RETURN_TAGDATA)) {
+						const char *dataprefix = "D";
+						if (*implprefix) dataprefix = "ID";
+						c_print_tag(conn, tag, dataprefix, 0);
 					}
 				}
 			}
@@ -485,27 +494,30 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 	tagalias_t *tagalias = (tagalias_t *)value;
 	(void) key;
 	if (tagalias->tag == data->tag) {
-		c_printf(data->conn, "A%s ", tagalias->name);
+		c_printf(data->conn, " A%s", tagalias->name);
 	}
 }
 
-static void c_print_tag(connection_t *conn, const tag_t *tag, int aliases)
+static void c_print_tag(connection_t *conn, const tag_t *tag,
+                        const char *prefix, int aliases)
 {
 	if (!tag) return;
-	c_printf(conn, "RG%s ", guid_guid2str(tag->guid));
-	c_printf(conn, "N%s ", tag->name);
-	c_printf(conn, "T%s ", tagtype_names[tag->type]);
+	if (!*prefix) {
+		c_printf(conn, "RG%s", guid_guid2str(tag->guid));
+		c_printf(conn, " N%s", tag->name);
+	}
+	c_printf(conn, " %sT%s", prefix, tagtype_names[tag->type]);
 	if (aliases) {
 		c_print_alias_t data;
 		data.conn = conn;
 		data.tag  = tag;
 		ss128_iterate(tagaliases, c_print_alias_cb, &data);
 	}
-	c_printf(conn, "P%x ", tag->posts.count);
-	c_printf(conn, "W%x", tag->weak_posts.count);
-	if (tag->ordered) c_printf(conn, " Fordered");
-	if (tag->unsettable) c_printf(conn, " Funsettable");
-	c_printf(conn, "\n");
+	c_printf(conn, " %sP%x", prefix, tag->posts.count);
+	c_printf(conn, " %sW%x", prefix, tag->weak_posts.count);
+	if (tag->ordered) c_printf(conn, " %sFordered", prefix);
+	if (tag->unsettable) c_printf(conn, " %sFunsettable", prefix);
+	if (!*prefix) c_printf(conn, "\n");
 }
 
 typedef struct {
@@ -594,12 +606,12 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 	char c = data->type;
 	int aliases = data->aliases;
 	if (c == 'G') {
-		c_print_tag(conn, tag_find_guid(data->guid), aliases);
+		c_print_tag(conn, tag_find_guid(data->guid), "", aliases);
 	} else {
 		if (c != 'N' && c != 'P' && c != 'I') goto err;
 		if (c == 'N' && !data->fuzzy) {
 			tag_t *tag = tag_find_name(data->text, aliases, NULL);
-			c_print_tag(conn, tag, aliases);
+			c_print_tag(conn, tag, "", aliases);
 		} else {
 			char              *fuzztext;
 			unsigned int      fuzzlen;
@@ -636,7 +648,7 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 					if (start >= stop) goto done;
 				}
 				for (long i = start; i < stop; i++) {
-					c_print_tag(conn, data->tag[i], aliases);
+					c_print_tag(conn, data->tag[i], "", aliases);
 				}
 done:
 				c_free(conn, data->tag, z);
