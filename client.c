@@ -117,6 +117,8 @@ typedef struct search {
 	int          flags;
 	long         range_start;
 	long         range_end;
+	unsigned int range_used : 1;
+	unsigned int failed : 1;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
@@ -312,12 +314,15 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 	return 0;
 }
 
-static int build_search(connection_t *conn, char *cmd, search_t *search)
+static void init_search(search_t *search)
 {
 	memset(search, 0, sizeof(*search));
 	search->range_start = -1;
 	search->range_end = LONG_MAX - 1;
-	if (prot_cmd_loop(conn, cmd, search, build_search_cmd, CMDFLAG_NONE)) return 1;
+}
+
+static int setup_search(search_t *search)
+{
 	if (!search->of_tags && !search->post) {
 		return 0;
 	}
@@ -413,67 +418,76 @@ static void post2result(ss128_key_t key, ss128_value_t value, void *data_)
 	data->error |= result_add_post(data->conn, data->result, post);
 }
 
-static void do_search(connection_t *conn, search_t *search)
+static void do_search(connection_t *conn, search_t *search, result_t *result)
 {
-	result_t result;
-
-	memset(&result, 0, sizeof(result));
+	memset(result, 0, sizeof(*result));
 	if (search->post) {
 		if (search->of_tags || search->of_excluded_tags) {
 			conn->error(conn, "E mutually exclusive options specified");
-			return;
+			goto err;
 		}
 		if (search->post != &null_post) {
-			return_post(conn, search->post, search->flags);
+			err1(result_add_post(conn, result, search->post));
 		}
 		goto done;
 	}
 	for (unsigned int i = 0; i < search->of_tags; i++) {
 		search_tag_t *t = &search->tags[i];
-		if (result_intersect(conn, &result, t->tag, t->weak)) {
+		if (result_intersect(conn, result, t->tag, t->weak)) {
 			c_close_error(conn, E_MEM);
-			return;
+			goto err;
 		}
-		if (!result.of_posts) goto done;
+		if (!result->of_posts) goto done;
 	}
 	for (unsigned int i = 0; i < search->of_excluded_tags; i++) {
 		search_tag_t *t = &search->excluded_tags[i];
-		if (result_remove_tag(conn, &result, t->tag, t->weak)) {
+		if (result_remove_tag(conn, result, t->tag, t->weak)) {
 			c_close_error(conn, E_MEM);
-			return;
+			goto err;
 		}
-		if (!result.of_posts) goto done;
+		if (!result->of_posts) goto done;
 	}
-	if (!result.of_posts) { // No criteria -> return all posts
+	if (!result->of_posts) { // No criteria -> return all posts
 		post2result_data_t data;
 		data.conn   = conn;
-		data.result = &result;
+		data.result = result;
 		data.error  = 0;
 		ss128_iterate(posts, post2result, &data);
 		if (data.error) {
 			c_close_error(conn, E_MEM);
-			return;
-		}
-	}
-	long start = 0;
-	long stop = result.of_posts;
-	if (search->range_start != -1) {
-		c_printf(conn, "RR%x\n", result.of_posts);
-		start = search->range_start;
-		stop = search->range_end + 1;
-		if (stop > (long)result.of_posts) stop = result.of_posts;
-		if (start >= stop) goto done;
-	}
-	if (result.of_posts) {
-		sort(result.posts, result.of_posts, sizeof(post_t *),
-		     sorter, search);
-		for (long i = start; i < stop; i++) {
-			return_post(conn, result.posts[i], search->flags);
+			goto err;
 		}
 	}
 done:
+	if (result->of_posts > 1) {
+		sort(result->posts, result->of_posts, sizeof(post_t *),
+		     sorter, search);
+	}
+	if (search->range_start == -1) {
+		search->range_start = 0;
+		search->range_end = result->of_posts;
+	} else {
+		search->range_used = 1;
+		search->range_end++;
+		if (search->range_end > (long)result->of_posts) {
+			search->range_end = result->of_posts;
+		}
+	}
+	return;
+err:
+	search->failed = 1;
+}
+
+static void print_search(connection_t *conn, search_t *search, result_t *result)
+{
+	if (search->range_used) c_printf(conn, "RR%x\n", result->of_posts);
+	if (result->of_posts && !search->failed) {
+		for (long i = search->range_start; i < search->range_end; i++) {
+			return_post(conn, result->posts[i], search->flags);
+		}
+	}
 	c_printf(conn, "OK\n");
-	result_free(conn, &result);
+	result_free(conn, result);
 }
 
 typedef struct c_print_alias {
@@ -845,8 +859,16 @@ void client_handle(connection_t *conn, char *buf)
 		case 'S': // 'S'earch
 			if (buf[1] == 'P') {
 				search_t search;
-				int r = build_search(conn, buf + 2, &search);
-				if (!r) do_search(conn, &search);
+				init_search(&search);
+				int r = prot_cmd_loop(conn, buf + 2, &search,
+				                      build_search_cmd,
+				                      CMDFLAG_NONE);
+				if (!r) r = setup_search(&search);
+				result_t result;
+				if (!r) {
+					do_search(conn, &search, &result);
+					print_search(conn, &search, &result);
+				}
 			} else if (buf[1] == 'T') {
 				tag_search(conn, buf + 2);
 			} else {
