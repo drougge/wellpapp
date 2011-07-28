@@ -107,8 +107,11 @@ tag ("T").
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count [Fflag [..]]".
 	Flags can be unsettable and ordered. Not included = not set.
 	If you search for aliases there may also any number of Aalias in there.
-	Example:
+	Can be suffixed by ":post search", which limits search to tags and tag
+	counts in the result of that post search. (Not terribly efficient.)
+	Examples:
 		STEAIneko Oallpost R:3
+		STEP R:8 :TNfoo TNbar
 
 T:
 Arguments:

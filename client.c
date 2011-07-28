@@ -177,6 +177,88 @@ static uint32_t tag_count(const tag_t *tag, truth_t weak)
 	}
 }
 
+typedef struct taglimit_tag {
+	const tag_t *tag;
+	uint32_t    count[2];
+} taglimit_tag_t;
+
+typedef struct taglimit {
+	ss128_head_t tree;
+} taglimit_t;
+
+static int taglimit_add_tag(connection_t *conn, taglimit_t *limit,
+                            const tag_t *tag, int weak)
+{
+	if (!tag) return 0;
+	ss128_key_t key = tag->guid.key;
+	ss128_value_t res;
+	if (ss128_find(&limit->tree, &res, key)) {
+		taglimit_tag_t *tt;
+		void *mem;
+		if (c_alloc(conn, &mem, sizeof(*tt))) return 1;
+		res = mem;
+		if (ss128_insert(&limit->tree, res, key)) {
+			c_free(conn, tt, sizeof(*tt));
+			return 1;
+		}
+		tt = mem;
+		tt->tag = tag;
+		tt->count[0] = tt->count[1] = 0;
+	}
+	taglimit_tag_t *tt = (taglimit_tag_t *)res;
+	tt->count[weak]++;
+	return 0;
+}
+
+static int taglimit_add(connection_t *conn, taglimit_t *limit,
+                        const post_t *post)
+{
+	const post_taglist_t *tl = &post->tags;
+	int weak = 0;
+again:
+	while (tl) {
+		for (int i = 0; i < arraylen(tl->tags); i++) {
+			err1(taglimit_add_tag(conn, limit, tl->tags[i], weak));
+		}
+		tl = tl->next;
+	}
+	if (!weak) {
+		weak = 1;
+		tl = post->weak_tags;
+		goto again;
+	}
+	return 0;
+err:
+	return 1;
+}
+
+static int search2taglimit(connection_t *conn, search_t *search,
+                           result_t *result, taglimit_t *limit)
+{
+	memset(limit, 0, sizeof(*limit));
+	ss128_init(&limit->tree);
+	for (long i = search->range_start; i < search->range_end; i++) {
+		err1(taglimit_add(conn, limit, result->posts[i]));
+	}
+	return 0;
+err:
+	return 1;
+}
+
+static void taglimit_free_node(ss128_key_t key, ss128_value_t value, void *data_)
+{
+	(void)key;
+	taglimit_tag_t *tt = (taglimit_tag_t *)value;
+	connection_t   *conn = data_;
+	c_free(conn, tt, sizeof(*tt));
+}
+
+static void taglimit_free(connection_t *conn, taglimit_t *limit)
+{
+	ss128_iterate(&limit->tree, taglimit_free_node, conn);
+	// @@ ss128_free(&limit->tree);
+}
+
 static int sort_search(const void *_t1, const void *_t2, void *_data)
 {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
@@ -360,7 +442,7 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 }
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
-                        int aliases);
+                        int aliases, taglimit_t *limits);
 static void return_post(connection_t *conn, post_t *post, int flags)
 {
 	int i;
@@ -387,7 +469,7 @@ again:
 						c_printf(conn, "I");
 					}
 					c_printf(conn, "%s ", prefix);
-					c_print_tag(conn, tag, flags, 0);
+					c_print_tag(conn, tag, flags, 0, NULL);
 				}
 			}
 			tl = tl->next;
@@ -506,7 +588,7 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 }
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
-                        int aliases)
+                        int aliases, taglimit_t *limits)
 {
 	if (!tag) return;
 	if (flags == ~0) c_printf(conn, "R");
@@ -523,9 +605,23 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 		ss128_iterate(tagaliases, c_print_alias_cb, &data);
 	}
 	if (flags & FLAG(FLAG_RETURN_TAGDATA)) {
+		int count, weak_count;
+		if (limits) {
+			ss128_value_t res;
+			if (ss128_find(&limits->tree, &res, tag->guid.key)) {
+				count = weak_count = 0;
+			} else {
+				taglimit_tag_t *tt = (taglimit_tag_t *)res;
+				count = tt->count[0];
+				weak_count = tt->count[1];
+			}
+		} else {
+			count = tag->posts.count;
+			weak_count = tag->weak_posts.count;
+		}
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
-		c_printf(conn, "P%x ", tag->posts.count);
-		c_printf(conn, "W%x",  tag->weak_posts.count);
+		c_printf(conn, "P%x ", count);
+		c_printf(conn, "W%x",  weak_count);
 		if (tag->ordered) c_printf(conn, " Fordered");
 		if (tag->unsettable) c_printf(conn, " Funsettable");
 		if (flags != ~0) c_printf(conn, " ");
@@ -540,6 +636,7 @@ typedef struct {
 	int          tlen;
 	int          fuzzy;
 	const tag_t  **tag;
+	taglimit_t   *limits;
 	long         range_start;
 	long         range_end;
 	long         tag_pos;
@@ -548,12 +645,18 @@ typedef struct {
 	truth_t      aliases;
 	dberror_t    error;
 	char         type;
+	int          filtered;
+	search_t     search;
 } tag_search_data_t;
 
 static void tag_search_add_res(tag_search_data_t *data, const tag_t *tag,
                                int check_dup)
 {
 	if (data->error) return;
+	if (data->limits) {
+		ss128_value_t v;
+		if (ss128_find(&data->limits->tree, &v, tag->guid.key)) return;
+	}
 	if (check_dup) {
 		// This is terrible inefficient
 		for (int i = 0; i < data->tag_pos; i++) {
@@ -616,18 +719,35 @@ static void tag_search_P_alias(ss128_key_t key, ss128_value_t value,
 
 static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 {
+	int r = 1;
 	char c = data->type;
 	int aliases = data->aliases;
+	taglimit_t *limits = NULL;
+	taglimit_t limits_store;
+	if (data->filtered) {
+		result_t result;
+		search_t *search = &data->search;
+		err1(setup_search(search));
+		do_search(conn, search, &result);
+		if (!search->failed) {
+			limits = &limits_store;
+			if (search2taglimit(conn, search, &result, limits)) {
+				search->failed = 1;
+			}
+		}
+		result_free(conn, &result);
+		err1(search->failed);
+	}
 	if (c == 'G') {
-		c_print_tag(conn, tag_find_guid(data->guid), ~0, aliases);
+		c_print_tag(conn, tag_find_guid(data->guid), ~0, aliases, limits);
 	} else {
 		if (c != 'N' && c != 'P' && c != 'I') goto err;
 		if (c == 'N' && !data->fuzzy) {
 			tag_t *tag = tag_find_name(data->text, aliases, NULL);
-			c_print_tag(conn, tag, ~0, aliases);
+			c_print_tag(conn, tag, ~0, aliases, limits);
 		} else {
-			char              *fuzztext;
-			unsigned int      fuzzlen;
+			char         *fuzztext;
+			unsigned int fuzzlen;
 			if (data->fuzzy) {
 				if (utf_fuzz_c(conn, data->text, &fuzztext,
 				               &fuzzlen)) {
@@ -636,6 +756,7 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 				data->text = fuzztext;
 			}
 			data->tlen = strlen(data->text);
+			data->limits = limits;
 			ss128_iterate(tags, tag_search_P, data);
 			if (aliases) {
 				ss128_iterate(tagaliases, tag_search_P_alias,
@@ -661,17 +782,18 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 					if (start >= stop) goto done;
 				}
 				for (long i = start; i < stop; i++) {
-					c_print_tag(conn, data->tag[i], ~0, aliases);
+					c_print_tag(conn, data->tag[i], ~0, aliases, limits);
 				}
 done:
 				c_free(conn, data->tag, z);
 			}
 		}
 	}
-	return 0;
+	r = 0;
 err:
-	conn->error(conn, "");
-	return 1;
+	if (limits) taglimit_free(conn, limits);
+	if (r) conn->error(conn, "");
+	return r;
 }
 
 static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
@@ -679,7 +801,9 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 {
 	tag_search_data_t *data = data_;
 
-	if (data->type) {
+	if (data->filtered) {
+		err1(build_search_cmd(conn, cmd, &data->search, flags));
+	} else if (data->type) {
 		switch (*cmd) {
 			case 'O': // 'O'rder
 				data->order = str2id(cmd + 1, tag_orders);
@@ -688,6 +812,12 @@ static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
 			case 'R': // 'R'ange
 				if (parse_range(cmd + 1, &data->range_start,
 				                &data->range_end)) goto err;
+				break;
+			case ':': // Filter
+				data->filtered = 1;
+				init_search(&data->search);
+				err1(build_search_cmd(conn, cmd + 1,
+				                      &data->search, flags));
 				break;
 			default:
 				goto err;
@@ -731,10 +861,12 @@ static void tag_search(connection_t *conn, char *cmd)
 	data.order    = TAG_ORDER_NONE;
 	data.error    = 0;
 	data.tag      = NULL;
+	data.limits   = NULL;
 	data.tag_pos  = 0;
 	data.tag_len  = 0;
 	data.range_start = -1;
 	data.range_end   = LONG_MAX - 1;
+	data.filtered = 0;
 	if (!prot_cmd_loop(conn, cmd, &data, tag_search_cmd, 0)) {
 		c_printf(conn, "OK\n");
 	}
