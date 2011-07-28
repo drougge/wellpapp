@@ -43,12 +43,18 @@ typedef void * ss128_value_t;
 struct ss128_node;
 typedef struct ss128_node ss128_node_t;
 
+typedef int(*ss128_allocmem_t)(void *, void *, unsigned int);
+typedef void(*ss128_freemem_t)(void *, void *, unsigned int);
+
 typedef struct ss128_head {
 	ss128_node_t *root;
 	ss128_node_t *freelist;
 	void         *chunklist;
 	int          allocation_policy;
 	int          allocation_value;
+	ss128_allocmem_t allocmem;
+	ss128_freemem_t  freemem;
+	void             *memarg;
 } ss128_head_t;
 
 typedef struct list_node {
@@ -370,7 +376,7 @@ void ss128_iterate(ss128_head_t *head, ss128_callback_t callback, void *data);
 int ss128_insert(ss128_head_t *head, ss128_value_t value, ss128_key_t key);
 int ss128_delete(ss128_head_t *head, ss128_key_t key);
 int ss128_find(ss128_head_t *head, ss128_value_t *r_value, ss128_key_t key);
-int ss128_init(ss128_head_t *head);
+int ss128_init(ss128_head_t *head, ss128_allocmem_t, ss128_freemem_t, void *memarg);
 void ss128_free(ss128_head_t *head);
 int ss128_count(ss128_head_t *head);
 ss128_key_t ss128_str2key(const char *str);

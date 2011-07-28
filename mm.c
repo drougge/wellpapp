@@ -194,6 +194,21 @@ void mm_start_walker(void)
 	}
 }
 
+static int ss128_mm_alloc(void *data_, void *res, unsigned int z)
+{
+	(void)data_;
+	void *ptr = mm_alloc(z);
+	memcpy(res, &ptr, sizeof(ptr));
+	return !ptr;
+}
+
+static void ss128_mm_free(void *data_, void *ptr, unsigned int z)
+{
+	(void)data_;
+	(void)z;
+	mm_free(ptr);
+}
+
 static int mm_lock_fd = -1;
 
 static void mm_init_new(void)
@@ -215,11 +230,11 @@ static void mm_init_new(void)
 	mm_head->of_segments  = 1;
 	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
 	memcpy(mm_head->struct_sizes, sizes, sizeof(sizes));
-	r  = ss128_init(posts);
-	r |= ss128_init(tags);
-	r |= ss128_init(tagaliases);
-	r |= ss128_init(tagguids);
-	r |= ss128_init(users);
+	r  = ss128_init(posts, ss128_mm_alloc, ss128_mm_free, NULL);
+	r |= ss128_init(tags, ss128_mm_alloc, ss128_mm_free, NULL);
+	r |= ss128_init(tagaliases, ss128_mm_alloc, ss128_mm_free, NULL);
+	r |= ss128_init(tagguids, ss128_mm_alloc, ss128_mm_free, NULL);
+	r |= ss128_init(users, ss128_mm_alloc, ss128_mm_free, NULL);
 	list_newlist(postlist_nodes);
 	assert(!r);
 }
@@ -289,6 +304,16 @@ static int mm_init_old(void)
 		close(mm_fd[0]);
 		mm_fd[0] = -1;
 		return 1;
+	}
+	/* Even an otherwise valid cache may have stale function pointers here,
+	 * if the server was recompiled.
+	 */
+	ss128_head_t *fixa[] = {posts, tags, tagaliases, tagguids, users, NULL};
+	ss128_head_t **fix = fixa;
+	while (*fix) {
+		(*fix)->allocmem = ss128_mm_alloc;
+		(*fix)->freemem  = ss128_mm_free;
+		fix++;
 	}
 	return 0;
 }

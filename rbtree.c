@@ -31,7 +31,7 @@ typedef enum {
 #define efs_rbtree_rotate(bs, a, b, c)             ss128_rotate(a, b, c)
 #define efs_rbtree_node_free(bs, a, b)             ss128_node_free(a, b)
 #define efs_rbtree_balance_before_delete(bs, a, b) ss128_balance_before_delete(a, b)
-#define efs_rbtree_free_i(bs, a)                   ss128_free_i(a)
+#define efs_rbtree_free_i(bs, a, b)                ss128_free_i(a, b)
 
 #define efs_rbtree_key_t   ss128_key_t
 #define efs_rbtree_value_t ss128_value_t
@@ -45,7 +45,10 @@ typedef enum {
 #define efs_rbtree_head_t ss128_head_t
 
 int efs_rbtree_init(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_allocation_policy_t allocation_policy, int allocation_value);
-int ss128_init(ss128_head_t *head) {
+int ss128_init(ss128_head_t *head, ss128_allocmem_t allocmem, ss128_freemem_t freemem, void *memarg) {
+	head->allocmem = allocmem;
+	head->freemem  = freemem;
+	head->memarg   = memarg;
 	return efs_rbtree_init(NULL, head, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
 }
 
@@ -55,16 +58,8 @@ static void do_panic(const char *msg) {
 	exit(1);
 }
 
-#define efs_allocmem(bs, a, b, c) allocmem(a, b)
-static int allocmem(void *res, unsigned int z) {
-	void *ptr;
-
-	ptr = mm_alloc(z);
-	memcpy(res, &ptr, sizeof(ptr));
-	return !ptr;
-}
-
-#define efs_freemem(dummy1, ptr, dummy2) mm_free(ptr)
+#define efs_allocmem(bs, a, b, c) head->allocmem(head->memarg, a, b)
+#define efs_freemem(bs, a, b) head->freemem(head->memarg, a, b)
 
 static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback,
                             void *data) {
@@ -353,10 +348,10 @@ int efs_rbtree_init(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_alloca
 	return 0;
 }
 
-static void efs_rbtree_free_i(efs_base_t *base, efs_rbtree_node_t *node) {
+static void efs_rbtree_free_i(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node) {
 	if (!node) return;
-	efs_rbtree_free_i(base, node->child[0]);
-	efs_rbtree_free_i(base, node->child[1]);
+	efs_rbtree_free_i(base, head, node->child[0]);
+	efs_rbtree_free_i(base, head, node->child[1]);
 	efs_freemem(base, node, sizeof(*node));
 }
 
@@ -371,7 +366,7 @@ void efs_rbtree_free(efs_base_t *base, efs_rbtree_head_t *head) {
 			efs_freemem(base, node, sizeof(*node));
 			node = next;
 		}
-		efs_rbtree_free_i(base, head->root);
+		efs_rbtree_free_i(base, head, head->root);
 	} else {
 		void **chunk;
 

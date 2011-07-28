@@ -232,11 +232,23 @@ err:
 	return 1;
 }
 
+static int ss128_c_alloc(void *data, void *res, unsigned int z)
+{
+	connection_t *conn = data;
+	return c_alloc(conn, res, z);
+}
+
+static void ss128_c_free(void *data, void *ptr, unsigned int z)
+{
+	connection_t *conn = data;
+	c_free(conn, ptr, z);
+}
+
 static int search2taglimit(connection_t *conn, search_t *search,
                            result_t *result, taglimit_t *limit)
 {
 	memset(limit, 0, sizeof(*limit));
-	ss128_init(&limit->tree);
+	ss128_init(&limit->tree, ss128_c_alloc, ss128_c_free, conn);
 	for (long i = search->range_start; i < search->range_end; i++) {
 		err1(taglimit_add(conn, limit, result->posts[i]));
 	}
@@ -256,7 +268,7 @@ static void taglimit_free_node(ss128_key_t key, ss128_value_t value, void *data_
 static void taglimit_free(connection_t *conn, taglimit_t *limit)
 {
 	ss128_iterate(&limit->tree, taglimit_free_node, conn);
-	// @@ ss128_free(&limit->tree);
+	ss128_free(&limit->tree);
 }
 
 static int sort_search(const void *_t1, const void *_t2, void *_data)
