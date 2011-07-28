@@ -161,22 +161,6 @@ static const char *orders[] = {"created", "imagedate", "score", "group",
                                "tagcount", NULL};
 static const char *tag_orders[] = {"post", "weak", "allpost", NULL};
 
-static uint32_t tag_count(const tag_t *tag, truth_t weak)
-{
-	switch (weak) {
-		case T_NO:
-			return tag->posts.count;
-			break;
-		case T_YES:
-			return tag->weak_posts.count;
-			break;
-		case T_DONTCARE:
-		default:
-			return tag->posts.count + tag->weak_posts.count;
-			break;
-	}
-}
-
 typedef struct taglimit_tag {
 	const tag_t *tag;
 	uint32_t    count[2];
@@ -185,6 +169,36 @@ typedef struct taglimit_tag {
 typedef struct taglimit {
 	ss128_head_t tree;
 } taglimit_t;
+
+static uint32_t tag_count(const tag_t *tag, truth_t weak, taglimit_t *limit)
+{
+	uint32_t count, weak_count;
+	if (limit) {
+		ss128_value_t res;
+		if (ss128_find(&limit->tree, &res, tag->guid.key)) {
+			count = weak_count = 0;
+		} else {
+			taglimit_tag_t *tt = (taglimit_tag_t *)res;
+			count = tt->count[0];
+			weak_count = tt->count[1];
+		}
+	} else {
+		count = tag->posts.count;
+		weak_count = tag->weak_posts.count;
+	}
+	switch (weak) {
+		case T_NO:
+			return count;
+			break;
+		case T_YES:
+			return weak_count;
+			break;
+		case T_DONTCARE:
+		default:
+			return count + weak_count;
+			break;
+	}
+}
 
 static int taglimit_add_tag(connection_t *conn, taglimit_t *limit,
                             const tag_t *tag, int weak)
@@ -275,19 +289,40 @@ static int sort_search(const void *_t1, const void *_t2, void *_data)
 {
 	const search_tag_t *t1 = (const search_tag_t *)_t1;
 	const search_tag_t *t2 = (const search_tag_t *)_t2;
-	uint32_t c1 = tag_count(t1->tag, t1->weak);
-	uint32_t c2 = tag_count(t2->tag, t2->weak);
+	uint32_t c1 = tag_count(t1->tag, t1->weak, NULL);
+	uint32_t c2 = tag_count(t2->tag, t2->weak, NULL);
 	(void) _data;
 	if (c1 < c2) return -1;
 	if (c1 > c2) return 1;
 	return 0;
 }
 
+typedef struct {
+	connection_t *conn;
+	const char   *text;
+	guid_t       guid;
+	int          tlen;
+	int          fuzzy;
+	const tag_t  **tag;
+	taglimit_t   *limits;
+	long         range_start;
+	long         range_end;
+	long         tag_pos;
+	long         tag_len;
+	int          order;
+	truth_t      aliases;
+	dberror_t    error;
+	char         type;
+	int          filtered;
+	search_t     search;
+} tag_search_data_t;
+
 static int sort_tag(const void *_t1, const void *_t2, void *_data)
 {
 	const tag_t *t1 = *(const tag_t * const *)_t1;
 	const tag_t *t2 = *(const tag_t * const *)_t2;
-	int order = *(int *)_data;
+	tag_search_data_t *data = _data;
+	int order = data->order;
 	truth_t weak;
 	switch (abs(order)) {
 		case TAG_ORDER_POST:
@@ -303,8 +338,8 @@ static int sort_tag(const void *_t1, const void *_t2, void *_data)
 			return 0;
 			break;
 	}
-	uint32_t c1 = tag_count(t1, weak);
-	uint32_t c2 = tag_count(t2, weak);
+	uint32_t c1 = tag_count(t1, weak, data->limits);
+	uint32_t c2 = tag_count(t2, weak, data->limits);
 	if (c1 < c2) return order < 0 ? 1 : -1;
 	if (c1 > c2) return order < 0 ? -1 : 1;
 	return 0;
@@ -641,26 +676,6 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 	if (flags == ~0) c_printf(conn, "\n");
 }
 
-typedef struct {
-	connection_t *conn;
-	const char   *text;
-	guid_t       guid;
-	int          tlen;
-	int          fuzzy;
-	const tag_t  **tag;
-	taglimit_t   *limits;
-	long         range_start;
-	long         range_end;
-	long         tag_pos;
-	long         tag_len;
-	int          order;
-	truth_t      aliases;
-	dberror_t    error;
-	char         type;
-	int          filtered;
-	search_t     search;
-} tag_search_data_t;
-
 static void tag_search_add_res(tag_search_data_t *data, const tag_t *tag,
                                int check_dup)
 {
@@ -779,7 +794,7 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 			if (data->tag_pos) {
 				if (data->order) {
 					sort(data->tag, data->tag_pos,
-					     sizeof(*data->tag), sort_tag, &data->order);
+					     sizeof(*data->tag), sort_tag, data);
 				}
 				unsigned int z = sizeof(*data->tag) * data->tag_len;
 				long start = 0;
