@@ -999,6 +999,35 @@ static int show_rev_impl_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
+typedef struct metalist {
+	const char *name;
+	const char * const *list;
+} metalist_t;
+
+static void list_print(connection_t *conn, const char * const *list)
+{
+	while (*list) {
+		c_printf(conn, "RN%s\n", *list);
+		list++;
+	}
+}
+
+static void list_cmd(connection_t *conn, const char *cmd)
+{
+	const metalist_t list[] = {{"tagtypes", tagtype_names},
+	                           {"ratings", rating_names},
+	                           {NULL, NULL}
+	                          };
+	for (const metalist_t *p = list; p->name; p++) {
+		if (!strcmp(p->name, cmd)) {
+			list_print(conn, p->list);
+			c_printf(conn, "OK\n");
+			return;
+		}
+	}
+	conn->error(conn, cmd);
+}
+
 static void modifying_command(connection_t *conn,
                               int (*func)(connection_t *, char *), char *cmd)
 {
@@ -1089,6 +1118,9 @@ void client_handle(connection_t *conn, char *buf)
 			break;
 		case 'O': // 'O'rder
 			modifying_command(conn, prot_order, buf + 1);
+			break;
+		case 'L': // 'L'ist
+			list_cmd(conn, buf + 1);
 			break;
 		case 'N': // 'N'OP
 			c_printf(conn, "OK\n");

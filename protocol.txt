@@ -21,6 +21,7 @@ D - delete an existing object
 R - relationship management
 I - implication management
 O - order management
+L - lists of meta information
 N - nop (to keep server from closing idle connection)
 a - authenticate
 t - transactions
@@ -230,6 +231,12 @@ O:
 	The order of posts that have not been ordered is unspecified.
 	It is not possible to order the posts on a tag that has weak or
 	implied posts.
+
+L:
+	Returns a list of some meta property. Currently this can be tagtypes
+	or ratings. Return RNname (one per line).
+	Example:
+		Ltagtypes
 
 N:
 Replies "OK".
