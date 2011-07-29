@@ -211,11 +211,11 @@ static int taglimit_add_tag(connection_t *conn, taglimit_t *limit,
 		void *mem;
 		if (c_alloc(conn, &mem, sizeof(*tt))) return 1;
 		res = mem;
+		tt  = mem;
 		if (ss128_insert(&limit->tree, res, key)) {
 			c_free(conn, tt, sizeof(*tt));
 			return 1;
 		}
-		tt = mem;
 		tt->tag = tag;
 		tt->count[0] = tt->count[1] = 0;
 	}
