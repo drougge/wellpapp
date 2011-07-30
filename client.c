@@ -568,15 +568,7 @@ static void do_search(connection_t *conn, search_t *search, result_t *result)
 		}
 		if (!result->of_posts) goto done;
 	}
-	for (unsigned int i = 0; i < search->of_excluded_tags; i++) {
-		search_tag_t *t = &search->excluded_tags[i];
-		if (result_remove_tag(conn, result, t->tag, t->weak)) {
-			c_close_error(conn, E_MEM);
-			goto err;
-		}
-		if (!result->of_posts) goto done;
-	}
-	if (!result->of_posts) { // No criteria -> return all posts
+	if (!result->of_posts) { // No positive criteria -> start with all posts
 		post2result_data_t data;
 		data.conn   = conn;
 		data.result = result;
@@ -586,6 +578,14 @@ static void do_search(connection_t *conn, search_t *search, result_t *result)
 			c_close_error(conn, E_MEM);
 			goto err;
 		}
+	}
+	for (unsigned int i = 0; i < search->of_excluded_tags; i++) {
+		search_tag_t *t = &search->excluded_tags[i];
+		if (result_remove_tag(conn, result, t->tag, t->weak)) {
+			c_close_error(conn, E_MEM);
+			goto err;
+		}
+		if (!result->of_posts) goto done;
 	}
 done:
 	if (result->of_posts > 1) {
