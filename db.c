@@ -290,6 +290,7 @@ static void post_recompute_implications(post_t *post)
 	alloc_data_t adata;
 	post_taglist_t *implied[2];
 	int again;
+	int depth = 0;
 again:
 	again = 0;
 	adata.segs = NULL;
@@ -299,7 +300,14 @@ again:
 	again |= impl_apply_change(post, &post->implied_weak_tags, implied[1],
 	                           T_YES);
 	alloc_temp_free(&adata);
-	if (again) goto again;
+	if (again) {
+		if (depth++ > 64) { // Really, how complicated do you need?
+			fprintf(stderr, "Bailing out of implications on %s\n",
+			        md5_md52str(post->md5));
+		} else {
+			goto again;
+		}
+	}
 }
 
 static void post_recompute_implications_iter(list_node_t *ln, void *data)
