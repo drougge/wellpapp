@@ -157,10 +157,7 @@ struct impl_iterator_data {
 	implcomp_data_t *list;
 	int             len;
 	truth_t         weak;
-	alloc_func_t    alloc;
-	alloc_data_t    *adata;
 	impl_callback_t callback;
-	void            *callback_data;
 };
 
 static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data)
@@ -207,8 +204,6 @@ static void post_implications(post_t *post, alloc_func_t alloc,
 	impldata.list = NULL;
 	impldata.len = 0;
 	impldata.weak = T_NO;
-	impldata.alloc = alloc;
-	impldata.adata = adata;
 	impldata.callback = impl_cb;
 again:
 	tl = impldata.weak ? post->weak_tags : &post->tags;
@@ -245,7 +240,7 @@ again:
 			}
 			if (!skip && list[i].impl->positive) {
 				taglist_add(&res[list[i].weak],
-				           list[i].impl->tag, alloc_mm, NULL);
+				           list[i].impl->tag, alloc, adata);
 			}
 		}
 		free(list);
@@ -293,11 +288,12 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 static void post_recompute_implications(post_t *post)
 {
 	alloc_data_t adata;
-	post_taglist_t *implied[2] = {NULL, NULL};
+	post_taglist_t *implied[2];
 	int again;
 again:
 	again = 0;
 	adata.segs = NULL;
+	implied[0] = implied[1] = NULL;
 	post_implications(post, alloc_temp, &adata, implied);
 	again |= impl_apply_change(post, &post->implied_tags, implied[0], T_NO);
 	again |= impl_apply_change(post, &post->implied_weak_tags, implied[1],
