@@ -125,12 +125,15 @@ static void merge_tags_cb(list_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
 	post_t *post = ((postlist_node_t *)ln)->post;
-	int r = post_tag_rem(post, data->rmtag);
-	assert(!r);
-	if (!post_has_tag(post, data->tag, data->weak)) {
-		r = post_tag_add(post, data->tag, data->weak);
+	if (!post_has_tag(post, data->tag, data->weak)
+	    || taglist_contains(post->implied_tags, data->tag)
+	    || taglist_contains(post->implied_weak_tags, data->tag)
+	   ) {
+		int r = post_tag_add(post, data->tag, data->weak);
 		assert(!r);
 	}
+	int r = post_tag_rem(post, data->rmtag);
+	assert(!r);
 }
 
 typedef struct mergedata_alias {
