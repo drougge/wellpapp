@@ -224,12 +224,15 @@ typedef enum {
 } dberror_t;
 
 /* Keep enum and #define synced */
-#define FILETYPE_NAMES_STR "jpeg gif png bmp swf"
+#define FILETYPE_NAMES_STR "jpeg gif png bmp dng pef nef swf"
 typedef enum {
 	FILETYPE_JPEG,
 	FILETYPE_GIF,
 	FILETYPE_PNG,
 	FILETYPE_BMP,
+	FILETYPE_DNG,
+	FILETYPE_PEF,
+	FILETYPE_NEF,
 	FILETYPE_FLASH,
 } filetype_t;
 
