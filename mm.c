@@ -97,17 +97,11 @@ static int mm_open_segment(unsigned int nr, int flags)
 static void *mm_map_segment(unsigned int nr)
 {
 	uint8_t *addr, *want_addr;
-	static volatile int touch = 0;
 
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
 	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE,
 	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, mm_fd[nr], 0);
 	assert(addr == want_addr);
-	// Try to make sure everything is faulted in.
-	// I don't trust [posix_]madvise.
-	for (int i = 0; i < MM_SEGMENT_SIZE; i += 4096) {
-		touch += addr[i];
-	}
 	return addr;
 }
 
@@ -251,6 +245,15 @@ static int mm_statlog(unsigned long long idx, struct stat *sb)
 	return 0;
 }
 
+static void prime_cache(const uint8_t *p, const uint8_t *end)
+{
+	static volatile int v = 0;
+	while (p < end) {
+		v += *p;
+		p += 4096;
+	}
+}
+
 static int mm_init_old(void)
 {
 	mm_head_t    head;
@@ -305,6 +308,9 @@ static int mm_init_old(void)
 		mm_fd[0] = -1;
 		return 1;
 	}
+	// Try to make sure everything is faulted in.
+	// I don't trust [posix_]madvise.
+	prime_cache(mm_head->addr, mm_head->addr + mm_head->size);
 	/* Even an otherwise valid cache may have stale function pointers here,
 	 * if the server was recompiled.
 	 */
