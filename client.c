@@ -667,6 +667,9 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 			weak_count = tag->weak_posts.count;
 		}
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
+		if (tag->valuetype) {
+			c_printf(conn, "V%s ", tag_value_types[tag->valuetype]);
+		}
 		c_printf(conn, "P%x ", count);
 		c_printf(conn, "W%x",  weak_count);
 		if (tag->ordered) c_printf(conn, " Fordered");

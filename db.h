@@ -104,8 +104,35 @@ typedef enum {
 struct tag;
 typedef struct tag tag_t;
 
+// fstop is in 6th stops, with 0 representing 1, lower stops are negative.
+// (and for example f/5.6 is 30)
+// this gets formated/parsed using f_stop_names in db.c, so the actual
+// range is currently 1 to 90, with holes on the non-1/3 1/6-stops.
+// iso is the arithmetic scale, 100 is a typical slow film. No enforcing
+// of defined speeds, fuzz is calculated a little bigger to compensate.
+// @@ asa = int(10*log10(iso) + 1); iso = int(pow(10, (asa - 1) / 10))
+// @@ might be helpful when calucating iso fuzz.
+typedef struct tag_value {
+	union {
+		const char *v_str;
+		uint64_t   v_uint;
+		int64_t    v_int;
+		double     v_float;
+		int64_t    v_fstop;
+		int64_t    v_iso;
+	} val;
+	union {
+		uint64_t   f_uint;
+		uint64_t   f_int;
+		double     f_float;
+		int        f_fstop;
+		double     f_iso;
+	} fuzz;
+} tag_value_t;
+
 typedef struct post_taglist {
 	tag_t               *tags[14];
+	tag_value_t         *values[14];
 	struct post_taglist *next;
 } post_taglist_t;
 
@@ -179,6 +206,7 @@ typedef struct field {
 } field_t;
 
 extern const field_t post_fields[];
+extern const char * const tag_value_types[];
 
 struct postlist_node_node {
 	postlist_node_t *succ;
@@ -192,6 +220,27 @@ struct postlist_node {
 	post_t      *post;
 };
 
+// Needs to match tag_value_types in protocol.c
+typedef enum {
+	VT_NONE,
+	VT_STRING,
+	VT_INT,
+	VT_UINT,
+	VT_FLOAT,
+	VT_F_STOP,
+	VT_ISO,
+} valuetype_t;
+
+typedef enum {
+	CMP_NONE,
+	CMP_EQ,
+	CMP_GT,
+	CMP_GE,
+	CMP_LT,
+	CMP_LE,
+	CMP_REGEXP,
+} tagvalue_cmp_t;
+
 struct tag {
 	const char *name;
 	const char *fuzzy_name;
@@ -200,6 +249,7 @@ struct tag {
 	postlist_t posts;
 	postlist_t weak_posts;
 	impllist_t *implications;
+	valuetype_t  valuetype;
 	unsigned int ordered    : 1;
 	unsigned int unsettable : 1;
 };
@@ -355,11 +405,13 @@ user_t *prot_auth(char *cmd);
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
+tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
+                              const char **r_value);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
 int post_tag_rem(post_t *post, tag_t *tag);
-int post_tag_add(post_t *post, tag_t *tag, truth_t weak);
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 int post_find_md5str(post_t **res_post, const char *md5str);
 int post_has_rel(const post_t *post, const post_t *rel);
@@ -391,6 +443,7 @@ void *mm_alloc(unsigned int size);
 void *mm_alloc_s(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);
+void *mm_dup(void *d, size_t z);
 void mm_print(void);
 void mm_start_walker(void);
 

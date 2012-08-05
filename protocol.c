@@ -4,6 +4,66 @@
 #include <errno.h>
 #include <time.h>
 
+#define TAG_VALUE_PARSER(vtype, vfunc, ftype, ffunc)                        \
+	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f)   \
+	{                                                                   \
+		char *end;                                                  \
+		*v = vfunc(val, &end);                                      \
+		*f = 0;                                                     \
+		if (val == end) return 1;                                   \
+		if (end[0] == '+' && end[1] == '-') {                       \
+			val = end + 2;                                      \
+			*f = ffunc(val, &end);                              \
+			if (!*val || (double)*f < 0) return 1;              \
+		}                                                           \
+		if (*end) {                                                 \
+			return 1;                                           \
+		}                                                           \
+		return 0;                                                   \
+	}
+#define str2SI(v, e) strtoll(v, e, 10)
+#define str2UI(v, e) strtoull(v, e, 16)
+TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
+TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
+TAG_VALUE_PARSER(double, strtod, double, strtod)
+
+static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval)
+{
+	if (!val) return 1;
+	switch (tag->valuetype) {
+		case VT_STRING:
+			tval->val.v_str = mm_strdup(str_enc2str(val));
+			return 0;
+			break;
+		case VT_INT:
+			if (!tv_parser_int64_t(val, &tval->val.v_int,
+			                       &tval->fuzz.f_int)) {
+				return 0;
+			}
+			break;
+		case VT_UINT:
+			if (!tv_parser_uint64_t(val, &tval->val.v_uint,
+			                        &tval->fuzz.f_uint)) {
+				return 0;
+			}
+			break;
+		case VT_FLOAT:
+			if (!tv_parser_double(val, &tval->val.v_float,
+			                      &tval->fuzz.f_float)) {
+				return 0;
+			}
+			break;
+		case VT_F_STOP:
+			break;
+		case VT_ISO:
+			break;
+		default: // VT_NONE, or bad value
+			break;
+	}
+// @@ todo: F-stop and ISO
+	return 1;
+}
+
 static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
                         prot_cmd_flag_t flags)
 {
@@ -27,13 +87,24 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 				args++;
 				weak = T_YES;
 			}
-			tag_t *tag = tag_find_guidstr(args);
+			const char *val;
+			tagvalue_cmp_t cmp;
+			tag_t *tag = tag_find_guidstr_value(args, &cmp, &val);
 			if (tag && *cmd == 'T' && tag->unsettable) tag = NULL;
 			if (!tag) return conn->error(conn, cmd);
+			if (cmp && cmp != CMP_EQ) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
-				int r = post_tag_add(*post, tag, weak);
+				tag_value_t tval, *tval_p = NULL;
+				if (val) {
+					tval_p = &tval;
+					if (tag_value_parse(tag, val, tval_p)) {
+						return conn->error(conn, cmd);
+					}
+				}
+				int r = post_tag_add(*post, tag, weak, tval_p);
 				if (r) return conn->error(conn, cmd);
 			} else {
+				if (cmp) return conn->error(conn, cmd);
 				int r = post_tag_rem(*post, tag);
 				if (r) return conn->error(conn, cmd);
 			}
@@ -121,6 +192,7 @@ static void merge_tags_chk_cb(list_node_t *ln, void *data_)
 	data->bad |= post_has_tag(post, data->tag, data->weak);
 }
 
+// @@todo valued tags
 static void merge_tags_cb(list_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
@@ -129,7 +201,7 @@ static void merge_tags_cb(list_node_t *ln, void *data_)
 	    || taglist_contains(post->implied_tags, data->tag)
 	    || taglist_contains(post->implied_weak_tags, data->tag)
 	   ) {
-		int r = post_tag_add(post, data->tag, data->weak);
+		int r = post_tag_add(post, data->tag, data->weak, NULL);
 		assert(!r);
 	}
 	int r = post_tag_rem(post, data->rmtag);
@@ -222,6 +294,10 @@ typedef struct tag_cmd_data {
 	unsigned int flag_unsettable : 1;
 } tag_cmd_data_t;
 
+// needs to match valuetype_t in db.h
+const char * const tag_value_types[] = {"none", "string", "int", "uint",
+                                        "float", "f-stop", "iso", NULL};
+
 static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
                    prot_cmd_flag_t flags)
 {
@@ -276,6 +352,15 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 			if (merge_tags(conn, tag, merge_tag)) {
 				return conn->error(conn, cmd);
 			}
+			break;
+		case 'V':
+			if (tag->valuetype) {
+				// @@todo: support for changing types
+				return conn->error(conn, cmd);
+			}
+			int vt = str2id(args, tag_value_types);
+			if (vt <= 0) return conn->error(conn, cmd);
+			tag->valuetype = vt - 1;
 			break;
 		case 'F':
 			u_value = 1;

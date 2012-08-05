@@ -232,9 +232,10 @@ void log_write_tag(trans_t *trans, const tag_t *tag, int is_add,
 		if (!tag->unsettable) minus = "-";
 		snprintf(fbuf, sizeof(fbuf), " F%sunsettable", minus);
 	}
-	log_write(trans, "%cTG%s N%s T%s%s%s", is_add ? 'A' : 'M',
+	log_write(trans, "%cTG%s N%s T%s%s%s V%s", is_add ? 'A' : 'M',
 	          guid_guid2str(tag->guid), tag->name,
-	          tagtype_names[tag->type], fbuf, mbuf);
+	          tagtype_names[tag->type], fbuf, mbuf,
+	          tag_value_types[tag->valuetype]);
 }
 
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias)

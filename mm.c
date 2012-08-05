@@ -506,6 +506,14 @@ const char *mm_strdup(const char *str)
 	return new;
 }
 
+void *mm_dup(void *d, size_t z)
+{
+	if (!d) return NULL;
+	void *new = mm_alloc_(z, 0);
+	memcpy(new, d, z);
+	return new;
+}
+
 void mm_print(void)
 {
 	printf("%llu of %llu bytes used, %llu free (%llu wasted). %d segments.\n", ULL mm_head->used, ULL mm_head->size, ULL mm_head->free, ULL mm_head->wasted, mm_head->of_segments);

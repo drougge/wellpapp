@@ -29,7 +29,28 @@ ss128_head_t *posts;
 ss128_head_t *users;
 list_head_t  *postlist_nodes;
 
-// @@TODO: Locking/locklessness.
+// This needs to be a table, because the numbers everyone uses are not
+// mathematically correct, and precision varies too.
+// Sources of collisions:
+// 3.3 is often called 3.5.
+// 12.7 is usually called 13.
+//                            full   -     +1/3    +1/2   +2/3    -
+const char *f_stop_names[] = {"1"  , NULL, "1.1" , "1.2", "1.3", NULL,
+                              "1.4", NULL, "1.6" , "1.7", "1.8", "1.9",
+                              "2"  , NULL, "2.2" , "2.4", "2.5", NULL,
+                              "2.8", NULL, "3.2" , "3.3", "3.5", NULL,
+                              "4"  , NULL, "4.5" , "4.8", "5.0", NULL,
+                              "5.6", NULL, "6.3" , "6.7", "7.1", NULL,
+                              "8"  , NULL, "9"   , "9.5", "10" , NULL,
+                              "11" , NULL, "12.7", "13" , "14" , NULL,
+                              "16" , NULL, "18"  , "19" , "20" , NULL,
+                              "22" , NULL, "26"  , "27" , "28" , NULL,
+                              "32" , NULL, "36"  , "38" , "40" , NULL,
+                              "45" , NULL, "52"  , "54" , "56" , NULL,
+                              "64" , NULL, "72"  , "76" , "80" , NULL,
+                              "90"
+                             };
+// @@todo: Actually use this. Maybe.
 
 static postlist_node_t *postlist_alloc(void)
 {
@@ -247,7 +268,8 @@ again:
 	}
 }
 
-static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied);
+static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
+                          tag_value_t *tval);
 static int post_tag_rem_i(post_t *post, tag_t *tag, int implied);
 static int impl_apply_change(post_t *post, post_taglist_t **old,
                              post_taglist_t *new, truth_t weak)
@@ -260,7 +282,7 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 			tag_t *tag = tl->tags[i];
 			if (tag && !taglist_contains(*old, tag)) {
 				if (!post_has_tag(post, tag, T_DONTCARE)) {
-					post_tag_add_i(post, tag, weak, 1);
+					post_tag_add_i(post, tag, weak, 1, NULL);
 					taglist_add(old, tag, alloc_mm, NULL);
 					changed = 1;
 				} else {
@@ -411,7 +433,8 @@ int post_tag_rem(post_t *post, tag_t *tag)
 	return r;
 }
 
-static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied)
+static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
+                          tag_value_t *tval)
 {
 	post_taglist_t *tl;
 	post_taglist_t *ptl = NULL;
@@ -420,6 +443,7 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied)
 	assert(post);
 	assert(tag);
 	assert(weak == T_YES || weak == T_NO);
+	assert(!implied || !tval);
 	if (!implied) {
 		if (taglist_contains(post->implied_tags, tag)) {
 			int r = taglist_remove(post->implied_tags, tag);
@@ -431,8 +455,8 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied)
 			if (weak) return 0;
 		}
 	}
-	if (post_has_tag(post, tag, weak)) return 1;
-	if (post_has_tag(post, tag, !weak)) {
+	if (!tval && post_has_tag(post, tag, weak)) return 1;
+	if (post_has_tag(post, tag, T_DONTCARE)) {
 		if (post_tag_rem_i(post, tag, 0)) return 1;
 	}
 	if (weak) {
@@ -449,6 +473,7 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied)
 		for (i = 0; i < arraylen(tl->tags); i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
+				tl->values[i] = mm_dup(tval, sizeof(*tval));
 				return 0;
 			}
 		}
@@ -457,13 +482,14 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied)
 	}
 	tl = mm_alloc(sizeof(*tl));
 	tl->tags[0]  = tag;
+	tl->values[0] = mm_dup(tval, sizeof(*tval));
 	ptl->next    = tl;
 	return 0;
 }
 
-int post_tag_add(post_t *post, tag_t *tag, truth_t weak)
+int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval)
 {
-	int r = post_tag_add_i(post, tag, weak, 0);
+	int r = post_tag_add_i(post, tag, weak, 0, tval);
 	if (!r) post_recompute_implications(post);
 	return r;
 }
@@ -556,6 +582,50 @@ tag_t *tag_find_guidstr(const char *guidstr)
 	guid_t guid;
 	if (guid_str2guid(&guid, guidstr, GUIDTYPE_TAG)) return NULL;
 	return tag_find_guid(guid);
+}
+
+tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
+                              const char **r_value)
+{
+	int len = strlen(guidstr);
+	const char *bare = guidstr;
+	*r_value = NULL;
+	*r_cmp = CMP_NONE;
+	if (len > 27) {
+		char guid[28];
+		memcpy(guid, guidstr, 27);
+		guid[27] = '\0';
+		bare = guid;
+		const char *v = guidstr + 27;
+		switch (v[0]) {
+			case '=':
+				*r_cmp = CMP_EQ;
+				if (v[1] == '~') {
+					*r_cmp = CMP_REGEXP;
+					v++;
+				}
+				break;
+			case '>':
+				*r_cmp = CMP_GT;
+				if (v[1] == '=') {
+					*r_cmp = CMP_GE;
+					v++;
+				}
+				break;
+			case '<':
+				*r_cmp = CMP_LT;
+				if (v[1] == '=') {
+					*r_cmp = CMP_LE;
+					v++;
+				}
+				break;
+			default:
+				return NULL;
+				break;
+		}
+		*r_value = v + 1;
+	}
+	return tag_find_guidstr(bare);
 }
 
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias)
