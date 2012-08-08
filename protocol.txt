@@ -95,6 +95,8 @@ tag ("T").
 	Each tag is introduced by a colon immediately followed by flags for
 	this tag, I for implied and ~ for weak, and then the same format as
 	returned from tag searches (with the data you requested only).
+	If the tag has a value, this is returned as Vtype=value (instead of
+	just Vtype in tag searches).
 	Example:
 		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext Ftagname Ftagguid
 	Example reply:

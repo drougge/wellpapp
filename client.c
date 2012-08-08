@@ -489,7 +489,7 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 }
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
-                        int aliases, taglimit_t *limits);
+                        int aliases, taglimit_t *limits, post_t *post);
 static void return_post(connection_t *conn, post_t *post, int flags)
 {
 	int i;
@@ -516,7 +516,7 @@ again:
 						c_printf(conn, "I");
 					}
 					c_printf(conn, "%s ", prefix);
-					c_print_tag(conn, tag, flags, 0, NULL);
+					c_print_tag(conn, tag, flags, 0, NULL, post);
 				}
 			}
 			tl = tl->next;
@@ -634,8 +634,48 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 	}
 }
 
+static void tv_print_str(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%s", str_str2enc(tv->val.v_str));
+}
+
+static void tv_print_int(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%d", tv->val.v_int);
+	if (tv->fuzz.f_int) c_printf(conn, "+-%x", tv->fuzz.f_int);
+}
+
+static void tv_print_uint(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%x", tv->val.v_uint);
+	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
+}
+
+static void tv_print_float(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%f", tv->val.v_float);
+	if (tv->fuzz.f_float) c_printf(conn, "+-%f", tv->fuzz.f_float);
+}
+
+static void tv_print_fstop(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%f", tv->val.v_fstop);
+	if (tv->fuzz.f_fstop) c_printf(conn, "+-%f", tv->fuzz.f_fstop);
+}
+
+static void tv_print_iso(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%d", tv->val.v_iso);
+	if (tv->fuzz.f_iso) c_printf(conn, "+-%f", tv->fuzz.f_iso);
+}
+
+typedef void (tv_printer_t)(connection_t *, tag_value_t *);
+// Needs to match valuetype_t in db.h
+tv_printer_t *tv_printer[] = {NULL, tv_print_str, tv_print_int, tv_print_uint,
+                              tv_print_float, tv_print_fstop, tv_print_iso};
+
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
-                        int aliases, taglimit_t *limits)
+                        int aliases, taglimit_t *limits, post_t *post)
 {
 	if (!tag) return;
 	if (flags == ~0) c_printf(conn, "R");
@@ -668,7 +708,12 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 		}
 		c_printf(conn, "T%s ", tagtype_names[tag->type]);
 		if (tag->valuetype) {
-			c_printf(conn, "V%s ", tag_value_types[tag->valuetype]);
+			c_printf(conn, "V%s", tag_value_types[tag->valuetype]);
+			if (post) {
+				tag_value_t *tv = post_tag_value(post, tag);
+				if (tv) tv_printer[tag->valuetype](conn, tv);
+			}
+			c_printf(conn, " ");
 		}
 		c_printf(conn, "P%x ", count);
 		c_printf(conn, "W%x",  weak_count);
@@ -769,12 +814,13 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 		err1(search->failed);
 	}
 	if (c == 'G') {
-		c_print_tag(conn, tag_find_guid(data->guid), ~0, aliases, limits);
+		c_print_tag(conn, tag_find_guid(data->guid), ~0, aliases,
+		            limits, NULL);
 	} else {
 		if (c != 'N' && c != 'P' && c != 'I') goto err;
 		if (c == 'N' && !data->fuzzy) {
 			tag_t *tag = tag_find_name(data->text, aliases, NULL);
-			c_print_tag(conn, tag, ~0, aliases, limits);
+			c_print_tag(conn, tag, ~0, aliases, limits, NULL);
 		} else {
 			char         *fuzztext;
 			unsigned int fuzzlen;
@@ -812,7 +858,8 @@ static int tag_search_cmd_last(connection_t *conn, tag_search_data_t *data)
 					if (start >= stop) goto done;
 				}
 				for (long i = start; i < stop; i++) {
-					c_print_tag(conn, data->tag[i], ~0, aliases, limits);
+					c_print_tag(conn, data->tag[i], ~0,
+					            aliases, limits, NULL);
 				}
 done:
 				c_free(conn, data->tag, z);

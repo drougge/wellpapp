@@ -648,7 +648,8 @@ tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias)
 	return tag;
 }
 
-int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak)
+static int post_tag(const post_t *post, const tag_t *tag, truth_t weak,
+                    const post_taglist_t **r_tl, int *r_i)
 {
 	const post_taglist_t *tl;
 	assert(post);
@@ -662,7 +663,11 @@ again:
 	while (tl) {
 		unsigned int i;
 		for (i = 0; i < arraylen(tl->tags); i++) {
-			if (tl->tags[i] == tag) return 1;
+			if (tl->tags[i] == tag) {
+				*r_tl = tl;
+				*r_i  = i;
+				return 1;
+			}
 		}
 		tl = tl->next;
 	}
@@ -671,6 +676,23 @@ again:
 		goto again;
 	}
 	return 0;
+}
+
+int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak)
+{
+	const post_taglist_t *tl;
+	int i;
+	return post_tag(post, tag, weak, &tl, &i);
+}
+
+tag_value_t *post_tag_value(const post_t *post, const tag_t *tag)
+{
+	const post_taglist_t *tl;
+	int i;
+	if (post_tag(post, tag, T_DONTCARE, &tl, &i)) {
+		return tl->values[i];
+	}
+	return NULL;
 }
 
 int post_find_md5str(post_t **res_post, const char *md5str)

@@ -220,7 +220,7 @@ struct postlist_node {
 	post_t      *post;
 };
 
-// Needs to match tag_value_types in protocol.c
+// Needs to match tag_value_types in protocol.c and tv_printer in client.c
 typedef enum {
 	VT_NONE,
 	VT_STRING,
@@ -413,6 +413,7 @@ int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
 int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
+tag_value_t *post_tag_value(const post_t *post, const tag_t *tag);
 int post_find_md5str(post_t **res_post, const char *md5str);
 int post_has_rel(const post_t *post, const post_t *rel);
 int post_rel_add(post_t *a, post_t *b);
