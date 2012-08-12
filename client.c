@@ -647,7 +647,6 @@ static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 static void tv_print_double(connection_t *conn, tag_value_t *tv)
 {
 	c_printf(conn, "=%s", tv->v_str);
-	if (tv->fuzz.f_double) c_printf(conn, "+-%f", tv->fuzz.f_double);
 }
 
 typedef void (tv_printer_t)(connection_t *, tag_value_t *);
