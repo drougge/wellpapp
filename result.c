@@ -69,13 +69,17 @@ static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
 	}
 }
 
-#define TVC_NUM(t, n)                                                          \
+#define TVC_NUM(t, ft, ff, n)                                                  \
 	static int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b) \
 	{                                                                      \
-		t a_low  = a->val.v_##n - a->fuzz.f_##n;                       \
-		t a_high = a->val.v_##n + a->fuzz.f_##n;                       \
-		t b_low  = b->val.v_##n - b->fuzz.f_##n;                       \
-		t b_high = b->val.v_##n + b->fuzz.f_##n;                       \
+		ft a_fuzz = a->fuzz.f_##n;                                     \
+		if (a_fuzz) a_fuzz += ff;                                      \
+		ft b_fuzz = b->fuzz.f_##n;                                     \
+		if (b_fuzz) b_fuzz += ff;                                      \
+		t a_low  = a->val.v_##n - a_fuzz;                              \
+		t a_high = a->val.v_##n + a_fuzz;                              \
+		t b_low  = b->val.v_##n - b_fuzz;                              \
+		t b_high = b->val.v_##n + b_fuzz;                              \
 		switch (cmp) {                                                 \
 			case CMP_EQ:                                           \
 				return a_low <= b_high && b_low <= a_high;     \
@@ -91,9 +95,9 @@ static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
 				break;                                         \
 		}                                                              \
 	}
-TVC_NUM(int64_t, int)
-TVC_NUM(uint64_t, uint)
-TVC_NUM(double, double)
+TVC_NUM(int64_t , uint64_t, 0   , int)
+TVC_NUM(uint64_t, uint64_t, 0   , uint)
+TVC_NUM(double  , double  , 0.07, double)
 
 typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *);
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
