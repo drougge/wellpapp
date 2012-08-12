@@ -1,5 +1,7 @@
 #include "db.h"
 
+#include <regex.h>
+
 void result_free(connection_t *conn, result_t *result)
 {
 	if (result->posts) {
@@ -39,11 +41,15 @@ static int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
 	return 0;
 }
 
+// @@ This compiles the regexp for every iteration.
 static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
 {
 	if (cmp == CMP_REGEXP) {
-		// @@ needs a regexp lib
-		return 0;
+		regex_t re;
+		if (regcomp(&re, b->v_str, REG_EXTENDED | REG_NOSUB)) return 0;
+		int r = regexec(&re, a->v_str, 0, NULL, 0);
+		regfree(&re);
+		return !r;
 	} else {
 		int eq = strcmp(a->v_str, b->v_str);
 		switch (cmp) {
