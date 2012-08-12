@@ -29,29 +29,6 @@ ss128_head_t *posts;
 ss128_head_t *users;
 list_head_t  *postlist_nodes;
 
-// This needs to be a table, because the numbers everyone uses are not
-// mathematically correct, and precision varies too.
-// Sources of collisions:
-// 3.3 is often called 3.5.
-// 12.7 is usually called 13.
-//                            full   -     +1/3    +1/2   +2/3    -
-const char *f_stop_names[] = {"1"  , NULL, "1.1" , "1.2", "1.3", NULL,
-                              "1.4", NULL, "1.6" , "1.7", "1.8", "1.9",
-                              "2"  , NULL, "2.2" , "2.4", "2.5", NULL,
-                              "2.8", NULL, "3.2" , "3.3", "3.5", NULL,
-                              "4"  , NULL, "4.5" , "4.8", "5.0", NULL,
-                              "5.6", NULL, "6.3" , "6.7", "7.1", NULL,
-                              "8"  , NULL, "9"   , "9.5", "10" , NULL,
-                              "11" , NULL, "12.7", "13" , "14" , NULL,
-                              "16" , NULL, "18"  , "19" , "20" , NULL,
-                              "22" , NULL, "26"  , "27" , "28" , NULL,
-                              "32" , NULL, "36"  , "38" , "40" , NULL,
-                              "45" , NULL, "52"  , "54" , "56" , NULL,
-                              "64" , NULL, "72"  , "76" , "80" , NULL,
-                              "90"
-                             };
-// @@todo: Actually use this. Maybe.
-
 static postlist_node_t *postlist_alloc(void)
 {
 	postlist_node_t *pn = (postlist_node_t *)list_remhead(postlist_nodes);

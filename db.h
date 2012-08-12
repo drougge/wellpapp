@@ -104,29 +104,25 @@ typedef enum {
 struct tag;
 typedef struct tag tag_t;
 
-// fstop is in 6th stops, with 0 representing 1, lower stops are negative.
-// (and for example f/5.6 is 30)
-// this gets formated/parsed using f_stop_names in db.c, so the actual
-// range is currently 1 to 90, with holes on the non-1/3 1/6-stops.
-// iso is the arithmetic scale, 100 is a typical slow film. No enforcing
+// F-stops as used by cameras tend to be lies (e.g. "3.5" for both 2.8+1/2
+// and 2.8+2/3). This is currently not handled, use +-.67 for +-.5 maybe?
+// (And even more since they're rounded too.)
+// ISO is the arithmetic scale, 100 is a typical slow film. No enforcing
 // of defined speeds, fuzz is calculated a little bigger to compensate.
 // @@ asa = int(10*log10(iso) + 1); iso = int(pow(10, (asa - 1) / 10))
 // @@ might be helpful when calucating iso fuzz.
+// v_str is not in val because doubles also store the exact value in v_str.
 typedef struct tag_value {
+	const char *v_str;
 	union {
-		const char *v_str;
 		uint64_t   v_uint;
 		int64_t    v_int;
-		double     v_float;
-		int64_t    v_fstop;
-		int64_t    v_iso;
+		double     v_double;
 	} val;
 	union {
 		uint64_t   f_uint;
 		uint64_t   f_int;
-		double     f_float;
-		int        f_fstop;
-		double     f_iso;
+		double     f_double;
 	} fuzz;
 } tag_value_t;
 

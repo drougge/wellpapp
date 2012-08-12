@@ -636,7 +636,7 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 
 static void tv_print_str(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%s", str_str2enc(tv->val.v_str));
+	c_printf(conn, "=%s", str_str2enc(tv->v_str));
 }
 
 static void tv_print_int(connection_t *conn, tag_value_t *tv)
@@ -651,28 +651,22 @@ static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
 }
 
-static void tv_print_float(connection_t *conn, tag_value_t *tv)
+static void tv_print_double(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%f", tv->val.v_float);
-	if (tv->fuzz.f_float) c_printf(conn, "+-%f", tv->fuzz.f_float);
-}
-
-static void tv_print_fstop(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%f", tv->val.v_fstop);
-	if (tv->fuzz.f_fstop) c_printf(conn, "+-%f", tv->fuzz.f_fstop);
-}
-
-static void tv_print_iso(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%d", tv->val.v_iso);
-	if (tv->fuzz.f_iso) c_printf(conn, "+-%f", tv->fuzz.f_iso);
+	c_printf(conn, "=%s", tv->v_str);
+	if (tv->fuzz.f_double) c_printf(conn, "+-%f", tv->fuzz.f_double);
 }
 
 typedef void (tv_printer_t)(connection_t *, tag_value_t *);
 // Needs to match valuetype_t in db.h
-tv_printer_t *tv_printer[] = {NULL, tv_print_str, tv_print_int, tv_print_uint,
-                              tv_print_float, tv_print_fstop, tv_print_iso};
+tv_printer_t *tv_printer[] = {NULL, // NONE
+                              tv_print_str, // STRING
+                              tv_print_int, // INT
+                              tv_print_uint, // UINT
+                              tv_print_double, // FLOAT
+                              tv_print_double, // F_STOP
+                              tv_print_double, // ISO
+                             };
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
                         int aliases, taglimit_t *limits, post_t *post)

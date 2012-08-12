@@ -32,7 +32,7 @@ static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval)
 	if (!val) return 1;
 	switch (tag->valuetype) {
 		case VT_STRING:
-			tval->val.v_str = mm_strdup(str_enc2str(val));
+			tval->v_str = mm_strdup(str_enc2str(val));
 			return 0;
 			break;
 		case VT_INT:
@@ -48,14 +48,13 @@ static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval)
 			}
 			break;
 		case VT_FLOAT:
-			if (!tv_parser_double(val, &tval->val.v_float,
-			                      &tval->fuzz.f_float)) {
+		case VT_F_STOP:
+		case VT_ISO:
+			if (!tv_parser_double(val, &tval->val.v_double,
+			                      &tval->fuzz.f_double)) {
+				tval->v_str = mm_strdup(val);
 				return 0;
 			}
-			break;
-		case VT_F_STOP:
-			break;
-		case VT_ISO:
 			break;
 		default: // VT_NONE, or bad value
 			break;
