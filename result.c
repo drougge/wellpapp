@@ -33,23 +33,21 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post)
 // The comparison functions never get called with LT/LE.
 // They return !0 for "match".
 
-static int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
+static int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
+                    regex_t *re)
 {
 	(void) a;
 	(void) cmp;
 	(void) b;
+	(void) re;
 	return 0;
 }
 
-// @@ This compiles the regexp for every iteration.
-static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
+static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
+                      regex_t *re)
 {
 	if (cmp == CMP_REGEXP) {
-		regex_t re;
-		if (regcomp(&re, b->v_str, REG_EXTENDED | REG_NOSUB)) return 0;
-		int r = regexec(&re, a->v_str, 0, NULL, 0);
-		regfree(&re);
-		return !r;
+		return !regexec(re, a->v_str, 0, NULL, 0);
 	} else {
 		int eq = strcmp(a->v_str, b->v_str);
 		switch (cmp) {
@@ -70,8 +68,10 @@ static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b)
 }
 
 #define TVC_NUM(t, ft, ff, n)                                                  \
-	static int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b) \
+	static int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, \
+	                   regex_t *re)                                        \
 	{                                                                      \
+		(void) re;                                                     \
 		ft a_fuzz = a->fuzz.f_##n;                                     \
 		if (a_fuzz) a_fuzz += ff;                                      \
 		ft b_fuzz = b->fuzz.f_##n;                                     \
@@ -99,7 +99,7 @@ TVC_NUM(int64_t , uint64_t, 0   , int)
 TVC_NUM(uint64_t, uint64_t, 0   , uint)
 TVC_NUM(double  , double  , 0.07, double)
 
-typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *);
+typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_string, // STRING
                       tvc_int, // INT
@@ -110,7 +110,7 @@ tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                      };
 
 static int result_add_post_if(connection_t *conn, result_t *result,
-                              post_t *post, search_tag_t *t)
+                              post_t *post, search_tag_t *t, regex_t *re)
 {
 	tagvalue_cmp_t cmp = t->cmp;
 	if (!cmp) return result_add_post(conn, result, post);
@@ -125,7 +125,7 @@ static int result_add_post_if(connection_t *conn, result_t *result,
 		a = pval;
 		b = &t->val;
 	}
-	if (!tv_cmp[t->tag->valuetype](a, cmp, b)) return 0;
+	if (!tv_cmp[t->tag->valuetype](a, cmp, b, re)) return 0;
 	return result_add_post(conn, result, post);
 }
 
@@ -154,16 +154,20 @@ int result_intersect(connection_t *conn, result_t *result, search_tag_t *t)
 	tag_t    *tag = t->tag;
 	truth_t  weak = t->weak;
 	result_t new_result;
+	regex_t  re;
 
 	memset(&new_result, 0, sizeof(new_result));
+	if (t->cmp == CMP_REGEXP) {
+		if (regcomp(&re, t->val.v_str, REG_EXTENDED | REG_NOSUB)) {
+			return 1;
+		}
+	}
 	if (result->of_posts) {
 		uint32_t i;
 		for (i = 0; i < result->of_posts; i++) {
 			post_t *post = result->posts[i];
 			if (post_has_tag(post, tag, weak)) {
-				if (result_add_post_if(conn, &new_result, post, t)) {
-					return 1;
-				}
+				err1(result_add_post_if(conn, &new_result, post, t, &re));
 			}
 		}
 	} else {
@@ -175,8 +179,7 @@ again:
 			pn = tag->posts.h.p.head;
 		}
 		while (pn->n.p.succ) {
-			int r = result_add_post_if(conn, &new_result, pn->post, t);
-			if (r) return 1;
+			err1(result_add_post_if(conn, &new_result, pn->post, t, &re));
 			pn = pn->n.p.succ;
 		}
 		if (weak == T_DONTCARE) {
@@ -185,6 +188,11 @@ again:
 		}
 	}
 	result_free(conn, result);
+	if (t->cmp == CMP_REGEXP) regfree(&re);
 	*result = new_result;
 	return 0;
+err:
+	if (t->cmp == CMP_REGEXP) regfree(&re);
+	result_free(conn, &new_result);
+	return 1;
 }

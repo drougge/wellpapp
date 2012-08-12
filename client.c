@@ -1088,8 +1088,8 @@ void client_handle(connection_t *conn, char *buf)
 				                      build_search_cmd,
 				                      CMDFLAG_NONE);
 				if (!r) r = setup_search(&search);
-				result_t result;
 				if (!r) {
+					result_t result;
 					do_search(conn, &search, &result);
 					print_search(conn, &search, &result);
 				}
