@@ -670,6 +670,7 @@ tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
 		case '=':
 			*r_cmp = CMP_EQ;
 			if (v[1] == '~') {
+				if (tag->valuetype != VT_STRING) return NULL;
 				*r_cmp = CMP_REGEXP;
 				v++;
 			}
