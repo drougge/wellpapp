@@ -216,7 +216,8 @@ struct postlist_node {
 	post_t      *post;
 };
 
-// Needs to match tag_value_types in protocol.c and tv_printer in client.c
+// Needs to match tag_value_types in protocol.c, tv_printer in client.c
+// and tv_cmp in result.c
 typedef enum {
 	VT_NONE,
 	VT_STRING,
@@ -364,12 +365,17 @@ typedef struct result {
 	uint32_t room;
 } result_t;
 
+typedef struct search_tag {
+	tag_t          *tag;
+	truth_t        weak;
+	tagvalue_cmp_t cmp;
+	tag_value_t    val;
+} search_tag_t;
+
 void result_free(connection_t *conn, result_t *result);
 int result_add_post(connection_t *conn, result_t *result, post_t *post);
-int result_remove_tag(connection_t *conn, result_t *result,
-                      tag_t *tag, truth_t weak);
-int result_intersect(connection_t *conn, result_t *result,
-                     tag_t *tag, truth_t weak);
+int result_remove_tag(connection_t *conn, result_t *result, search_tag_t *t);
+int result_intersect(connection_t *conn, result_t *result, search_tag_t *t);
 
 int c_init(connection_t **res_conn, int sock, user_t *user,
            prot_err_func_t error);
@@ -402,7 +408,7 @@ tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
-                              const char **r_value);
+                              tag_value_t *value, int tmp);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);

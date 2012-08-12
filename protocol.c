@@ -4,65 +4,6 @@
 #include <errno.h>
 #include <time.h>
 
-#define TAG_VALUE_PARSER(vtype, vfunc, ftype, ffunc)                        \
-	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f)   \
-	{                                                                   \
-		char *end;                                                  \
-		*v = vfunc(val, &end);                                      \
-		*f = 0;                                                     \
-		if (val == end) return 1;                                   \
-		if (end[0] == '+' && end[1] == '-') {                       \
-			val = end + 2;                                      \
-			*f = ffunc(val, &end);                              \
-			if (!*val || (double)*f < 0) return 1;              \
-		}                                                           \
-		if (*end) {                                                 \
-			return 1;                                           \
-		}                                                           \
-		return 0;                                                   \
-	}
-#define str2SI(v, e) strtoll(v, e, 10)
-#define str2UI(v, e) strtoull(v, e, 16)
-TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
-TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
-TAG_VALUE_PARSER(double, strtod, double, strtod)
-
-static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval)
-{
-	if (!val) return 1;
-	switch (tag->valuetype) {
-		case VT_STRING:
-			tval->v_str = mm_strdup(str_enc2str(val));
-			return 0;
-			break;
-		case VT_INT:
-			if (!tv_parser_int64_t(val, &tval->val.v_int,
-			                       &tval->fuzz.f_int)) {
-				return 0;
-			}
-			break;
-		case VT_UINT:
-			if (!tv_parser_uint64_t(val, &tval->val.v_uint,
-			                        &tval->fuzz.f_uint)) {
-				return 0;
-			}
-			break;
-		case VT_FLOAT:
-		case VT_F_STOP:
-		case VT_ISO:
-			if (!tv_parser_double(val, &tval->val.v_double,
-			                      &tval->fuzz.f_double)) {
-				tval->v_str = mm_strdup(val);
-				return 0;
-			}
-			break;
-		default: // VT_NONE, or bad value
-			break;
-	}
-// @@ todo: F-stop and ISO
-	return 1;
-}
-
 static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
                         prot_cmd_flag_t flags)
 {
@@ -86,21 +27,15 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 				args++;
 				weak = T_YES;
 			}
-			const char *val;
+			tag_value_t    val;
 			tagvalue_cmp_t cmp;
-			tag_t *tag = tag_find_guidstr_value(args, &cmp, &val);
+			tag_t *tag = tag_find_guidstr_value(args, &cmp, &val, 0);
 			if (tag && *cmd == 'T' && tag->unsettable) tag = NULL;
 			if (!tag) return conn->error(conn, cmd);
 			if (cmp && cmp != CMP_EQ) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
-				tag_value_t tval, *tval_p = NULL;
-				if (val) {
-					tval_p = &tval;
-					if (tag_value_parse(tag, val, tval_p)) {
-						return conn->error(conn, cmd);
-					}
-				}
-				int r = post_tag_add(*post, tag, weak, tval_p);
+				tag_value_t *val_p = cmp ? &val : NULL;
+				int r = post_tag_add(*post, tag, weak, val_p);
 				if (r) return conn->error(conn, cmd);
 			} else {
 				if (cmp) return conn->error(conn, cmd);

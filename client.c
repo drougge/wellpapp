@@ -101,11 +101,6 @@ typedef enum {
 #define FLAG(n) (1 << (n))
 #define FLAG_FIRST_SINGLE FLAG_RETURN_EXTENSION
 
-typedef struct search_tag {
-	tag_t   *tag;
-	truth_t weak;
-} search_tag_t;
-
 typedef struct search {
 	search_tag_t tags[PROT_TAGS_PER_SEARCH];
 	search_tag_t excluded_tags[PROT_TAGS_PER_SEARCH];
@@ -364,48 +359,48 @@ static int parse_range(const char *args, long *r_start, long *r_end)
 static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
                             prot_cmd_flag_t flags)
 {
-	tag_t      *tag;
-	truth_t    weak = T_DONTCARE;
-	search_t   *search = search_;
-	const char *args = cmd + 1;
-	int        i;
-	int        r;
+	search_t     *search = search_;
+	const char   *args = cmd + 1;
+	int          i;
+	int          r;
+	search_tag_t *t;
 
 	(void)flags;
 
 	switch(*cmd) {
 		case 'T': // Tag
 		case 't': // Removed tag
-			if (*args == '~') {
-				args++;
-				weak = T_YES;
-			} else if (*args == '!') {
-				args++;
-				weak = T_NO;
-			}
-			if (*args == 'G') {
-				tag = tag_find_guidstr(args + 1);
-			} else if (*args == 'N') {
-				tag = tag_find_name(args + 1, T_DONTCARE, NULL);
-			} else {
-				return conn->error(conn, cmd);
-			}
-			if (!tag) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
 				if (search->of_tags == PROT_TAGS_PER_SEARCH) {
 					return c_close_error(conn, E_OVERFLOW);
 				}
-				search->tags[search->of_tags].tag  = tag;
-				search->tags[search->of_tags].weak = weak;
+				t = &search->tags[search->of_tags];
 				search->of_tags++;
 			} else {
 				if (search->of_excluded_tags == PROT_TAGS_PER_SEARCH) {
 					return c_close_error(conn, E_OVERFLOW);
 				}
-				search->excluded_tags[search->of_excluded_tags].tag  = tag;
-				search->excluded_tags[search->of_excluded_tags].weak = weak;
+				t = &search->excluded_tags[search->of_excluded_tags];
 				search->of_excluded_tags++;
 			}
+			if (*args == '~') {
+				args++;
+				t->weak = T_YES;
+			} else if (*args == '!') {
+				args++;
+				t->weak = T_NO;
+			} else {
+				t->weak = T_DONTCARE;
+			}
+			if (*args == 'G') {
+				t->tag = tag_find_guidstr_value(args + 1, &t->cmp, &t->val, 1);
+			} else if (*args == 'N') {
+				t->tag = tag_find_name(args + 1, T_DONTCARE, NULL);
+				t->cmp = CMP_NONE;
+			} else {
+				return conn->error(conn, cmd);
+			}
+			if (!t->tag) return conn->error(conn, cmd);
 			break;
 		case 'O': // Ordering
 			if (search->of_orders == PROT_ORDERS_PER_SEARCH) {
@@ -561,8 +556,7 @@ static void do_search(connection_t *conn, search_t *search, result_t *result)
 		goto done;
 	}
 	for (unsigned int i = 0; i < search->of_tags; i++) {
-		search_tag_t *t = &search->tags[i];
-		if (result_intersect(conn, result, t->tag, t->weak)) {
+		if (result_intersect(conn, result, &search->tags[i])) {
 			c_close_error(conn, E_MEM);
 			goto err;
 		}
@@ -580,8 +574,7 @@ static void do_search(connection_t *conn, search_t *search, result_t *result)
 		}
 	}
 	for (unsigned int i = 0; i < search->of_excluded_tags; i++) {
-		search_tag_t *t = &search->excluded_tags[i];
-		if (result_remove_tag(conn, result, t->tag, t->weak)) {
+		if (result_remove_tag(conn, result, &search->excluded_tags[i])) {
 			c_close_error(conn, E_MEM);
 			goto err;
 		}

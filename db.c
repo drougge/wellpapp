@@ -1,5 +1,6 @@
 #include "db.h"
 
+#include <math.h>
 #include <time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -121,6 +122,97 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 {
 	(void) data;
 	return mm_alloc(size);
+}
+
+#define TAG_VALUE_PARSER(vtype, vfunc, ftype, ffunc)                        \
+	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f)   \
+	{                                                                   \
+		char *end;                                                  \
+		*v = vfunc(val, &end);                                      \
+		*f = 0;                                                     \
+		if (val == end) return 1;                                   \
+		if (end[0] == '+' && end[1] == '-') {                       \
+			val = end + 2;                                      \
+			*f = ffunc(val, &end);                              \
+			if (!*val || (double)*f < 0) return 1;              \
+		}                                                           \
+		if (*end) {                                                 \
+			return 1;                                           \
+		}                                                           \
+		return 0;                                                   \
+	}
+#define str2SI(v, e) strtoll(v, e, 10)
+#define str2UI(v, e) strtoull(v, e, 16)
+TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
+TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
+TAG_VALUE_PARSER(double, strtod, double, strtod)
+
+/* fstop is externally specified as f/num where num is how much smaller
+ * than the focal length the (virtual) aperture is. This is what everyone
+ * uses these days. But it's not particularly convenient to calculate
+ * differences in, so we store it differently. We store x, where:
+ * fstop = sqrt(2) ** x, because that's linear.
+ * (So if fstop is, say, 8, we can do x+-1 to get 5.6 to 11.)
+ */
+static void scale_f_stop(tag_value_t *tval)
+{
+	double fstop = tval->val.v_double;
+	tval->val.v_double = 2.0 * log2(fstop);
+}
+
+/* Same deal with ISO, externally we use the modern arithmetic scale, 100
+ * is a fairly slow film. Internally we use the old DIN scale - 1 divided by 3,
+ * so each stop is 1. (That same fairly slow film is 20/3.)
+ */
+static void scale_iso(tag_value_t *tval)
+{
+	double iso = tval->val.v_double;
+	tval->val.v_double = 10.0 * log10(iso) / 3.0;
+}
+
+static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval,
+                           int tmp)
+{
+	if (!val) return 1;
+	switch (tag->valuetype) {
+		case VT_STRING:
+			tval->v_str = mm_strdup(str_enc2str(val));
+			return 0;
+			break;
+		case VT_INT:
+			if (!tv_parser_int64_t(val, &tval->val.v_int,
+			                       &tval->fuzz.f_int)) {
+				return 0;
+			}
+			break;
+		case VT_UINT:
+			if (!tv_parser_uint64_t(val, &tval->val.v_uint,
+			                        &tval->fuzz.f_uint)) {
+				return 0;
+			}
+			break;
+		case VT_FLOAT:
+		case VT_F_STOP:
+		case VT_ISO:
+			if (!tv_parser_double(val, &tval->val.v_double,
+			                      &tval->fuzz.f_double)) {
+				if (tmp) {
+					tval->v_str = val;
+				} else {
+					tval->v_str = mm_strdup(val);
+				}
+				if (tag->valuetype == VT_F_STOP) {
+					scale_f_stop(tval);
+				} else if (tag->valuetype == VT_ISO) {
+					scale_iso(tval);
+				}
+				return 0;
+			}
+			break;
+		default: // VT_NONE, or bad value
+			break;
+	}
+	return 1;
 }
 
 static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
@@ -562,47 +654,46 @@ tag_t *tag_find_guidstr(const char *guidstr)
 }
 
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
-                              const char **r_value)
+                              tag_value_t *value, int tmp)
 {
 	int len = strlen(guidstr);
-	const char *bare = guidstr;
-	*r_value = NULL;
 	*r_cmp = CMP_NONE;
-	if (len > 27) {
-		char guid[28];
-		memcpy(guid, guidstr, 27);
-		guid[27] = '\0';
-		bare = guid;
-		const char *v = guidstr + 27;
-		switch (v[0]) {
-			case '=':
-				*r_cmp = CMP_EQ;
-				if (v[1] == '~') {
-					*r_cmp = CMP_REGEXP;
-					v++;
-				}
-				break;
-			case '>':
-				*r_cmp = CMP_GT;
-				if (v[1] == '=') {
-					*r_cmp = CMP_GE;
-					v++;
-				}
-				break;
-			case '<':
-				*r_cmp = CMP_LT;
-				if (v[1] == '=') {
-					*r_cmp = CMP_LE;
-					v++;
-				}
-				break;
-			default:
-				return NULL;
-				break;
-		}
-		*r_value = v + 1;
+	if (len <= 27) return tag_find_guidstr(guidstr);
+	char guid[28];
+	memcpy(guid, guidstr, 27);
+	guid[27] = '\0';
+	const char *v = guidstr + 27;
+	tag_t *tag = tag_find_guidstr(guid);
+	if (!tag) return NULL;
+	if (!tag->valuetype) return NULL;
+	switch (v[0]) {
+		case '=':
+			*r_cmp = CMP_EQ;
+			if (v[1] == '~') {
+				*r_cmp = CMP_REGEXP;
+				v++;
+			}
+			break;
+		case '>':
+			*r_cmp = CMP_GT;
+			if (v[1] == '=') {
+				*r_cmp = CMP_GE;
+				v++;
+			}
+			break;
+		case '<':
+			*r_cmp = CMP_LT;
+			if (v[1] == '=') {
+				*r_cmp = CMP_LE;
+				v++;
+			}
+			break;
+		default:
+			return NULL;
+			break;
 	}
-	return tag_find_guidstr(bare);
+	if (tag_value_parse(tag, v + 1, value, tmp)) return NULL;
+	return tag;
 }
 
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias)
