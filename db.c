@@ -143,9 +143,22 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 	}
 #define str2SI(v, e) strtoll(v, e, 10)
 #define str2UI(v, e) strtoull(v, e, 16)
+static double fractod(const char *val, char **r_end)
+{
+	char *end;
+	double n = strtoll(val, &end, 10);
+	if (end != val && *end == '/') {
+		double d = strtoll(end + 1, &end, 10);
+		if (d > 0.0 && (*end == 0 || *end == '+')) {
+			*r_end = end;
+			return n / d;
+		}
+	}
+	return strtod(val, r_end);
+}
 TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
 TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
-TAG_VALUE_PARSER(double, strtod, double, strtod)
+TAG_VALUE_PARSER(double, fractod, double, fractod)
 
 /* fstop is externally specified as f/num where num is how much smaller
  * than the focal length the (virtual) aperture is. This is what everyone
