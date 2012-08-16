@@ -176,8 +176,9 @@ static void scale_f_stop(tag_value_t *tval)
 /* Same deal with ISO, externally we use the modern arithmetic scale, 100
  * is a fairly slow film. Internally we use the old DIN scale - 1 divided by 3,
  * so each stop is 1. (That same fairly slow film is 20/3.)
+ * This also works for shutter speeds.
  */
-static void scale_iso(tag_value_t *tval)
+static void scale_stop(tag_value_t *tval)
 {
 	double iso = tval->val.v_double;
 	tval->val.v_double = 10.0 * log10(iso) / 3.0;
@@ -206,7 +207,7 @@ static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval,
 			break;
 		case VT_FLOAT:
 		case VT_F_STOP:
-		case VT_ISO:
+		case VT_STOP:
 			if (!tv_parser_double(val, &tval->val.v_double,
 			                      &tval->fuzz.f_double)) {
 				if (tmp) {
@@ -216,8 +217,8 @@ static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval,
 				}
 				if (tag->valuetype == VT_F_STOP) {
 					scale_f_stop(tval);
-				} else if (tag->valuetype == VT_ISO) {
-					scale_iso(tval);
+				} else if (tag->valuetype == VT_STOP) {
+					scale_stop(tval);
 				}
 				return 0;
 			}

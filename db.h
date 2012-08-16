@@ -217,7 +217,7 @@ struct postlist_node {
 };
 
 // Needs to match tag_value_types in protocol.c, tv_printer in client.c
-// and tv_cmp in result.c
+// and tv_cmp in result.c. Needs to be handled in tag_value_parse in db.c.
 typedef enum {
 	VT_NONE,
 	VT_STRING,
@@ -225,7 +225,7 @@ typedef enum {
 	VT_UINT,
 	VT_FLOAT,
 	VT_F_STOP,
-	VT_ISO,
+	VT_STOP,
 } valuetype_t;
 
 typedef enum {

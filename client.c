@@ -657,7 +657,7 @@ tv_printer_t *tv_printer[] = {NULL, // NONE
                               tv_print_uint, // UINT
                               tv_print_double, // FLOAT
                               tv_print_double, // F_STOP
-                              tv_print_double, // ISO
+                              tv_print_double, // STOP
                              };
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,

@@ -157,12 +157,18 @@ First char is what type of object to add.
 		V: Value type, one of
 			none: Same as not specified, tag can not have a value.
 			string, int, uint, float: the obvious
-			f-stop: float limited to full/half/third f-stops
-			iso: int, but with different inexactness scale.
+			f-stop: float, but with different inexactness scale.
+			stop: float, but with different inexactness scale.
+			Stop works for both ISO and shutter times.
 			A value (other than string) is specified as the actual
 			value, and an optional inexactness, with the natural
 			scaling for the value type. (So f-stop 5.6+-1 is 4 to
-			8, iso 100+-2 is 25 to 400.)
+			8, stop 100+-2 is 25 to 400.)
+			Note that inexactness for integers is unsigned, and as
+			such is specified in hex. (Just like uint values.)
+			float values (including stops) may be specified as n/d
+			They are returned as they were set, but comparisons
+			(with or without fuzz) are done as double.
 	A: an alias
 		G: guid (of the real tag)
 		N: name (of the alias)
