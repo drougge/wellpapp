@@ -30,6 +30,8 @@ ss128_head_t *posts;
 ss128_head_t *users;
 list_head_t  *postlist_nodes;
 
+int default_timezone = 0;
+
 static postlist_node_t *postlist_alloc(void)
 {
 	postlist_node_t *pn = (postlist_node_t *)list_remhead(postlist_nodes);
@@ -160,6 +162,114 @@ TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
 TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
 TAG_VALUE_PARSER(double, fractod, double, fractod)
 
+static int tvp_datetimefuzz(const char *val, uint64_t *r)
+{
+	if (!*val) return 1;
+	char *end;
+	double fuzz = fractod(val, &end);
+	if (val == end) fuzz = 1.0; // For "+-H" etc
+	if (fuzz < 0.0) return 1;
+	if (*end) {
+		if (end[1]) return 1;
+		switch (*end) {
+			case 'Y':
+				fuzz *= 12.0;
+			case 'm':
+				fuzz *= 30.5;
+			case 'd':
+				fuzz *= 24.0;
+			case 'H':
+				fuzz *= 60.0;
+			case 'M':
+				fuzz *= 60.0;
+			case 'S':
+				break;
+			default:
+				return 1;
+				break;
+		}
+	}
+	*r = ceil(fuzz);
+	return 0;
+}
+
+static int tvp_timezone(const char *val, int *r_offset, const char **r_end)
+{
+	switch (*val) {
+		case '+':
+		case '-':
+			for (int i = 1; i <= 4; i++) {
+				if (val[i] < '0' || val[i] > '9') return 1;
+			}
+			int hour = (val[1] - '0') * 10 + val[2] - '0';
+			int minute = (val[3] - '0') * 10 + val[4] - '0';
+			if (hour >= 12 || minute >= 60) return 1;
+			int offset = (hour * 60 + minute) * 60;
+			if (*val == '+') offset = -offset;
+			*r_offset = offset;
+			*r_end = val + 5;
+			break;
+		case 'Z': // UTC
+			*r_offset = 0;
+			*r_end = val + 1;
+			break;
+		default:
+			return 1;
+			break;
+	}
+	return 0;
+}
+
+static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
+{
+	char fmt[] = "%Y-%m-%dT%H:%M:%S";
+	struct tm tm;
+	const char *ptr = NULL;
+	int fmt_pos = strlen(fmt);
+	memset(&tm, 0, sizeof(tm));
+	tm.tm_mday  = 1;
+	// Try to parse succesively less specific dates
+	while (!ptr && fmt_pos > 0) {
+		fmt[fmt_pos] = 0;
+		ptr = strptime(val, fmt, &tm);
+		fmt_pos -= 3;
+	}
+	if (!ptr) return 1;
+	time_t unixtime = mktime(&tm);
+	// So I can't say 1969-12-31T23:59:59 then? Bloody POSIX.
+	if (unixtime == (time_t)-1) return 1;
+	// Check that what was parsed matches the input (after mktime normalises it)
+	char buf[64];
+	int len = strftime(buf, sizeof(buf), fmt, &tm);
+	if (memcmp(buf, val, len)) return 1;
+	// If the time was not fully specified, there's an implicit fuzz.
+	int pos2f[] = {30 * 60 * 24 * 365, 0, 0, 30 * 60 * 24 * 30.4375, 0, 0,
+	               30 * 60 * 24, 0, 0, 30 * 60, 0, 0, 30, 0, 0, 0};
+	// Stupid leap years.
+	int y = tm.tm_year + 1900;
+	if (y % 4 == 0 && (y % 400 == 0 || y % 100)) pos2f[0] += 30*60*24;
+	*f = pos2f[fmt_pos + 1];
+	// Move the time forward to middle of its' possible range.
+	unixtime += *f / 2;
+	// Is there a timezone and/or a fuzz?
+	if (ptr[0] == '+' && ptr[1] == '-') { // Only fuzz
+		unixtime += default_timezone;
+		if (tvp_datetimefuzz(ptr + 2, f)) return 1;
+	} else if (*ptr) { // Must be a timezone
+		int offset;
+		if (tvp_timezone(ptr, &offset, &ptr)) return 1;
+		unixtime += offset;
+		if (*ptr) {
+			if (ptr[0] != '+' || ptr[1] != '-') return 1;
+			if (tvp_datetimefuzz(ptr + 2, f)) return 1;
+		}
+	} else {
+		unixtime += default_timezone;
+	}
+	*v = unixtime;
+	return 0;
+}
+
 /* fstop is externally specified as f/num where num is how much smaller
  * than the focal length the (virtual) aperture is. This is what everyone
  * uses these days. But it's not particularly convenient to calculate
@@ -219,6 +329,17 @@ static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval,
 					scale_f_stop(tval);
 				} else if (tag->valuetype == VT_STOP) {
 					scale_stop(tval);
+				}
+				return 0;
+			}
+			break;
+		case VT_DATETIME:
+			if (!tv_parser_datetime(val, &tval->val.v_int,
+			                        &tval->fuzz.f_int)) {
+				if (tmp) {
+					tval->v_str = val;
+				} else {
+					tval->v_str = mm_strdup(val);
 				}
 				return 0;
 			}
@@ -1182,6 +1303,9 @@ void db_read_cfg(const char *filename)
 			MM_BASE_ADDR = (uint8_t *)(intptr_t)addr;
 		} else if (!memcmp("cache_walk_speed=", buf, 17)) {
 			cache_walk_speed = atoi(buf + 17);
+		} else if (!memcmp("timezone=", buf, 9)) {
+			const char *end;
+			tvp_timezone(buf, &default_timezone, &end);
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}

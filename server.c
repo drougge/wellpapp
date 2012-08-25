@@ -94,6 +94,11 @@ int main(int argc, char **argv)
 	user_t       loguser_;
 	connection_t logconn_;
 
+	// mktime should assume UTC.
+	char env_no_TZ[] = "TZ=";
+	putenv(env_no_TZ);
+	tzset();
+
 	loguser_.name = "LOG-READER";
 	loguser_.caps = ~0;
 	logconn = &logconn_;

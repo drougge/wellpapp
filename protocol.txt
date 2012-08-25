@@ -156,7 +156,7 @@ First char is what type of object to add.
 			It is possible to merge a tag into an unsettable tag.
 		V: Value type, one of
 			none: Same as not specified, tag can not have a value.
-			string, int, uint, float: the obvious
+			string, int, uint, float, datetime: the obvious
 			f-stop: float, but with different inexactness scale.
 			stop: float, but with different inexactness scale.
 			Stop works for both ISO and shutter times.
@@ -169,6 +169,19 @@ First char is what type of object to add.
 			float values (including stops) may be specified as n/d
 			They are returned as they were set, but comparisons
 			(with or without fuzz) are done as double.
+			Datetimes are in the format YYYY-MM-DDTHH:MM:SSZ.
+			You can leave off as much as you like to the right, for
+			automatic fuzz. Time zone (Z) can be either a literal Z
+			(UTC) or a direction and HHMM. Fuzz can be specified
+			with a suffix from YmdHMS, with S being the default.
+			Examples:
+			2012-08-25T20:54:33+0200
+			2011-07-02T12:00:00Z+-1/2Y
+			2011Z
+			The last two are almost equivalent, but the first has a
+			slightly larger fuzz that also covers leap years, the
+			last one only gets this when it actually is a leap
+			year.
 	A: an alias
 		G: guid (of the real tag)
 		N: name (of the alias)

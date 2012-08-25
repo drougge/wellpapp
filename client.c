@@ -644,7 +644,7 @@ static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
 }
 
-static void tv_print_double(connection_t *conn, tag_value_t *tv)
+static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)
 {
 	c_printf(conn, "=%s", tv->v_str);
 }
@@ -655,9 +655,10 @@ tv_printer_t *tv_printer[] = {NULL, // NONE
                               tv_print_str, // STRING
                               tv_print_int, // INT
                               tv_print_uint, // UINT
-                              tv_print_double, // FLOAT
-                              tv_print_double, // F_STOP
-                              tv_print_double, // STOP
+                              tv_print_rawstr, // FLOAT
+                              tv_print_rawstr, // F_STOP
+                              tv_print_rawstr, // STOP
+                              tv_print_rawstr, // DATETIME
                              };
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,

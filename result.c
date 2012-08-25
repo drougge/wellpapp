@@ -107,6 +107,7 @@ tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_double, // FLOAT
                       tvc_double, // F_STOP
                       tvc_double, // STOP
+                      tvc_int, // DATETIME
                      };
 
 static int result_add_post_if(connection_t *conn, result_t *result,

@@ -1,6 +1,4 @@
-#ifdef __svr4__
 #define _XOPEN_SOURCE 600
-#endif
 
 #include <stdio.h>
 #include <stdint.h>
@@ -226,6 +224,7 @@ typedef enum {
 	VT_FLOAT,
 	VT_F_STOP,
 	VT_STOP,
+	VT_DATETIME,
 } valuetype_t;
 
 typedef enum {
