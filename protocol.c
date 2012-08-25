@@ -390,29 +390,44 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 
 #define POST_FIELD_DEF(name, type, array)                   \
                       {#name, sizeof(((post_t *)0)->name),  \
-                       offsetof(post_t, name), type, array}
-#define POST_FIELD_DEF2(str, name, type, array)             \
-                       {#str, sizeof(((post_t *)0)->name),  \
-                        offsetof(post_t, name), type, array}
+                       offsetof(post_t, name), type, array, \
+                       NULL, 0}
+#define POST_FIELD_DEF2(str, name, type, array, magic_tag, fuzz) \
+                       {#str, sizeof(((post_t *)0)->name),       \
+                        offsetof(post_t, name), type, array,     \
+                        magic_tag, fuzz}
 
-const field_t post_fields[] = {
-	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL), // Could be signed
-	POST_FIELD_DEF(created  , FIELDTYPE_UNSIGNED, NULL), // Could be signed
-	POST_FIELD_DEF2(image_date     , imgdate     , FIELDTYPE_UNSIGNED, NULL), // Could be signed
-	POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL), // Could be signed
-	POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL),
-	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , NULL),
-	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , &filetype_names),
-	POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, &filetype_names),
-	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , &rating_names),
-	POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , NULL),
-	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , NULL),
-	POST_FIELD_DEF(title    , FIELDTYPE_STRING  , NULL),
-	{NULL, 0, 0, 0, NULL}
-};
+const field_t *post_fields = NULL;
+const char *magic_tag_guids[] = {"aaaaaa-aaaads-faketg-create", // created
+                                 "aaaaaa-aaaac8-faketg-bddate", // imgdate
+                                 NULL};
+tag_t *magic_tag[] = {0, 0};
+
+int prot_init(void) {
+	field_t post_fields_[] = {
+		POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, NULL),
+		POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, NULL),
+		POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL),
+		POST_FIELD_DEF2(created        , created     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[0], 0),
+		POST_FIELD_DEF2(image_date     , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0),
+		POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1),
+		POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0),
+		POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1),
+		POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , NULL),
+		POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , &filetype_names),
+		POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, &filetype_names, NULL, 0),
+		POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , &rating_names),
+		POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , NULL),
+		POST_FIELD_DEF(source   , FIELDTYPE_STRING  , NULL),
+		POST_FIELD_DEF(title    , FIELDTYPE_STRING  , NULL),
+		{NULL, 0, 0, 0, NULL, NULL, 0}
+	};
+	void *mem = malloc(sizeof(post_fields_));
+	if (!mem) return 1;
+	memcpy(mem, post_fields_, sizeof(post_fields_));
+	post_fields = mem;
+	return 0;
+}
 
 /* I need a setter for both signed and unsigned ints. This is mostly *
  * the same function but with different types. The magnificent       *
@@ -466,6 +481,26 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 	return 0;
 }
 
+static void datetime_strfix(tag_value_t *val)
+{
+	struct tm tm;
+	time_t ttime = val->val.v_int;
+	gmtime_r(&ttime, &tm);
+	char buf[128];
+	int l = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+	if (val->fuzz.f_int) {
+		unsigned long long pv = val->fuzz.f_int;
+		static const int scale[] = {60, 60, 24, 0};
+		static const char suff[] = "SMHd";
+		int sp = 0;
+		while (sp < 3 && pv % scale[sp] == 0) {
+			pv /= scale[sp++];
+		}
+		snprintf(buf + l, sizeof(buf) - l, "+-%llu%c", pv, suff[sp]);
+	}
+	val->v_str = mm_strdup(buf);
+}
+
 static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 {
 	const field_t *field = post_fields;
@@ -483,6 +518,35 @@ static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 			if (!*valp) return 1;
 			if (func[field->type](post, field, valp)) {
 				return 1;
+			}
+			if (field->magic_tag && *field->magic_tag) {
+				tag_t *tag = *field->magic_tag;
+				tag_value_t tval;
+				tag_value_t *tval_p = post_tag_value(post, tag);
+				if (!tval_p) {
+					memset(&tval, 0, sizeof(tval));
+					tval_p = &tval;
+				}
+				int fix = 0;
+				if (field->is_fuzz) {
+					unsigned long long v;
+					v = strtoull(valp, 0, 16);
+					if (tval_p->fuzz.f_int != v) {
+						tval_p->fuzz.f_int = v;
+						fix = 1;
+					}
+				} else {
+					long long v;
+					v = strtoull(valp, 0, 16);
+					if (tval_p->val.v_int != v) {
+						tval_p->val.v_int = v;
+						fix = 1;
+					}
+				}
+				if (fix) datetime_strfix(tval_p);
+				if (tval_p == &tval) {
+					post_tag_add(post, tag, T_NO, &tval);
+				}
 			}
 			return 0;
 		}

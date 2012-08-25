@@ -179,9 +179,11 @@ typedef struct field {
 	int          offset;
 	fieldtype_t  type;
 	const char * const **array;
+	tag_t * const *magic_tag;
+	int          is_fuzz;
 } field_t;
 
-extern const field_t post_fields[];
+extern const field_t *post_fields;
 extern const char * const tag_value_types[];
 
 struct postlist_node_node {
@@ -374,6 +376,7 @@ int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
 int prot_implication(connection_t *conn, char *cmd);
 int prot_order(connection_t *conn, char *cmd);
+int prot_init(void);
 
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);

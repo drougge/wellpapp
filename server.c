@@ -28,6 +28,24 @@ static void log_next(const char *line)
 	*logindex = *first_logindex = str2u64(line + 1);
 }
 
+extern tag_t *magic_tag[];
+extern const char *magic_tag_guids[];
+static void apply_fixups(void)
+{
+	char buf[1024];
+	int  len;
+	len = snprintf(buf, sizeof(buf), "%s/fixup.0", basedir);
+	assert(len < (int)sizeof(buf));
+	if (!access(buf, F_OK)) {
+		printf("Reading fixup.0..\n");
+		int r = populate_from_log(buf, NULL);
+		assert(!r);
+	}
+	for (int i = 0; magic_tag_guids[i]; i++) {
+		magic_tag[i] = tag_find_guidstr(magic_tag_guids[i]);
+	}
+}
+
 static void populate_from_dump(void)
 {
 	uint64_t      last_dump = ~0ULL;
@@ -111,7 +129,11 @@ int main(int argc, char **argv)
 	}
 	db_read_cfg(argv[1]);
 	printf("initing mm..\n");
-	if (mm_init()) populate_from_dump();
+	if (prot_init()) return 1;
+	if (mm_init()) {
+		apply_fixups();
+		populate_from_dump();
+	}
 	if (!*logdumpindex && blacklisted_guid()) {
 		fprintf(stderr, "Don't use the example GUID\n");
 		return 1;
