@@ -1166,17 +1166,6 @@ void client_handle(connection_t *conn, char *buf)
 			c_printf(conn, "Q bye bye\n");
 			conn->flags &= ~CONNFLAG_GOING;
 			break;
-		case 'a': // 'a'uthenticate
-			do {
-				user_t *user = prot_auth(buf + 1);
-				if (user) {
-					c_printf(conn, "OK\n");
-					conn->user = user;
-				} else {
-					c_printf(conn, "E\n");
-				}
-			} while (0);
-			break;
 		case 't': // 't'ransaction
 			if ((buf[1] != 'B' && buf[1] != 'E') || buf[2]) {
 				c_close_error(conn, E_COMMAND);

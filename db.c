@@ -27,7 +27,6 @@ ss128_head_t *tags;
 ss128_head_t *tagaliases;
 ss128_head_t *tagguids;
 ss128_head_t *posts;
-ss128_head_t *users;
 list_head_t  *postlist_nodes;
 
 int default_timezone = 0;
@@ -1094,7 +1093,6 @@ struct pollfd fds[MAX_CONNECTIONS + 1];
 connection_t *connections[MAX_CONNECTIONS];
 int connection_count = 0;
 int server_running = 1;
-static user_t anonymous;
 
 void conn_cleanup(void)
 {
@@ -1117,7 +1115,7 @@ static void new_connection(void)
 			if (!connections[i]) break;
 		}
 		if (i == MAX_CONNECTIONS
-		 || c_init(&conn, s, &anonymous, c_error)) {
+		 || c_init(&conn, s, c_error)) {
 			close(s);
 			return;
 		}
@@ -1150,8 +1148,6 @@ void db_serve(void)
 	int s, r, one, i;
 	struct sockaddr_in addr;
 
-	anonymous.name = "A";
-	anonymous.caps = DEFAULT_CAPS;
 	for (i = 0; i < MAX_CONNECTIONS; i++) {
 		fds[i].fd = -1;
 		fds[i].events = POLLIN;
@@ -1254,7 +1250,6 @@ static void cfg_parse_list(const char * const **res_list, const char *str)
 const char * const *tagtype_names = NULL;
 const char * const *rating_names = NULL;
 const char * const *filetype_names = NULL;
-const char * const *cap_names = NULL;
 
 const char *basedir = NULL;
 
@@ -1313,7 +1308,6 @@ void db_read_cfg(const char *filename)
 	assert(feof(fh));
 	fclose(fh);
 	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
-	cfg_parse_list(&cap_names, CAP_NAMES_STR);
 	assert(tagtype_names && rating_names && basedir && server_guid);
 	MD5_Final(config_md5.m, &ctx);
 }

@@ -13,8 +13,7 @@ static const char *errors[] = {
 	"bad utf8 sequence",
 };
 
-int c_init(connection_t **res_conn, int sock, user_t *user,
-           prot_err_func_t error)
+int c_init(connection_t **res_conn, int sock, prot_err_func_t error)
 {
 	connection_t *conn;
 
@@ -24,7 +23,6 @@ int c_init(connection_t **res_conn, int sock, user_t *user,
 	list_newlist(&conn->mem_list);
 	conn->mem_used = sizeof(*conn);
 	conn->sock  = sock;
-	conn->user  = user;
 	conn->error = error;
 	conn->flags = CONNFLAG_GOING;
 	*res_conn = conn;

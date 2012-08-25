@@ -24,8 +24,7 @@ static void trans_sync(trans_t *trans)
 	}
 }
 
-static int log_trans_start_(trans_t *trans, const user_t *user,
-                            time_t now, int fd, int outer)
+static int log_trans_start_(trans_t *trans, time_t now, int fd, int outer)
 {
 	char buf[36];
 	unsigned int len, r;
@@ -47,7 +46,6 @@ static int log_trans_start_(trans_t *trans, const user_t *user,
 		trans->flags = TRANSFLAG_GOING;
 	}
 	trans->flags   |= TRANSFLAG_SYNC;
-	trans->user     = user;
 	trans->fd       = fd;
 	trans->conn     = NULL;
 	trans->now      = now;
@@ -68,13 +66,13 @@ static int log_trans_start_(trans_t *trans, const user_t *user,
 
 void log_trans_start(connection_t *conn, time_t now)
 {
-	(void) log_trans_start_(&conn->trans, conn->user, now, log_fd, 0);
+	(void) log_trans_start_(&conn->trans, now, log_fd, 0);
 	conn->trans.conn = conn;
 }
 
 int log_trans_start_outer(connection_t *conn, time_t now)
 {
-	int r = log_trans_start_(&conn->trans, conn->user, now, log_fd, 1);
+	int r = log_trans_start_(&conn->trans, now, log_fd, 1);
 	conn->trans.conn = conn;
 	return r;
 }
@@ -300,30 +298,6 @@ void log_write_post(trans_t *trans, const post_t *post)
 	}
 }
 
-void log_write_user(trans_t *trans, const user_t *user)
-{
-	char *name;
-	int  i;
-
-	name = strdup(str_str2enc(user->name));
-	log_write(trans, "AUN%s P%s", name, str_str2enc(user->password));
-	log_set_init(trans, "MUN%s", name);
-	free(name);
-	for (i = 0; (1UL << i) <= CAP_MAX; i++) {
-		capability_t cap = 1UL << i;
-		if (DEFAULT_CAPS & cap) {
-			if (!(user->caps & cap)) {
-				log_write(trans, "c%s", cap_names[i]);
-			}
-		} else {
-			if (user->caps & cap) {
-				log_write(trans, "C%s", cap_names[i]);
-			}
-		}
-	}
-	log_clear_init(trans);
-}
-
 void log_init(void)
 {
 	char filename[1024];
@@ -416,19 +390,13 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp)
 	trans_t trans;
 
 	(void)key;
-	(void )log_trans_start_(&trans, logconn->user, post->modified, fd, 0);
+	(void )log_trans_start_(&trans, post->modified, fd, 0);
 	trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&trans, post);
 	log_set_init(&trans, "TP%s", md5_md52str(post->md5));
 	post_taglist(&trans, post->implied_tags, &post->tags, "");
 	post_taglist(&trans, post->implied_weak_tags, post->weak_tags, "~");
 	(void) log_trans_end_(&trans, 0);
-}
-
-static void user_iter(ss128_key_t key, ss128_value_t value, void *trans)
-{
-	(void)key;
-	log_write_user(trans, (user_t *)value);
 }
 
 void log_dump(void)
@@ -446,12 +414,10 @@ void log_dump(void)
 	assert(dump_fd != -1);
 	*logdumpindex += 1;
 
-	/* Users, tags, tagaliases and implications are dumped in a single   *
+	/* Tags, tagaliases and implications are dumped in a single          *
 	 * transaction with the current time. Posts are dumped in individual *
 	 * transactions with the modification time of the post.              */
-	(void) log_trans_start_(&dump_trans, logconn->user, time(NULL),
-	                        dump_fd, 0);
-	ss128_iterate(users, user_iter, &dump_trans);
+	(void) log_trans_start_(&dump_trans, time(NULL), dump_fd, 0);
 	ss128_iterate(tags, tag_iter, &dump_trans);
 	ss128_iterate(tags, tag_iter_impl, &dump_trans);
 	ss128_iterate(tagaliases, tagalias_iter, &dump_trans);

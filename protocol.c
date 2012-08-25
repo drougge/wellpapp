@@ -388,30 +388,30 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-#define POST_FIELD_DEF(name, type, cap, array)                   \
-                      {#name, sizeof(((post_t *)0)->name),       \
-                       offsetof(post_t, name), type, cap, array}
-#define POST_FIELD_DEF2(str, name, type, cap, array)             \
-                       {#str, sizeof(((post_t *)0)->name),       \
-                        offsetof(post_t, name), type, cap, array}
+#define POST_FIELD_DEF(name, type, array)                   \
+                      {#name, sizeof(((post_t *)0)->name),  \
+                       offsetof(post_t, name), type, array}
+#define POST_FIELD_DEF2(str, name, type, array)             \
+                       {#str, sizeof(((post_t *)0)->name),  \
+                        offsetof(post_t, name), type, array}
 
 const field_t post_fields[] = {
-	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
-	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, CAP_POST, NULL),
-	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
-	POST_FIELD_DEF(created  , FIELDTYPE_UNSIGNED, CAP_SUPER, NULL), // Could be signed
-	POST_FIELD_DEF2(image_date, imgdate, FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
-	POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
-	POST_FIELD_DEF(imgdate  , FIELDTYPE_UNSIGNED, CAP_POST, NULL), // Could be signed
-	POST_FIELD_DEF(imgdate_fuzz, FIELDTYPE_UNSIGNED, CAP_POST, NULL),
-	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , CAP_POST, NULL),
-	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , CAP_POST, &filetype_names),
-	POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, CAP_POST, &filetype_names),
-	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , CAP_POST, &rating_names),
-	POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , CAP_POST, NULL),
-	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , CAP_POST, NULL),
-	POST_FIELD_DEF(title    , FIELDTYPE_STRING  , CAP_POST, NULL),
-	{NULL, 0, 0, 0, 0, NULL}
+	POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL), // Could be signed
+	POST_FIELD_DEF(created  , FIELDTYPE_UNSIGNED, NULL), // Could be signed
+	POST_FIELD_DEF2(image_date     , imgdate     , FIELDTYPE_UNSIGNED, NULL), // Could be signed
+	POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL), // Could be signed
+	POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL),
+	POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , NULL),
+	POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , &filetype_names),
+	POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, &filetype_names),
+	POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , &rating_names),
+	POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , NULL),
+	POST_FIELD_DEF(source   , FIELDTYPE_STRING  , NULL),
+	POST_FIELD_DEF(title    , FIELDTYPE_STRING  , NULL),
+	{NULL, 0, 0, 0, NULL}
 };
 
 /* I need a setter for both signed and unsigned ints. This is mostly *
@@ -466,8 +466,7 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 	return 0;
 }
 
-static int put_in_post_field(const user_t *user, post_t *post, const char *str,
-                             unsigned int nlen)
+static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 {
 	const field_t *field = post_fields;
 	int (*func[])(post_t *, const field_t *, const char *) = {
@@ -482,7 +481,6 @@ static int put_in_post_field(const user_t *user, post_t *post, const char *str,
 			const char *valp = str + nlen + 1;
 			if (field->name[nlen]) return 1;
 			if (!*valp) return 1;
-			if (!(user->caps & field->modcap)) return 1;
 			if (func[field->type](post, field, valp)) {
 				return 1;
 			}
@@ -503,7 +501,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 	if (eqp) {
 		unsigned int len = eqp - cmd;
 		if (!post) return conn->error(conn, cmd);
-		if (put_in_post_field(conn->user, post, cmd, len)) {
+		if (put_in_post_field(post, cmd, len)) {
 			return conn->error(conn, cmd);
 		}
 		post->modified = conn->trans.now;
@@ -539,74 +537,6 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-static user_t *user_find(const char *name)
-{
-	void        *user;
-	ss128_key_t key = ss128_str2key(name);
-	if (ss128_find(users, &user, key)) return NULL;
-	return (user_t *)user;
-}
-
-static int user_cmd(connection_t *conn, const char *cmd, void *data,
-                    prot_cmd_flag_t flags)
-{
-	user_t     *moduser = *(user_t **)data;
-	const char *args = cmd + 1;
-	const char *name;
-	uint16_t   u16;
-	int        r;
-
-	if (!*cmd || !*args) return conn->error(conn, cmd);
-	switch (*cmd) {
-		case 'N':
-			name = str_enc2str(args);
-			if (flags & CMDFLAG_MODIFY) {
-				user_t **userp = data;
-				if (moduser) return conn->error(conn, cmd);
-				moduser = user_find(name);
-				*userp = moduser;
-				log_set_init(&conn->trans, "MUN%s", args);
-			} else {
-				moduser->name = mm_strdup(name);
-			}
-			break;
-		case 'C': // Set cap
-		case 'c': // Remove cap
-			u16 = 0; // GCC is (sometimes) an idiot
-			r = put_enum_value_gen(&u16, cap_names, args);
-			if (r || !moduser) return conn->error(conn, cmd);
-			if (*cmd == 'C') {
-				moduser->caps |= 1 << u16;
-			} else {
-				moduser->caps &= ~(1 << u16);
-			}
-			if (flags & CMDFLAG_MODIFY) {
-				log_write(&conn->trans, "%s", cmd);
-			}
-			break;
-		case 'P':
-			if (!moduser) return conn->error(conn, cmd);
-			moduser->password = mm_strdup(str_enc2str(args));
-			if (flags & CMDFLAG_MODIFY) {
-				log_write(&conn->trans, "%s", cmd);
-			}
-			break;
-		default:
-			return conn->error(conn, cmd);
-	}
-	if ((flags & CMDFLAG_LAST) && !(flags & CMDFLAG_MODIFY)) {
-		ss128_key_t key;
-		if (!moduser->name || !moduser->password) {
-			return conn->error(conn, cmd);
-		}
-		key = ss128_str2key(moduser->name);
-		r = ss128_insert(users, moduser, key);
-		if (r) return conn->error(conn, cmd);
-		log_write_user(&conn->trans, moduser);
-	}
-	return 0;
-}
-
 int prot_add(connection_t *conn, char *cmd)
 {
 	prot_cmd_func_t func;
@@ -637,11 +567,6 @@ int prot_add(connection_t *conn, char *cmd)
 			post->rotate   = -1;
 			list_newlist(&post->related_posts.h.l);
 			break;
-		case 'U':
-			func = user_cmd;
-			data = mm_alloc(sizeof(user_t));
-			((user_t *)data)->caps = DEFAULT_CAPS;
-			break;
 		default:
 			return error1(conn, cmd);
 	}
@@ -663,9 +588,6 @@ int prot_modify(connection_t *conn, char *cmd)
 			memset(&tag_data, 0, sizeof(tag_data));
 			dataptr = &tag_data;
 			func = tag_cmd;
-			break;
-		case 'U':
-			func = user_cmd;
 			break;
 		default:
 			return error1(conn, cmd);
@@ -926,19 +848,4 @@ int prot_order(connection_t *conn, char *cmd)
 	data.node = NULL;
 	log_set_init(&conn->trans, "O%s", cmd);
 	return prot_cmd_loop(conn, end + 1, &data, order_cmd, CMDFLAG_MODIFY);
-}
-
-user_t *prot_auth(char *cmd)
-{
-	char   *pass;
-	user_t *user;
-
-	pass = strchr(cmd, ' ');
-	if (!pass) return NULL;
-	*pass++ = '\0';
-	if (!*pass) return NULL;
-	user = user_find(cmd);
-	if (!user) return NULL;
-	if (strcmp(user->password, pass)) return NULL;
-	return user;
 }

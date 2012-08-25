@@ -22,7 +22,6 @@ static const size_t sizes[] = {
 	sizeof(postlist_node_t),
 	sizeof(tag_t),
 	sizeof(tagalias_t),
-	sizeof(user_t),
 };
 
 typedef struct logstat {
@@ -52,7 +51,6 @@ typedef struct mm_head {
 	ss128_head_t  tags;
 	ss128_head_t  tagaliases;
 	ss128_head_t  tagguids;
-	ss128_head_t  users;
 	list_head_t   postlist_nodes;
 	uint8_t       *addr;
 	uint8_t       *top;
@@ -228,7 +226,6 @@ static void mm_init_new(void)
 	r |= ss128_init(tags, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagaliases, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagguids, ss128_mm_alloc, ss128_mm_free, NULL);
-	r |= ss128_init(users, ss128_mm_alloc, ss128_mm_free, NULL);
 	list_newlist(postlist_nodes);
 	assert(!r);
 }
@@ -314,7 +311,7 @@ static int mm_init_old(void)
 	/* Even an otherwise valid cache may have stale function pointers here,
 	 * if the server was recompiled.
 	 */
-	ss128_head_t *fixa[] = {posts, tags, tagaliases, tagguids, users, NULL};
+	ss128_head_t *fixa[] = {posts, tags, tagaliases, tagguids, NULL};
 	ss128_head_t **fix = fixa;
 	while (*fix) {
 		(*fix)->allocmem = ss128_mm_alloc;
@@ -356,7 +353,6 @@ int mm_init(void)
 	tags          = &mm_head->tags;
 	tagaliases    = &mm_head->tagaliases;
 	tagguids      = &mm_head->tagguids;
-	users         = &mm_head->users;
 	logindex      = &mm_head->logindex;
 	first_logindex= &mm_head->first_logindex;
 	logdumpindex  = &mm_head->logdumpindex;

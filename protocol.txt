@@ -23,7 +23,6 @@ I - implication management
 O - order management
 L - lists of meta information
 N - nop (to keep server from closing idle connection)
-a - authenticate
 t - transactions
 Q - quit
 
@@ -199,15 +198,9 @@ First char is what type of object to add.
 			Clients will probably only handle 0, 90, 180 and 270.
 		source: Encoded string
 		title: Encoded string
-	U: a user
-		N: name (encoded)
-		P: password (encoded)
-		C: Capability to set.
-		c: Capability to unset.
-		Capabilies are {"post", "delete", "mkuser", "tag", "untag", "modcap", "mktag"}
 
 M:
-Like A. Only works for P, T and U for now, and not everything can be changed.
+Like A. Only works for P and T for now, and not everything can be changed.
 For T, there is additionally M, to merge it with another tag. Currently refuses
 if there is any conflict, that is if both tags are set but at different
 strengths. Also refuses if anything implies the origin tag.
@@ -288,9 +281,6 @@ Replies "OK".
 
 Q:
 Replies "Q *", closes connection.
-
-a:
-"aUSERNAME PASSWORD". This should be fixed of course.. Replies "OK" or "E".
 
 t:
 	Transactions are not ACID transactions, they are merely a way to get

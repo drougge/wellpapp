@@ -66,23 +66,6 @@ typedef struct list_head {
 	list_node_t *tailpred;
 } list_head_t;
 
-/* Keep enum and #define synced */
-/* OR:able flags */
-#define CAP_NAMES_STR "post delete mkuser tag untag modcap mktag super"
-typedef enum {
-	CAP_NONE   = 0,
-	CAP_POST   = 1,   // Can post new images
-	CAP_DELETE = 2,   // Can delete posts
-	CAP_MKUSER = 4,   // Can create new users
-	CAP_TAG    = 8,   // Can tag posts
-	CAP_UNTAG  = 16,  // Can remove tags from posts
-	CAP_MODCAP = 32,  // Can modify capabilities
-	CAP_MKTAG  = 64,  // Can create new tags
-	CAP_SUPER  = 128, // Can modify things that are not supposed to be modified.
-} capability_t;
-#define CAP_MAX CAP_SUPER
-#define DEFAULT_CAPS (CAP_POST | CAP_TAG | CAP_UNTAG | CAP_MKTAG | CAP_SUPER)
-
 typedef union md5 {
 	uint8_t     m[16];
 	ss128_key_t key;
@@ -195,7 +178,6 @@ typedef struct field {
 	int          size;
 	int          offset;
 	fieldtype_t  type;
-	capability_t modcap; // Capability needed to modify field
 	const char * const **array;
 } field_t;
 
@@ -295,12 +277,6 @@ typedef enum {
 	CMDFLAG_MODIFY = 2,
 } prot_cmd_flag_t;
 
-typedef struct user {
-	const char   *name;
-	const char   *password;
-	capability_t caps;
-} user_t;
-
 typedef uint64_t trans_id_t;
 
 typedef enum {
@@ -321,7 +297,6 @@ typedef struct trans {
 	unsigned int buf_used;
 	int          fd;
 	transflag_t  flags;
-	const user_t *user;
 	connection_t *conn;
 	time_t       now;
 	char         buf[PROT_MAXLEN + 256];
@@ -342,7 +317,6 @@ typedef struct memlist_node {
 } memlist_node_t;
 
 struct connection {
-	const user_t    *user;
 	prot_err_func_t error;
 	trans_t         trans;
 	int             sock;
@@ -376,8 +350,7 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post);
 int result_remove_tag(connection_t *conn, result_t *result, search_tag_t *t);
 int result_intersect(connection_t *conn, result_t *result, search_tag_t *t);
 
-int c_init(connection_t **res_conn, int sock, user_t *user,
-           prot_err_func_t error);
+int c_init(connection_t **res_conn, int sock, prot_err_func_t error);
 int c_alloc(connection_t *conn, void **res, unsigned int size);
 void *c_realloc(connection_t *conn, void *ptr, unsigned int old_size,
                 unsigned int new_size, int *res);
@@ -401,7 +374,6 @@ int prot_rel_add(connection_t *conn, char *cmd);
 int prot_rel_remove(connection_t *conn, char *cmd);
 int prot_implication(connection_t *conn, char *cmd);
 int prot_order(connection_t *conn, char *cmd);
-user_t *prot_auth(char *cmd);
 
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
@@ -464,7 +436,6 @@ void log_write_tag(trans_t *trans, const tag_t *tag, int is_add,
                    int write_flags, guid_t *merge);
 void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias);
 void log_write_post(trans_t *trans, const post_t *post);
-void log_write_user(trans_t *trans, const user_t *user);
 void log_dump(void);
 
 guid_t guid_gen_tag_guid(void);
@@ -496,7 +467,6 @@ extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;
 extern ss128_head_t *tagguids;
-extern ss128_head_t *users;
 extern list_head_t  *postlist_nodes;
 
 extern uint64_t *logindex;
@@ -506,7 +476,6 @@ extern uint64_t *logdumpindex;
 extern const char * const *filetype_names;
 extern const char * const *rating_names;
 extern const char * const *tagtype_names;
-extern const char * const *cap_names;
 extern md5_t config_md5;
 
 extern const char *basedir;

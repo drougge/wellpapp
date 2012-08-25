@@ -91,7 +91,6 @@ static int blacklisted_guid(void)
 
 int main(int argc, char **argv)
 {
-	user_t       loguser_;
 	connection_t logconn_;
 
 	// mktime should assume UTC.
@@ -99,11 +98,8 @@ int main(int argc, char **argv)
 	putenv(env_no_TZ);
 	tzset();
 
-	loguser_.name = "LOG-READER";
-	loguser_.caps = ~0;
 	logconn = &logconn_;
 	memset(logconn, 0, sizeof(*logconn));
-	logconn->user  = &loguser_;
 	logconn->error = dummy_error;
 	logconn->sock  = -1;
 	logconn->flags = CONNFLAG_LOG;
