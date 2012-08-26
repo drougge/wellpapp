@@ -181,6 +181,7 @@ typedef struct field {
 	const char * const **array;
 	tag_t * const *magic_tag;
 	int          is_fuzz;
+	int          log_version;
 } field_t;
 
 extern const field_t *post_fields;
@@ -293,6 +294,7 @@ struct connection;
 typedef struct connection connection_t;
 
 #define PROT_MAXLEN 4096
+#define LOG_VERSION 1
 
 typedef struct trans {
 	off_t        mark_offset;
@@ -488,3 +490,4 @@ extern const char *basedir;
 extern connection_t *logconn;
 
 extern int server_running;
+extern int log_version;

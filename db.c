@@ -30,6 +30,7 @@ ss128_head_t *posts;
 list_head_t  *postlist_nodes;
 
 int default_timezone = 0;
+int log_version = -1;
 
 static postlist_node_t *postlist_alloc(void)
 {
@@ -1037,6 +1038,7 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 		char       *end;
 		trans_id_t tid = strtoull(buf + 1, &end, 16);
 		line_nr++;
+		if (*buf == '#' && log_version < 0) continue;
 		err1(end != buf + 17);
 		if (*buf == 'T') { // New transaction
 			err1(len != 34);
@@ -1046,7 +1048,11 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 				trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
-				transnow[trans_pos] = strtoull(buf + 18, &end, 16);
+				int trans_version = buf[18] - '0';
+				err1(trans_version < log_version);
+				err1(trans_version > LOG_VERSION);
+				log_version = trans_version;
+				transnow[trans_pos] = strtoull(buf + 19, &end, 16);
 				err1(end != buf + 34);
 			} else if (buf[17] == 'U') { // Unfinished transaction
 				// Do nothing

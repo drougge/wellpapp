@@ -191,13 +191,10 @@ First char is what type of object to add.
 		height: uint
 		created: uint, unix timestamp (UTC)
 		imgdate: uint, unix timestamp (UTC)
-		score: signed int
 		ext: enum {"jpeg", "gif", "png", "bmp", "dng", "pef", "nef", "swf"}
-		rating: enum as specified in config
 		rotate: signed int, image should be rotatede this many degrees
 			Clients will probably only handle 0, 90, 180 and 270.
-		source: Encoded string
-		title: Encoded string
+			Set to -1 to mean "unknown".
 
 M:
 Like A. Only works for P and T for now, and not everything can be changed.

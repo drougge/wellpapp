@@ -34,6 +34,16 @@ static void apply_fixups(void)
 {
 	char buf[1024];
 	int  len;
+	const valuetype_t fixup_type[] = {VT_DATETIME, // created
+	                                  VT_DATETIME, // imgdate
+	                                  VT_UINT,     // width
+	                                  VT_UINT,     // height
+	                                  VT_STRING,   // ext
+	                                  VT_INT,      // rotate
+	                                  VT_INT,      // score
+	                                  VT_STRING,   // source
+	                                  VT_STRING    // title
+	                                 };
 	len = snprintf(buf, sizeof(buf), "%s/fixup.0", basedir);
 	assert(len < (int)sizeof(buf));
 	if (!access(buf, F_OK)) {
@@ -44,11 +54,20 @@ static void apply_fixups(void)
 	for (int i = 0; magic_tag_guids[i]; i++) {
 		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
 		if (tag) {
+			err1(tag->valuetype != fixup_type[i]);
 			magic_tag[i] = tag;
-			tag->unsettable = 1;
-			tag->datatag    = 1;
+			if (i < 6) {
+				tag->unsettable = 1;
+				tag->datatag    = 1;
+			}
+		} else {
+			err1(i < 6);
 		}
 	}
+	return;
+err:
+	printf("Missing/bad fixups. Please read UPGRADE.\n");
+	exit(1);
 }
 
 static void populate_from_dump(void)
@@ -145,6 +164,7 @@ int main(int argc, char **argv)
 	}
 	mm_print();
 	mm_start_walker();
+	log_version = LOG_VERSION;
 	log_init();
 	printf("serving..\n");
 	signal(SIGINT, sig_die);

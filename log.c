@@ -50,8 +50,9 @@ static int log_trans_start_(trans_t *trans, time_t now, int fd, int outer)
 	trans->conn     = NULL;
 	trans->now      = now;
 	trans->id = next_trans_id++;
-	len = snprintf(buf, sizeof(buf), "T%016llxU%016llx\n",
+	len = snprintf(buf, sizeof(buf), "T%016llxU%c%015llx\n",
 	               (unsigned long long)trans->id,
+	               '0' + log_version,
 	               (unsigned long long)trans->now);
 	assert(len == 35);
 	trans_lock(trans);
@@ -293,7 +294,9 @@ void log_write_post(trans_t *trans, const post_t *post)
 
 	log_write_nl(trans, 0, "AP%s", md5);
 	while (field->name) {
-		func[field->type](trans, !field[1].name, post, field);
+		if (field->log_version >= LOG_VERSION) {
+			func[field->type](trans, !field[1].name, post, field);
+		}
 		field++;
 	}
 }
