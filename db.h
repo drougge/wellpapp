@@ -198,8 +198,9 @@ struct postlist_node {
 	post_t      *post;
 };
 
-// Needs to match tag_value_types in protocol.c, tv_printer in client.c
-// and tv_cmp in result.c. Needs to be handled in tag_value_parse in db.c.
+// Needs to match tag_value_types and valuefix in protocol.c,
+// tv_printer in client.c, and tv_cmp in result.c.
+// Needs to be handled in tag_value_parse in db.c.
 typedef enum {
 	VT_NONE,
 	VT_STRING,

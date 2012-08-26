@@ -400,26 +400,33 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 const field_t *post_fields = NULL;
 const char *magic_tag_guids[] = {"aaaaaa-aaaads-faketg-create", // created
                                  "aaaaaa-aaaac8-faketg-bddate", // imgdate
+                                 "aaaaaa-aaaaeL-faketg-bbredd", // width
+                                 "aaaaaa-aaaaf9-faketg-heyght", // height
+                                 "aaaaaa-aaaacc-faketg-soorce", // source
+                                 "aaaaaa-aaaac9-faketg-pTYTLE", // title
+                                 "aaaaaa-aaaacr-faketg-FLekst", // ext
+                                 "aaaaaa-aaaade-faketg-rotate", // rotate
+                                 "aaaaaa-aaaaeQ-faketg-pscore", // score
                                  NULL};
-tag_t *magic_tag[] = {0, 0};
+tag_t *magic_tag[9] = {0};
 
 int prot_init(void) {
 	field_t post_fields_[] = {
-		POST_FIELD_DEF(width    , FIELDTYPE_UNSIGNED, NULL),
-		POST_FIELD_DEF(height   , FIELDTYPE_UNSIGNED, NULL),
-		POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL),
+		POST_FIELD_DEF2(width          , width       , FIELDTYPE_UNSIGNED, NULL, &magic_tag[2], 0),
+		POST_FIELD_DEF2(height         , height      , FIELDTYPE_UNSIGNED, NULL, &magic_tag[3], 0),
 		POST_FIELD_DEF2(created        , created     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[0], 0),
 		POST_FIELD_DEF2(image_date     , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0),
 		POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1),
 		POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0),
 		POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1),
-		POST_FIELD_DEF(score    , FIELDTYPE_SIGNED  , NULL),
-		POST_FIELD_DEF(filetype , FIELDTYPE_ENUM    , &filetype_names),
-		POST_FIELD_DEF2(ext, filetype, FIELDTYPE_ENUM, &filetype_names, NULL, 0),
+		POST_FIELD_DEF2(source         , source      , FIELDTYPE_STRING  , NULL, &magic_tag[4], 0),
+		POST_FIELD_DEF2(title          , title       , FIELDTYPE_STRING  , NULL, &magic_tag[5], 0),
+		POST_FIELD_DEF2(filetype       , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[6], 0),
+		POST_FIELD_DEF2(ext            , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[6], 0),
+		POST_FIELD_DEF2(rotate         , rotate      , FIELDTYPE_SIGNED  , NULL, &magic_tag[7], 0),
+		POST_FIELD_DEF2(score          , score       , FIELDTYPE_SIGNED  , NULL, &magic_tag[8], 0),
+		POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL),
 		POST_FIELD_DEF(rating   , FIELDTYPE_ENUM    , &rating_names),
-		POST_FIELD_DEF(rotate   , FIELDTYPE_SIGNED  , NULL),
-		POST_FIELD_DEF(source   , FIELDTYPE_STRING  , NULL),
-		POST_FIELD_DEF(title    , FIELDTYPE_STRING  , NULL),
 		{NULL, 0, 0, 0, NULL, NULL, 0}
 	};
 	void *mem = malloc(sizeof(post_fields_));
@@ -501,6 +508,76 @@ static void datetime_strfix(tag_value_t *val)
 	val->v_str = mm_strdup(buf);
 }
 
+static void vf_bug(tag_value_t *tval, const char *valp)
+{
+	(void) tval;
+	(void) valp;
+	printf("Bad datatag type\n");
+}
+
+static void vf_str(tag_value_t *tval, const char *valp)
+{
+	if (!tval->v_str || strcmp(tval->v_str, valp)) {
+		tval->v_str = mm_strdup(valp);
+	}
+}
+
+static void vf_int(tag_value_t *tval, const char *valp)
+{
+	tval->val.v_int = strtoll(valp, NULL, 10);
+}
+
+static void vf_uint(tag_value_t *tval, const char *valp)
+{
+	tval->val.v_uint = strtoull(valp, NULL, 16);
+}
+
+static void vf_datetime(tag_value_t *tval, const char *valp)
+{
+	long long v = strtoull(valp, NULL, 16);
+	int fix = 0;
+	if (tval->val.v_int != v) {
+		tval->val.v_int = v;
+		fix = 1;
+	}
+	if (fix || !tval->v_str) datetime_strfix(tval);
+}
+
+// Needs to match valuetype_t in db.h
+typedef void (*valuefix_t)(tag_value_t *tval, const char *valp);
+valuefix_t valuefix[] = {vf_bug,  // VT_NONE
+                         vf_str,  // VT_STRING
+                         vf_int,  // VT_INT
+                         vf_uint, // VT_UINT
+                         vf_bug,  // VT_FLOAT
+                         vf_bug,  // VT_F_STOP
+                         vf_bug,  // VT_STOP
+                         vf_datetime, // VT_DATETIME
+                        };
+
+static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
+{
+	tag_value_t tval;
+	tag_value_t *tval_p = post_tag_value(post, tag);
+	if (!tval_p) {
+		memset(&tval, 0, sizeof(tval));
+		tval_p = &tval;
+	}
+	if (fuzz) {
+		unsigned long long v = strtoull(valp, NULL, 16);
+		if (tval_p->fuzz.f_int != v) {
+			tval_p->fuzz.f_int = v;
+			datetime_strfix(tval_p);
+		}
+	} else {
+		valuefix_t fixer = valuefix[tag->valuetype];
+		fixer(tval_p, valp);
+	}
+	if (tval_p == &tval) {
+		post_tag_add(post, tag, T_NO, &tval);
+	}
+}
+
 static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 {
 	const field_t *field = post_fields;
@@ -520,33 +597,8 @@ static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 				return 1;
 			}
 			if (field->magic_tag && *field->magic_tag) {
-				tag_t *tag = *field->magic_tag;
-				tag_value_t tval;
-				tag_value_t *tval_p = post_tag_value(post, tag);
-				if (!tval_p) {
-					memset(&tval, 0, sizeof(tval));
-					tval_p = &tval;
-				}
-				int fix = 0;
-				if (field->is_fuzz) {
-					unsigned long long v;
-					v = strtoull(valp, 0, 16);
-					if (tval_p->fuzz.f_int != v) {
-						tval_p->fuzz.f_int = v;
-						fix = 1;
-					}
-				} else {
-					long long v;
-					v = strtoull(valp, 0, 16);
-					if (tval_p->val.v_int != v) {
-						tval_p->val.v_int = v;
-						fix = 1;
-					}
-				}
-				if (fix) datetime_strfix(tval_p);
-				if (tval_p == &tval) {
-					post_tag_add(post, tag, T_NO, &tval);
-				}
+				do_magic_tag(post, *field->magic_tag, valp,
+				             field->is_fuzz);
 			}
 			return 0;
 		}
