@@ -573,9 +573,15 @@ static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
 		valuefix_t fixer = valuefix[tag->valuetype];
 		fixer(tval_p, valp);
 	}
-	if (tval_p == &tval) {
-		post_tag_add(post, tag, T_NO, &tval);
+	int add = 0;
+	if (tval_p == &tval) add = 1;
+	if (tag == magic_tag[7]) { // rotate
+		if (tval_p->val.v_int == -1) { // Magic "unknown" value
+			if (!add) post_tag_rem(post, tag);
+			add = 0;
+		}
 	}
+	if (add) post_tag_add(post, tag, T_NO, &tval);
 }
 
 static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
