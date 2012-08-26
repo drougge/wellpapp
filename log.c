@@ -294,7 +294,9 @@ void log_write_post(trans_t *trans, const post_t *post)
 
 	log_write_nl(trans, 0, "AP%s", md5);
 	while (field->name) {
-		if (field->log_version >= LOG_VERSION) {
+		if (field->log_version >= LOG_VERSION
+		    && *field->magic_tag != magic_tag_modified
+		   ) {
 			func[field->type](trans, !field[1].name, post, field);
 		}
 		field++;
