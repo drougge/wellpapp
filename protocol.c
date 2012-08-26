@@ -31,6 +31,7 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 			tagvalue_cmp_t cmp;
 			tag_t *tag = tag_find_guidstr_value(args, &cmp, &val, 0);
 			if (tag && *cmd == 'T' && tag->unsettable) tag = NULL;
+			if (tag && tag->datatag) tag = NULL;
 			if (!tag) return conn->error(conn, cmd);
 			if (cmp && cmp != CMP_EQ) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
@@ -175,6 +176,7 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 {
 	(void)conn;
 	if (!into || !from) return 1;
+	if (from->datatag || into->datatag) return 1;
 	mergedata_t data;
 	data.bad  = 0;
 	data.tag  = from;
@@ -782,7 +784,7 @@ int prot_delete(connection_t *conn, char *cmd)
 				return error1(conn, args);
 			}
 			unsigned int datatags = 0;
-			const int dt_count = log_version > 0 ? 7 : 10;
+			const int dt_count = log_version > 0 ? REALLY_MAGIC_TAGS : arraylen(magic_tag);
 			for (int i = 0; i < dt_count; i++) {
 				tag = magic_tag[i];
 				if (tag && post_has_tag(post, tag, T_NO)) {

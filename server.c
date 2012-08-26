@@ -49,12 +49,12 @@ static void after_fixups(void)
 		if (tag) {
 			err1(tag->valuetype != fixup_type[i]);
 			magic_tag[i] = tag;
-			if (i < 7) {
+			if (i < REALLY_MAGIC_TAGS) {
 				tag->unsettable = 1;
 				tag->datatag    = 1;
 			}
 		} else {
-			err1(i < 7);
+			err1(i < REALLY_MAGIC_TAGS);
 		}
 	}
 	magic_tag_rotate   = magic_tag[5];

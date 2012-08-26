@@ -494,7 +494,8 @@ extern connection_t *logconn;
 extern int server_running;
 extern int log_version;
 
-extern tag_t *magic_tag[];
+#define REALLY_MAGIC_TAGS 7
+extern tag_t *magic_tag[10];
 extern const char *magic_tag_guids[];
 extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;
