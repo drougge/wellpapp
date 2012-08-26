@@ -30,14 +30,15 @@ static void log_next(const char *line)
 
 tag_t *magic_tag_rotate = NULL;
 tag_t *magic_tag_modified = NULL;
+tag_t *magic_tag_created = NULL;
 
 static void after_fixups(void)
 {
-	const valuetype_t fixup_type[] = {VT_DATETIME, // created
-	                                  VT_DATETIME, // imgdate
-	                                  VT_UINT,     // width
+	const valuetype_t fixup_type[] = {VT_UINT,     // width
 	                                  VT_UINT,     // height
 	                                  VT_STRING,   // ext
+	                                  VT_DATETIME, // created
+	                                  VT_DATETIME, // imgdate
 	                                  VT_INT,      // rotate
 	                                  VT_DATETIME, // modified
 	                                  VT_INT,      // score
@@ -59,6 +60,7 @@ static void after_fixups(void)
 	}
 	magic_tag_rotate   = magic_tag[5];
 	magic_tag_modified = magic_tag[6];
+	magic_tag_created = magic_tag[3];
 	return;
 err:
 	printf("Missing/bad fixups. Please read UPGRADE.\n");

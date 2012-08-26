@@ -243,64 +243,50 @@ void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias)
 	          tagalias->name);
 }
 
-#define LOG_INT_FIELD_FUNC(signed, type, fmt)                       \
-	static void log_##signed##_field(trans_t *trans, int last,  \
-	                                 const void *data,          \
-	                                 const field_t *field) {    \
-		const char         *fp;                             \
-		signed long long   value;                           \
-		fp = ((const char *)data) + field->offset;          \
-		if (field->size == 8) {                             \
-			value = *(const type##64_t *)fp;            \
-		} else if (field->size == 4) {                      \
-			value = *(const type##32_t *)fp;            \
-		} else {                                            \
-			assert(field->size == 2);                   \
-			value = *(const type##16_t *)fp;            \
-		}                                                   \
-		log_write_nl(trans, last, fmt, field->name, value); \
-	}
-
-LOG_INT_FIELD_FUNC(signed, int, "%s=%lld")
-LOG_INT_FIELD_FUNC(unsigned, uint, "%s=%llx")
-
-static void log_enum_field(trans_t *trans, int last, const void *data,
-                           const field_t *field)
+static const char *tag_value_str(tag_t *tag, tag_value_t *tval, char *buf)
 {
-	const char * const *array = *field->array;
-	uint16_t   value = *(const uint16_t *)(((const char *)data) + field->offset);
-	log_write_nl(trans, last, "%s=%s", field->name, array[value]);
-}
-
-static void log_string_field(trans_t *trans, int last, const void *data,
-                           const field_t *field)
-{
-	const char *value = *(const char * const *)(((const char *)data) + field->offset);
-	if (value) {
-		log_write_nl(trans, last, "%s=%s", field->name, str_str2enc(value));
+	switch (tag->valuetype) {
+		case VT_STRING:
+		case VT_DATETIME:
+			return tval->v_str;
+			break;
+		case VT_UINT:
+			sprintf(buf, "%llx", ULL tval->val.v_uint);
+			return buf;
+			break;
+		case VT_INT:
+			sprintf(buf, "%lld", LL tval->val.v_int);
+			return buf;
+			break;
+		default:
+			assert("BUG" == 0);
+			break;
 	}
+	return NULL; // NOTREACHED
 }
 
 void log_write_post(trans_t *trans, const post_t *post)
 {
 	const field_t *field = post_fields;
 	const char    *md5 = md5_md52str(post->md5);
-	void (*func[])(trans_t *, int, const void *, const field_t *) = {
-	                log_unsigned_field,
-	                log_signed_field,
-	                log_enum_field,
-	                log_string_field,
-	};
+	int           last = 0;
 
 	log_write_nl(trans, 0, "AP%s", md5);
-	while (field->name) {
-		if (field->log_version >= LOG_VERSION
-		    && *field->magic_tag != magic_tag_modified
-		   ) {
-			func[field->type](trans, !field[1].name, post, field);
+	do {
+		last = !(field[1].name && field[1].log_version >= LOG_VERSION);
+		tag_t *tag = *field->magic_tag;
+		if (tag != magic_tag_modified) {
+			tag_value_t *tval = post_tag_value(post, tag);
+			if (tval) {
+				char buf[32];
+				const char *sval;
+				sval = tag_value_str(tag, tval, buf);
+				log_write_nl(trans, last, "%s=%s",
+				             field->name, sval);
+			}
 		}
 		field++;
-	}
+	} while (!last);
 }
 
 void log_init(void)
@@ -393,9 +379,11 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp)
 	post_t  *post = (post_t *)value;
 	int     fd = *(int *)fdp;
 	trans_t trans;
+	time_t  modified;
 
-	(void)key;
-	(void )log_trans_start_(&trans, post->modified, fd, 0);
+	(void) key;
+	modified = post_tag_value(post, magic_tag_modified)->val.v_uint;
+	(void) log_trans_start_(&trans, modified, fd, 0);
 	trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&trans, post);
 	log_set_init(&trans, "TP%s", md5_md52str(post->md5));

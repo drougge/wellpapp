@@ -294,8 +294,7 @@ static void scale_stop(tag_value_t *tval)
 	tval->val.v_double = 10.0 * log10(iso) / 3.0;
 }
 
-static int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval,
-                           int tmp)
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 {
 	if (!val) return 1;
 	switch (tag->valuetype) {
@@ -915,7 +914,6 @@ void post_modify(post_t *post, time_t now)
 		memset(&tval, 0, sizeof(tval));
 		tval_p = &tval;
 	}
-	post->modified = now;
 	if (tval_p->val.v_int != now) {
 		tval_p->val.v_int = now;
 		datetime_strfix(tval_p);

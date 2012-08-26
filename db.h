@@ -17,6 +17,7 @@
 #define assert(v) if (!(v)) assert_fail(#v, __FILE__, __FUNCTION__, __LINE__)
 #define NORETURN __attribute__((noreturn))
 #define ULL (unsigned long long)
+#define LL  (long long)
 
 #define arraylen(a) ((int)(sizeof(a)/sizeof(*(a))))
 
@@ -143,18 +144,6 @@ typedef struct postlist {
 
 typedef struct post {
 	md5_t          md5;
-	const char     *source;
-	const char     *title;
-	time_t         modified;
-	time_t         created;
-	time_t         imgdate;
-	uint16_t       imgdate_fuzz;
-	int16_t        score;
-	uint16_t       width;
-	uint16_t       height;
-	uint16_t       filetype;
-	uint16_t       rating;
-	int16_t        rotate;
 	uint32_t       of_tags;
 	uint32_t       of_weak_tags;
 	postlist_t     related_posts;
@@ -164,24 +153,13 @@ typedef struct post {
 	post_taglist_t *implied_weak_tags;
 } post_t;
 
-/* Keep this synced with function-arrays in protocol.c:put_in_post_field() *
- * and log.c:log_write_post()                                              */
-typedef enum {
-	FIELDTYPE_UNSIGNED,
-	FIELDTYPE_SIGNED,
-	FIELDTYPE_ENUM,
-	FIELDTYPE_STRING,
-} fieldtype_t;
-
 typedef struct field {
-	const char   *name;
-	int          size;
-	int          offset;
-	fieldtype_t  type;
-	const char * const **array;
-	tag_t * const *magic_tag;
-	int          is_fuzz;
-	int          log_version;
+	const char         *name;
+	unsigned int       namelen;
+	const char * const **valuelist;
+	tag_t * const      *magic_tag;
+	int                is_fuzz;
+	int                log_version;
 } field_t;
 
 extern const field_t *post_fields;
@@ -388,6 +366,7 @@ tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
                               tag_value_t *value, int tmp);
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
@@ -494,8 +473,10 @@ extern connection_t *logconn;
 extern int server_running;
 extern int log_version;
 
+#define MANDATORY_MAGIC_TAGS 3
 #define REALLY_MAGIC_TAGS 7
 extern tag_t *magic_tag[10];
 extern const char *magic_tag_guids[];
 extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;
+extern tag_t *magic_tag_created;

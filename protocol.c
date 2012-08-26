@@ -1,8 +1,6 @@
 #include "db.h"
 
-#include <stddef.h> /* offsetof() */
 #include <errno.h>
-#include <time.h>
 
 static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
                         prot_cmd_flag_t flags)
@@ -31,7 +29,7 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 			tagvalue_cmp_t cmp;
 			tag_t *tag = tag_find_guidstr_value(args, &cmp, &val, 0);
 			if (tag && *cmd == 'T' && tag->unsettable) tag = NULL;
-			if (tag && tag->datatag) tag = NULL;
+			if (tag && *cmd == 't' && tag->datatag) tag = NULL;
 			if (!tag) return conn->error(conn, cmd);
 			if (cmp && cmp != CMP_EQ) return conn->error(conn, cmd);
 			if (*cmd == 'T') {
@@ -390,17 +388,15 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-#define POST_FIELD_DEF2(str, name, type, array, magic_tag, fuzz, v) \
-                       {#str, sizeof(((post_t *)0)->name),          \
-                        offsetof(post_t, name), type, array,        \
-                        magic_tag, fuzz, v}
+#define POST_FIELD_DEF(str, valuelist, magic_tag, fuzz, version) \
+                      {#str, strlen(#str), valuelist, magic_tag, fuzz, version}
 
 const field_t *post_fields = NULL;
-const char *magic_tag_guids[] = {"aaaaaa-aaaads-faketg-create", // created
-                                 "aaaaaa-aaaac8-faketg-bddate", // imgdate
-                                 "aaaaaa-aaaaeL-faketg-bbredd", // width
+const char *magic_tag_guids[] = {"aaaaaa-aaaaeL-faketg-bbredd", // width
                                  "aaaaaa-aaaaf9-faketg-heyght", // height
                                  "aaaaaa-aaaacr-faketg-FLekst", // ext
+                                 "aaaaaa-aaaads-faketg-create", // created
+                                 "aaaaaa-aaaac8-faketg-bddate", // imgdate
                                  "aaaaaa-aaaade-faketg-rotate", // rotate
                                  "aaaaaa-aaaaas-faketg-chaage", // modified
                                  "aaaaaa-aaaaeQ-faketg-pscore", // score
@@ -411,79 +407,27 @@ tag_t *magic_tag[10] = {0};
 
 int prot_init(void) {
 	field_t post_fields_[] = {
-		POST_FIELD_DEF2(width          , width       , FIELDTYPE_UNSIGNED, NULL, &magic_tag[2], 0, LOG_VERSION),
-		POST_FIELD_DEF2(height         , height      , FIELDTYPE_UNSIGNED, NULL, &magic_tag[3], 0, LOG_VERSION),
-		POST_FIELD_DEF2(created        , created     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[0], 0, LOG_VERSION),
-		POST_FIELD_DEF2(image_date     , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0, 0),
-		POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1, 0),
-		POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0, LOG_VERSION),
-		POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1, LOG_VERSION),
-		POST_FIELD_DEF2(source         , source      , FIELDTYPE_STRING  , NULL, &magic_tag[8], 0, 0),
-		POST_FIELD_DEF2(title          , title       , FIELDTYPE_STRING  , NULL, &magic_tag[9], 0, 0),
-		POST_FIELD_DEF2(filetype       , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[4], 0, 0),
-		POST_FIELD_DEF2(ext            , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[4], 0, LOG_VERSION),
-		POST_FIELD_DEF2(rotate         , rotate      , FIELDTYPE_SIGNED  , NULL, &magic_tag[5], 0, LOG_VERSION),
-		POST_FIELD_DEF2(score          , score       , FIELDTYPE_SIGNED  , NULL, &magic_tag[7], 0, 0),
-		POST_FIELD_DEF2(rating         , rating      , FIELDTYPE_ENUM    , &rating_names, NULL, 0, 0),
-		POST_FIELD_DEF2(modified       , modified    , FIELDTYPE_UNSIGNED, NULL, &magic_tag[6], 0, LOG_VERSION),
-		{NULL, 0, 0, 0, NULL, NULL, 0, 0}
+		POST_FIELD_DEF(width          , NULL           , &magic_tag[0], 0, LOG_VERSION),
+		POST_FIELD_DEF(height         , NULL           , &magic_tag[1], 0, LOG_VERSION),
+		POST_FIELD_DEF(created        , NULL           , &magic_tag[3], 0, LOG_VERSION),
+		POST_FIELD_DEF(modified       , NULL           , &magic_tag[6], 0, LOG_VERSION),
+		POST_FIELD_DEF(rotate         , NULL           , &magic_tag[5], 0, LOG_VERSION),
+		POST_FIELD_DEF(ext            , &filetype_names, &magic_tag[2], 0, LOG_VERSION),
+		POST_FIELD_DEF(imgdate        , NULL           , &magic_tag[4], 0, LOG_VERSION),
+		POST_FIELD_DEF(image_date     , NULL           , &magic_tag[4], 0, 0),
+		POST_FIELD_DEF(image_date_fuzz, NULL           , &magic_tag[4], 1, 0),
+		POST_FIELD_DEF(imgdate_fuzz   , NULL           , &magic_tag[4], 1, 0),
+		POST_FIELD_DEF(source         , NULL           , &magic_tag[8], 0, 0),
+		POST_FIELD_DEF(title          , NULL           , &magic_tag[9], 0, 0),
+		POST_FIELD_DEF(filetype       , &filetype_names, &magic_tag[2], 0, 0),
+		POST_FIELD_DEF(score          , NULL           , &magic_tag[7], 0, 0),
+		POST_FIELD_DEF(rating         , &rating_names  , NULL         , 0, 0),
+		{NULL, 0, NULL, NULL, 0, 0}
 	};
 	void *mem = malloc(sizeof(post_fields_));
 	if (!mem) return 1;
 	memcpy(mem, post_fields_, sizeof(post_fields_));
 	post_fields = mem;
-	return 0;
-}
-
-/* I need a setter for both signed and unsigned ints. This is mostly *
- * the same function but with different types. The magnificent       *
- * preprocessor comes to the rescue!                                 */
-
-#define PUT_INT_VALUE_INNER(type, bytes)                  \
-	type rv = v;                                      \
-	if (v != rv) return 1;                            \
-	memcpy((char *)post + field->offset, &rv, bytes);
-
-#define PUT_INT_VALUE_FUNC(signed, type, strtot, base, check_v)             \
-	static int put_##signed##_value(post_t *post, const field_t *field, \
-	                                const char *val)                    \
-	{                                                                   \
-		char *end;                                                  \
-		if (!*val) return 1;                                        \
-		errno = 0;                                                  \
-		signed long long v = strtot(val, &end, base);               \
-		if (errno || *end) return 1;                                \
-		if (check_v) return 1;                                      \
-		if (field->size == 8) {                                     \
-			PUT_INT_VALUE_INNER(type##64_t, 8);                 \
-		} else if (field->size == 4) {                              \
-			PUT_INT_VALUE_INNER(type##32_t, 4);                 \
-		} else {                                                    \
-			PUT_INT_VALUE_INNER(type##16_t, 2);                 \
-			assert(field->size == 2);                           \
-		}                                                           \
-		return 0;                                                   \
-	}
-
-PUT_INT_VALUE_FUNC(signed, int, strtoll, 10, v == LLONG_MAX || v == LLONG_MIN)
-PUT_INT_VALUE_FUNC(unsigned, uint, strtoull, 16, v == ULLONG_MAX)
-
-static int put_enum_value_post(post_t *post, const field_t *field,
-                               const char *val)
-{
-	uint16_t *p = (uint16_t *)((char *)post + field->offset);
-	assert(field->size == 2);
-	return put_enum_value_gen(p, *field->array, val);
-}
-
-static int put_string_value(post_t *post, const field_t *field, const char *val)
-{
-	const char **res = (const char **)((char *)post + field->offset);
-	const char *decoded;
-
-	decoded = str_enc2str(val);
-	if (!decoded) return 1;
-	*res = mm_strdup(decoded);
 	return 0;
 }
 
@@ -507,54 +451,8 @@ void datetime_strfix(tag_value_t *val)
 	val->v_str = mm_strdup(buf);
 }
 
-static void vf_bug(tag_value_t *tval, const char *valp)
-{
-	(void) tval;
-	(void) valp;
-	printf("Bad datatag type\n");
-}
-
-static void vf_str(tag_value_t *tval, const char *valp)
-{
-	if (!tval->v_str || strcmp(tval->v_str, valp)) {
-		tval->v_str = mm_strdup(valp);
-	}
-}
-
-static void vf_int(tag_value_t *tval, const char *valp)
-{
-	tval->val.v_int = strtoll(valp, NULL, 10);
-}
-
-static void vf_uint(tag_value_t *tval, const char *valp)
-{
-	tval->val.v_uint = strtoull(valp, NULL, 16);
-}
-
-static void vf_datetime(tag_value_t *tval, const char *valp)
-{
-	long long v = strtoull(valp, NULL, 16);
-	int fix = 0;
-	if (tval->val.v_int != v) {
-		tval->val.v_int = v;
-		fix = 1;
-	}
-	if (fix || !tval->v_str) datetime_strfix(tval);
-}
-
-// Needs to match valuetype_t in db.h
-typedef void (*valuefix_t)(tag_value_t *tval, const char *valp);
-valuefix_t valuefix[] = {vf_bug,  // VT_NONE
-                         vf_str,  // VT_STRING
-                         vf_int,  // VT_INT
-                         vf_uint, // VT_UINT
-                         vf_bug,  // VT_FLOAT
-                         vf_bug,  // VT_F_STOP
-                         vf_bug,  // VT_STOP
-                         vf_datetime, // VT_DATETIME
-                        };
-
-static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
+static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
+                        const field_t *field)
 {
 	tag_value_t tval;
 	tag_value_t *tval_p = post_tag_value(post, tag);
@@ -562,15 +460,25 @@ static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
 		memset(&tval, 0, sizeof(tval));
 		tval_p = &tval;
 	}
-	if (fuzz) {
+	if (field->is_fuzz) {
 		unsigned long long v = strtoull(valp, NULL, 16);
 		if (tval_p->fuzz.f_int != v) {
 			tval_p->fuzz.f_int = v;
 			datetime_strfix(tval_p);
 		}
 	} else {
-		valuefix_t fixer = valuefix[tag->valuetype];
-		fixer(tval_p, valp);
+		if (field->valuelist) {
+			uint16_t i;
+			if (put_enum_value_gen(&i, *field->valuelist, valp)) {
+				return 1;
+			}
+		}
+		if (log_version < 1 && tag->valuetype == VT_DATETIME) {
+			tval_p->val.v_int = strtoull(valp, NULL, 16);
+			datetime_strfix(tval_p);
+		} else {
+			if (tag_value_parse(tag, valp, tval_p, 0)) return 1;
+		}
 	}
 	int add = 0;
 	if (tval_p == &tval) add = 1;
@@ -581,32 +489,19 @@ static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
 		}
 	}
 	if (add) post_tag_add(post, tag, T_NO, &tval);
+	return 0;
 }
 
 static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 {
 	const field_t *field = post_fields;
-	int (*func[])(post_t *, const field_t *, const char *) = {
-		put_unsigned_value,
-		put_signed_value,
-		put_enum_value_post,
-		put_string_value,
-	};
-
-	while (field->name) {
-		if (!memcmp(field->name, str, nlen)) {
+	while (field->name && field->log_version >= log_version) {
+		if (field->namelen == nlen && !memcmp(field->name, str, nlen)) {
 			const char *valp = str + nlen + 1;
-			if (field->name[nlen]) return 1;
+			tag_t * const *tag = field->magic_tag;
 			if (!*valp) return 1;
-			if (field->log_version < log_version) return 1;
-			if (func[field->type](post, field, valp)) {
-				return 1;
-			}
-			if (field->magic_tag && *field->magic_tag) {
-				do_magic_tag(post, *field->magic_tag, valp,
-				             field->is_fuzz);
-			}
-			return 0;
+			if (!tag || !*tag) return 0;
+			return do_magic_tag(post, *tag, valp, field);
 		}
 		field++;
 	}
@@ -645,10 +540,13 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 		int r;
 		md5_t null_md5;
 		memset(&null_md5, 0, sizeof(md5_t));
-		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))
-		    || !post->height || !post->width
-		    || post->filetype == (uint16_t)~0) {
+		if (!memcmp(&post->md5, &null_md5, sizeof(md5_t))) {
 			return conn->error(conn, cmd);
+		}
+		for (int i = 0; i < MANDATORY_MAGIC_TAGS; i++) {
+			if (!post_has_tag(post, magic_tag[i], T_NO)) {
+				return conn->error(conn, cmd);
+			}
 		}
 		r = ss128_insert(posts, post, post->md5.key);
 		if (r) {
@@ -665,6 +563,7 @@ int prot_add(connection_t *conn, char *cmd)
 	void *data = NULL;
 	void *dataptr = &data;
 	tag_cmd_data_t tag_data;
+	int r;
 
 	switch (*cmd) {
 		case 'T':
@@ -684,9 +583,11 @@ int prot_add(connection_t *conn, char *cmd)
 			func = post_cmd;
 			data = mm_alloc(sizeof(post_t));
 			post_t *post = data;
-			post->created  = time(NULL);
-			post->filetype = (uint16_t)~0;
-			post->rotate   = -1;
+			tag_value_t val;
+			memset(&val, 0, sizeof(val));
+			val.val.v_int = conn->trans.now;
+			r = post_tag_add(post, magic_tag_created, T_NO, &val);
+			assert(!r);
 			list_newlist(&post->related_posts.h.l);
 			break;
 		default:

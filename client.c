@@ -24,62 +24,8 @@ typedef enum {
 } tag_order_t;
 
 static const char *flagnames[] = {"tagname", "tagguid", "implied", "tagdata",
-                                  "ext", "created", "width", "height", "score",
-                                  "source", "title", "imgdate", "modified",
-                                  "rotate", NULL};
-
-static void FLAGPRINT_EXTENSION(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fext=%s", filetype_names[post->filetype]);
-}
-static void FLAGPRINT_CREATED(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fcreated=%llx", (unsigned long long)post->created);
-}
-static void FLAGPRINT_IMGDATE(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fimgdate=%llx", (unsigned long long)post->imgdate);
-}
-static void FLAGPRINT_MODIFIED(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fmodified=%llx", (unsigned long long)post->modified);
-}
-static void FLAGPRINT_WIDTH(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fwidth=%x", post->width);
-}
-static void FLAGPRINT_HEIGHT(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fheight=%x", post->height);
-}
-static void FLAGPRINT_SCORE(connection_t *conn, post_t *post) {
-	c_printf(conn, " Fscore=%d", post->score);
-}
-static void FLAGPRINT_ROTATE(connection_t *conn, post_t *post) {
-	c_printf(conn, " Frotate=%d", post->rotate);
-}
-static void FLAGPRINT_SOURCE(connection_t *conn, post_t *post) {
-	if (post->source) {
-		c_printf(conn, " Fsource=%s", str_str2enc(post->source));
-	}
-}
-static void FLAGPRINT_TITLE(connection_t *conn, post_t *post) {
-	if (post->title) {
-		c_printf(conn, " Ftitle=%s", str_str2enc(post->title));
-	}
-}
-
-typedef void (*flag_printer_t)(connection_t *, post_t *);
-static const flag_printer_t flag_printers[] = {
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	FLAGPRINT_EXTENSION,
-	FLAGPRINT_CREATED,
-	FLAGPRINT_WIDTH,
-	FLAGPRINT_HEIGHT,
-	FLAGPRINT_SCORE,
-	FLAGPRINT_SOURCE,
-	FLAGPRINT_TITLE,
-	FLAGPRINT_IMGDATE,
-	FLAGPRINT_MODIFIED,
-	FLAGPRINT_ROTATE,
-};
+                                  "ext", "created", "width", "height",
+                                  "imgdate", "modified", "rotate", NULL};
 
 typedef enum {
 	FLAG_RETURN_TAGNAMES,
@@ -90,9 +36,6 @@ typedef enum {
 	FLAG_RETURN_CREATED,
 	FLAG_RETURN_WIDTH,
 	FLAG_RETURN_HEIGHT,
-	FLAG_RETURN_SCORE,
-	FLAG_RETURN_SOURCE,
-	FLAG_RETURN_TITLE,
 	FLAG_RETURN_IMGDATE,
 	FLAG_RETURN_MODIFIED,
 	FLAG_RETURN_ROTATE,
@@ -117,29 +60,13 @@ typedef struct search {
 } search_t;
 static post_t null_post; /* search->post for not found posts */
 
-
-#define SORTER(field) \
-	static int sorter_ ## field(const post_t *p1, const post_t *p2) \
-	{ \
-		if (p1->field < p2->field) return -1; \
-		if (p1->field > p2->field) return 1; \
-		return 0; \
-	}
-SORTER(created)
-SORTER(imgdate)
-SORTER(score)
-SORTER(modified)
-SORTER(width)
-SORTER(height)
-SORTER(of_tags)
-static int sorter_area(const post_t *p1, const post_t *p2)
+static int sorter_of_tags(const post_t *p1, const post_t *p2)
 {
-	unsigned int p1a = (unsigned int)p1->width * p1->height;
-	unsigned int p2a = (unsigned int)p2->width * p2->height;
-	if (p1a < p2a) return -1;
-	if (p1a > p2a) return 1;
+	if (p1->of_tags < p2->of_tags) return -1;
+	if (p1->of_tags > p2->of_tags) return 1;
 	return 0;
 }
+
 static int sorter_group(const post_t *p1, const post_t *p2)
 {
 	(void) p1;
@@ -148,12 +75,8 @@ static int sorter_group(const post_t *p1, const post_t *p2)
 }
 
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
-static sorter_f sorters[] = {sorter_created, sorter_imgdate, sorter_score,
-                             sorter_group, sorter_modified, sorter_width,
-                             sorter_height, sorter_area, sorter_of_tags};
-static const char *orders[] = {"created", "imagedate", "score", "group",
-                               "modified", "width", "height", "area",
-                               "tagcount", NULL};
+static sorter_f sorters[] = {sorter_group, sorter_of_tags};
+static const char *orders[] = {"group", "tagcount", NULL};
 static const char *tag_orders[] = {"post", "weak", "allpost", NULL};
 
 typedef struct taglimit_tag {
@@ -483,15 +406,61 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 	return 0;
 }
 
+static void tv_print_str(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%s", str_str2enc(tv->v_str));
+}
+
+static void tv_print_int(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%d", tv->val.v_int);
+	if (tv->fuzz.f_int) c_printf(conn, "+-%x", tv->fuzz.f_int);
+}
+
+static void tv_print_uint(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%x", tv->val.v_uint);
+	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
+}
+
+static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)
+{
+	c_printf(conn, "=%s", tv->v_str);
+}
+
+typedef void (tv_printer_t)(connection_t *, tag_value_t *);
+// Needs to match valuetype_t in db.h
+tv_printer_t *tv_printer[] = {NULL, // NONE
+                              tv_print_str, // STRING
+                              tv_print_int, // INT
+                              tv_print_uint, // UINT
+                              tv_print_rawstr, // FLOAT
+                              tv_print_rawstr, // F_STOP
+                              tv_print_rawstr, // STOP
+                              tv_print_rawstr, // DATETIME
+                             };
+
+
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
                         int aliases, taglimit_t *limits, post_t *post);
 static void return_post(connection_t *conn, post_t *post, int flags)
 {
-	int i;
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
-	for (i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
-		if (flags & FLAG(i)) {
-			flag_printers[i](conn, post);
+	for (int i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
+		for (const field_t *field = post_fields;
+		     field->log_version >= log_version;
+		     field++) {
+			if (!strcmp(flagnames[i], field->name)) {
+				tv_printer_t *printer;
+				tag_value_t  *tv;
+				tag_t *tag = *field->magic_tag;
+				printer = tv_printer[tag->valuetype];
+				tv = post_tag_value(post, tag);
+				if (printer && tv) {
+					c_printf(conn, "%s", field->name);
+					printer(conn, tv);
+				}
+			}
 		}
 	}
 	if (flags & (FLAG(FLAG_RETURN_TAGNAMES) | FLAG(FLAG_RETURN_TAGIDS))) {
@@ -501,7 +470,7 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 		c_printf(conn, " ");
 again:
 		while (tl) {
-			for (i = 0; i < arraylen(tl->tags); i++) {
+			for (int i = 0; i < arraylen(tl->tags); i++) {
 				if (tl->tags[i]) {
 					const tag_t *tag = tl->tags[i];
 					c_printf(conn, ":");
@@ -627,40 +596,6 @@ static void c_print_alias_cb(ss128_key_t key, ss128_value_t value, void *data_)
 		c_printf(data->conn, "A%s ", tagalias->name);
 	}
 }
-
-static void tv_print_str(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%s", str_str2enc(tv->v_str));
-}
-
-static void tv_print_int(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%d", tv->val.v_int);
-	if (tv->fuzz.f_int) c_printf(conn, "+-%x", tv->fuzz.f_int);
-}
-
-static void tv_print_uint(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%x", tv->val.v_uint);
-	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
-}
-
-static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)
-{
-	c_printf(conn, "=%s", tv->v_str);
-}
-
-typedef void (tv_printer_t)(connection_t *, tag_value_t *);
-// Needs to match valuetype_t in db.h
-tv_printer_t *tv_printer[] = {NULL, // NONE
-                              tv_print_str, // STRING
-                              tv_print_int, // INT
-                              tv_print_uint, // UINT
-                              tv_print_rawstr, // FLOAT
-                              tv_print_rawstr, // F_STOP
-                              tv_print_rawstr, // STOP
-                              tv_print_rawstr, // DATETIME
-                             };
 
 static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
                         int aliases, taglimit_t *limits, post_t *post)

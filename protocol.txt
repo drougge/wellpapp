@@ -52,12 +52,8 @@ tag ("T").
 		Strings (including regexpes) are always encoded.
 	O:
 		What to sort by. Prefix with - to reverse sort.
+		It will soon be possible to sort by tagvalues.
 		Possible values:
-			created (the date this post was created in wellpapp)
-			imgdate (the date of the image, probably read from exif)
-			modified (when the post was last modified)
-			score (user set integer)
-			width, height, area (dimensions of image)
 			tagcount (number of set tags)
 			group
 		Group sorting is special, it sorts by the group ordering of
@@ -68,19 +64,18 @@ tag ("T").
 			tagguid: Return guid of set tags.
 			tagdata: Return other data for set tags.
 			ext: Return file-type in the form of a likely
-				extension. Currently one of "jpeg", "gif",
-				"png", "bmp", "dng", "pef", "nef" or "swf".
-			created: Time as a unix timestamp (UTC). (unsigned)
-			imgdate: Time as a unix timestamp (UTC). (unsigned)
-			modified: Time as a unix timestamp (UTC). (unsigned)
+			     extension. Currently one of "jpeg", "gif",
+			     "png", "bmp", "dng", "pef", "nef" or "swf".
+			created: Time as datetime.
+			modified: Time as datetime.
+			imgdate: Time as datetime.
 			width: Width in pixels. (unsigned)
 			height: Height in pixels. (unsigned)
-			score: signed integer.
-			source: Encoded string.
+			rotate: Rotation in degrees clockwise.
 			implied: Separate implied tags from actually set ones.
-				Implied tags are always returned, but if you
-				request this you get I in the flags for implied
-				ones.
+			         Implied tags are always returned, but if you
+			         request this you get I in the flags for implied
+			         ones.
 	M:
 		md5 of post. Can not be specified together with "T" or "t".
 		Can only be specified once.
@@ -189,12 +184,12 @@ First char is what type of object to add.
 		field=value pairs:
 		width: uint
 		height: uint
-		created: uint, unix timestamp (UTC)
-		imgdate: uint, unix timestamp (UTC)
+		created: datetime, like a tagvalue. Defaults to now.
+		imgdate: datetime, like a tagvalue.
 		ext: enum {"jpeg", "gif", "png", "bmp", "dng", "pef", "nef", "swf"}
 		rotate: signed int, image should be rotatede this many degrees
-			Clients will probably only handle 0, 90, 180 and 270.
-			Set to -1 to mean "unknown".
+		        Clients will probably only handle 0, 90, 180 and 270.
+		        Set to -1 to mean "unknown".
 
 M:
 Like A. Only works for P and T for now, and not everything can be changed.
