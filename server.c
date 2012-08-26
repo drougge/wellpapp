@@ -42,7 +42,12 @@ static void apply_fixups(void)
 		assert(!r);
 	}
 	for (int i = 0; magic_tag_guids[i]; i++) {
-		magic_tag[i] = tag_find_guidstr(magic_tag_guids[i]);
+		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
+		if (tag) {
+			magic_tag[i] = tag;
+			tag->unsettable = 1;
+			tag->datatag    = 1;
+		}
 	}
 }
 

@@ -505,6 +505,7 @@ again:
 				if (tl->tags[i]) {
 					const tag_t *tag = tl->tags[i];
 					c_printf(conn, ":");
+					if (tag->datatag) c_printf(conn, "D");
 					if (flags & FLAG(FLAG_RETURN_IMPLIED)
 					    && taglist_contains(impltl, tag)
 					   ) {
@@ -706,6 +707,7 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 		c_printf(conn, "W%x",  weak_count);
 		if (tag->ordered) c_printf(conn, " Fordered");
 		if (tag->unsettable) c_printf(conn, " Funsettable");
+		if (tag->datatag) c_printf(conn, " Fdatatag");
 		if (flags != ~0) c_printf(conn, " ");
 	}
 	if (flags == ~0) c_printf(conn, "\n");

@@ -92,10 +92,10 @@ tag ("T").
 	Returned posts are ordered according to O arguments, or not at all.
 	Returned data for each post in not ordered, except tags come last.
 	Each tag is introduced by a colon immediately followed by flags for
-	this tag, I for implied and ~ for weak, and then the same format as
-	returned from tag searches (with the data you requested only).
-	If the tag has a value, this is returned as Vtype=value (instead of
-	just Vtype in tag searches).
+	this tag, I for implied, D for datatag, and ~ for weak, and then the
+	same format as returned from tag searches (with the data you requested
+	only). If the tag has a value, this is returned as Vtype=value (instead
+	of just Vtype in tag searches).
 	Example:
 		SPTNfoo t~G29kQAF-qto48a-aaaaaa-aaaaaf O-date Fext Ftagname Ftagguid
 	Example reply:
@@ -116,7 +116,7 @@ tag ("T").
 		R: Range, works just like R on post searches.
 	Order can be prefixed with - to reverse sorting ("O-weak")
 	Returns "Gguid Nname Ttype Ppost_count Wweak_post_count [Fflag [..]]".
-	Flags can be unsettable and ordered. Not included = not set.
+	Flags can be unsettable, datatag and ordered. Not included = not set.
 	If you search for aliases there may also any number of Aalias in there.
 	Tags with a value type will also include Vtype.
 	Can be suffixed by ":post search", which limits search to tags and tag

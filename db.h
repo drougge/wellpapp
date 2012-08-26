@@ -232,6 +232,7 @@ struct tag {
 	valuetype_t  valuetype;
 	unsigned int ordered    : 1;
 	unsigned int unsettable : 1;
+	unsigned int datatag    : 1;
 };
 
 typedef struct tagalias {
