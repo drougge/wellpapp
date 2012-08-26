@@ -381,6 +381,7 @@ int prot_rel_remove(connection_t *conn, char *cmd);
 int prot_implication(connection_t *conn, char *cmd);
 int prot_order(connection_t *conn, char *cmd);
 int prot_init(void);
+void datetime_strfix(tag_value_t *val);
 
 tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
@@ -395,6 +396,7 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 tag_value_t *post_tag_value(const post_t *post, const tag_t *tag);
 int post_find_md5str(post_t **res_post, const char *md5str);
+void post_modify(post_t *post, time_t now);
 int post_has_rel(const post_t *post, const post_t *rel);
 int post_rel_add(post_t *a, post_t *b);
 int post_rel_remove(post_t *a, post_t *b);
@@ -491,3 +493,8 @@ extern connection_t *logconn;
 
 extern int server_running;
 extern int log_version;
+
+extern tag_t *magic_tag[];
+extern const char *magic_tag_guids[];
+extern tag_t *magic_tag_rotate;
+extern tag_t *magic_tag_modified;

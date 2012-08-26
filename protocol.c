@@ -48,7 +48,7 @@ static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
 			return conn->error(conn, cmd);
 			break;
 	}
-	if (*cmd != 'P' && *post) (*post)->modified = conn->trans.now;
+	if (*cmd != 'P' && *post) post_modify(*post, conn->trans.now);
 	return 0;
 }
 
@@ -388,10 +388,6 @@ static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-#define POST_FIELD_DEF(name, type, array)                   \
-                      {#name, sizeof(((post_t *)0)->name),  \
-                       offsetof(post_t, name), type, array, \
-                       NULL, 0, LOG_VERSION}
 #define POST_FIELD_DEF2(str, name, type, array, magic_tag, fuzz, v) \
                        {#str, sizeof(((post_t *)0)->name),          \
                         offsetof(post_t, name), type, array,        \
@@ -404,11 +400,12 @@ const char *magic_tag_guids[] = {"aaaaaa-aaaads-faketg-create", // created
                                  "aaaaaa-aaaaf9-faketg-heyght", // height
                                  "aaaaaa-aaaacr-faketg-FLekst", // ext
                                  "aaaaaa-aaaade-faketg-rotate", // rotate
+                                 "aaaaaa-aaaaas-faketg-chaage", // modified
                                  "aaaaaa-aaaaeQ-faketg-pscore", // score
                                  "aaaaaa-aaaacc-faketg-soorce", // source
                                  "aaaaaa-aaaac9-faketg-pTYTLE", // title
                                  NULL};
-tag_t *magic_tag[9] = {0};
+tag_t *magic_tag[10] = {0};
 
 int prot_init(void) {
 	field_t post_fields_[] = {
@@ -419,14 +416,14 @@ int prot_init(void) {
 		POST_FIELD_DEF2(image_date_fuzz, imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1, 0),
 		POST_FIELD_DEF2(imgdate        , imgdate     , FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 0, LOG_VERSION),
 		POST_FIELD_DEF2(imgdate_fuzz   , imgdate_fuzz, FIELDTYPE_UNSIGNED, NULL, &magic_tag[1], 1, LOG_VERSION),
-		POST_FIELD_DEF2(source         , source      , FIELDTYPE_STRING  , NULL, &magic_tag[7], 0, 0),
-		POST_FIELD_DEF2(title          , title       , FIELDTYPE_STRING  , NULL, &magic_tag[8], 0, 0),
+		POST_FIELD_DEF2(source         , source      , FIELDTYPE_STRING  , NULL, &magic_tag[8], 0, 0),
+		POST_FIELD_DEF2(title          , title       , FIELDTYPE_STRING  , NULL, &magic_tag[9], 0, 0),
 		POST_FIELD_DEF2(filetype       , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[4], 0, 0),
 		POST_FIELD_DEF2(ext            , filetype    , FIELDTYPE_ENUM    , &filetype_names, &magic_tag[4], 0, LOG_VERSION),
 		POST_FIELD_DEF2(rotate         , rotate      , FIELDTYPE_SIGNED  , NULL, &magic_tag[5], 0, LOG_VERSION),
-		POST_FIELD_DEF2(score          , score       , FIELDTYPE_SIGNED  , NULL, &magic_tag[6], 0, 0),
+		POST_FIELD_DEF2(score          , score       , FIELDTYPE_SIGNED  , NULL, &magic_tag[7], 0, 0),
 		POST_FIELD_DEF2(rating         , rating      , FIELDTYPE_ENUM    , &rating_names, NULL, 0, 0),
-		POST_FIELD_DEF(modified , FIELDTYPE_UNSIGNED, NULL),
+		POST_FIELD_DEF2(modified       , modified    , FIELDTYPE_UNSIGNED, NULL, &magic_tag[6], 0, LOG_VERSION),
 		{NULL, 0, 0, 0, NULL, NULL, 0, 0}
 	};
 	void *mem = malloc(sizeof(post_fields_));
@@ -488,7 +485,7 @@ static int put_string_value(post_t *post, const field_t *field, const char *val)
 	return 0;
 }
 
-static void datetime_strfix(tag_value_t *val)
+void datetime_strfix(tag_value_t *val)
 {
 	struct tm tm;
 	time_t ttime = val->val.v_int;
@@ -575,7 +572,7 @@ static void do_magic_tag(post_t *post, tag_t *tag, const char *valp, int fuzz)
 	}
 	int add = 0;
 	if (tval_p == &tval) add = 1;
-	if (tag == magic_tag[5]) { // rotate
+	if (tag == magic_tag_rotate) {
 		if (tval_p->val.v_int == -1) { // Magic "unknown" value
 			if (!add) post_tag_rem(post, tag);
 			add = 0;
@@ -627,7 +624,7 @@ static int post_cmd(connection_t *conn, const char *cmd, void *data,
 		if (put_in_post_field(post, cmd, len)) {
 			return conn->error(conn, cmd);
 		}
-		post->modified = conn->trans.now;
+		post_modify(post, conn->trans.now);
 		if (flags & CMDFLAG_MODIFY) log_write(&conn->trans, "%s", cmd);
 	} else { // This is the md5
 		if (flags & CMDFLAG_MODIFY) {
@@ -785,7 +782,7 @@ int prot_delete(connection_t *conn, char *cmd)
 				return error1(conn, args);
 			}
 			unsigned int datatags = 0;
-			const int dt_count = log_version > 0 ? 6 : 9;
+			const int dt_count = log_version > 0 ? 7 : 10;
 			for (int i = 0; i < dt_count; i++) {
 				tag = magic_tag[i];
 				if (tag && post_has_tag(post, tag, T_NO)) {

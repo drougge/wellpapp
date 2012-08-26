@@ -28,22 +28,47 @@ static void log_next(const char *line)
 	*logindex = *first_logindex = str2u64(line + 1);
 }
 
-extern tag_t *magic_tag[];
-extern const char *magic_tag_guids[];
-static void apply_fixups(void)
+tag_t *magic_tag_rotate = NULL;
+tag_t *magic_tag_modified = NULL;
+
+static void after_fixups(void)
 {
-	char buf[1024];
-	int  len;
 	const valuetype_t fixup_type[] = {VT_DATETIME, // created
 	                                  VT_DATETIME, // imgdate
 	                                  VT_UINT,     // width
 	                                  VT_UINT,     // height
 	                                  VT_STRING,   // ext
 	                                  VT_INT,      // rotate
+	                                  VT_DATETIME, // modified
 	                                  VT_INT,      // score
 	                                  VT_STRING,   // source
 	                                  VT_STRING    // title
 	                                 };
+	for (int i = 0; magic_tag_guids[i]; i++) {
+		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
+		if (tag) {
+			err1(tag->valuetype != fixup_type[i]);
+			magic_tag[i] = tag;
+			if (i < 7) {
+				tag->unsettable = 1;
+				tag->datatag    = 1;
+			}
+		} else {
+			err1(i < 7);
+		}
+	}
+	magic_tag_rotate   = magic_tag[5];
+	magic_tag_modified = magic_tag[6];
+	return;
+err:
+	printf("Missing/bad fixups. Please read UPGRADE.\n");
+	exit(1);
+}
+
+static void apply_fixups(void)
+{
+	char buf[1024];
+	int  len;
 	len = snprintf(buf, sizeof(buf), "%s/fixup.0", basedir);
 	assert(len < (int)sizeof(buf));
 	if (!access(buf, F_OK)) {
@@ -51,23 +76,7 @@ static void apply_fixups(void)
 		int r = populate_from_log(buf, NULL);
 		assert(!r);
 	}
-	for (int i = 0; magic_tag_guids[i]; i++) {
-		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
-		if (tag) {
-			err1(tag->valuetype != fixup_type[i]);
-			magic_tag[i] = tag;
-			if (i < 6) {
-				tag->unsettable = 1;
-				tag->datatag    = 1;
-			}
-		} else {
-			err1(i < 6);
-		}
-	}
-	return;
-err:
-	printf("Missing/bad fixups. Please read UPGRADE.\n");
-	exit(1);
+	after_fixups();
 }
 
 static void populate_from_dump(void)
@@ -157,6 +166,8 @@ int main(int argc, char **argv)
 	if (mm_init()) {
 		apply_fixups();
 		populate_from_dump();
+	} else {
+		after_fixups();
 	}
 	if (!*logdumpindex && blacklisted_guid()) {
 		fprintf(stderr, "Don't use the example GUID\n");

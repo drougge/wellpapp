@@ -907,6 +907,23 @@ int post_find_md5str(post_t **res_post, const char *md5str)
 	return ss128_find(posts, (void *)res_post, md5.key);
 }
 
+void post_modify(post_t *post, time_t now)
+{
+	tag_value_t tval;
+	tag_value_t *tval_p = post_tag_value(post, magic_tag_modified);
+	if (!tval_p) {
+		memset(&tval, 0, sizeof(tval));
+		tval_p = &tval;
+	}
+	post->modified = now;
+	if (tval_p->val.v_int != now) {
+		tval_p->val.v_int = now;
+		datetime_strfix(tval_p);
+	}
+	if (!tval_p->v_str) datetime_strfix(tval_p);
+	if (tval_p == &tval) post_tag_add(post, magic_tag_modified, T_NO, &tval);
+}
+
 typedef struct logfh {
 	FILE   *fh;
 	BZFILE *bzfh;
