@@ -248,9 +248,9 @@ static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
 	// Stupid leap years.
 	int y = tm.tm_year + 1900;
 	if (y % 4 == 0 && (y % 400 == 0 || y % 100)) pos2f[0] += 30*60*24;
-	*f = pos2f[fmt_pos + 1];
+	int implfuzz = pos2f[fmt_pos + 1];
 	// Move the time forward to middle of its' possible range.
-	unixtime += *f / 2;
+	unixtime += implfuzz;
 	// Is there a timezone and/or a fuzz?
 	if (ptr[0] == '+' && ptr[1] == '-') { // Only fuzz
 		unixtime += default_timezone;
@@ -265,8 +265,10 @@ static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
 		}
 	} else {
 		unixtime += default_timezone;
+		*f = 0;
 	}
 	*v = unixtime;
+	*f += implfuzz;
 	return 0;
 }
 
