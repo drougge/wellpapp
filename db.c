@@ -1026,6 +1026,24 @@ static int find_trans(trans_id_t *trans, trans_id_t needle)
 	return -1;
 }
 
+void internal_fixups(void)
+{
+	char a[] = "ATGaaaaaa-aaaads-faketg-create Vdatetime Ncreated";
+	char b[] = "ATGaaaaaa-aaaaas-faketg-chaage Vdatetime Nmodified";
+	char c[] = "ATGaaaaaa-aaaac8-faketg-bddate Vdatetime Nimgdate";
+	char d[] = "ATGaaaaaa-aaaaeL-faketg-bbredd Vuint Nwidth";
+	char e[] = "ATGaaaaaa-aaaaf9-faketg-heyght Vuint Nheight";
+	char f[] = "ATGaaaaaa-aaaacr-faketg-FLekst Vstring Next";
+	char g[] = "ATGaaaaaa-aaaade-faketg-rotate Vint Nrotate";
+	char *fixup[] = {a, b, c, d, e, f, g, NULL};
+	for (int i = 0; fixup[i]; i++) {
+		int r = populate_from_log_line(fixup[i]);
+		assert(!r);
+	}
+	after_fixups();
+}
+
+static int first_log = 1;
 int populate_from_log(const char *filename, void (*callback)(const char *line))
 {
 	logfh_t    fh;
@@ -1066,7 +1084,19 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 				int trans_version = buf[18] - '0';
 				err1(trans_version < log_version);
 				err1(trans_version > LOG_VERSION);
-				log_version = trans_version;
+				if (first_log
+				    && trans_version > 0
+				    && log_version < 0
+				   ) {
+					internal_fixups();
+				}
+				first_log = 0;
+				if (log_version != trans_version) {
+					if (trans_version == 0) {
+						after_fixups();
+					}
+					log_version = trans_version;
+				}
 				transnow[trans_pos] = strtoull(buf + 19, &end, 16);
 				err1(end != buf + 34);
 			} else if (buf[17] == 'U') { // Unfinished transaction

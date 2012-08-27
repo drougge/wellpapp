@@ -451,6 +451,9 @@ list_node_t *list_remhead(list_head_t *list);
 typedef void (*list_callback_t)(list_node_t *node, void *data);
 void list_iterate(list_head_t *list, void *data, list_callback_t callback);
 
+void after_fixups(void);
+void internal_fixups(void);
+
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;

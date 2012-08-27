@@ -32,7 +32,7 @@ tag_t *magic_tag_rotate = NULL;
 tag_t *magic_tag_modified = NULL;
 tag_t *magic_tag_created = NULL;
 
-static void after_fixups(void)
+void after_fixups(void)
 {
 	const valuetype_t fixup_type[] = {VT_UINT,     // width
 	                                  VT_UINT,     // height
@@ -78,7 +78,6 @@ static void apply_fixups(void)
 		int r = populate_from_log(buf, NULL);
 		assert(!r);
 	}
-	after_fixups();
 }
 
 static void populate_from_dump(void)
@@ -176,6 +175,7 @@ int main(int argc, char **argv)
 	if (mm_init()) {
 		apply_fixups();
 		populate_from_dump();
+		if (!magic_tag[0]) internal_fixups();
 	} else {
 		after_fixups();
 	}
