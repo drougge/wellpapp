@@ -61,6 +61,7 @@ void after_fixups(void)
 	magic_tag_rotate   = magic_tag[5];
 	magic_tag_modified = magic_tag[6];
 	magic_tag_created = magic_tag[3];
+	magic_tag[4]->unsettable = 0; // imgdate is settable
 	return;
 err:
 	printf("Missing/bad fixups. Please read UPGRADE.\n");
