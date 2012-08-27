@@ -456,15 +456,19 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 {
 	tag_value_t tval;
 	tag_value_t *tval_p = post_tag_value(post, tag);
+	int add = 0;
 	if (!tval_p) {
 		memset(&tval, 0, sizeof(tval));
 		tval_p = &tval;
+		add = 1;
 	}
 	if (field->is_fuzz) {
 		unsigned long long v = strtoull(valp, NULL, 16);
 		if (tval_p->fuzz.f_int != v) {
 			tval_p->fuzz.f_int = v;
 			datetime_strfix(tval_p);
+		} else {
+			add = 0;
 		}
 	} else {
 		if (field->valuelist) {
@@ -475,14 +479,17 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 			tval_p->v_str = mm_strdup((*field->valuelist)[i]);
 		}
 		if (log_version < 1 && tag->valuetype == VT_DATETIME) {
-			tval_p->val.v_int = strtoull(valp, NULL, 16);
-			datetime_strfix(tval_p);
+			long long v = strtoull(valp, NULL, 16);
+			if (v || v != tval_p->val.v_int) {
+				tval_p->val.v_int = v;
+				datetime_strfix(tval_p);
+			} else {
+				add = 0;
+			}
 		} else if (!field->valuelist) {
 			if (tag_value_parse(tag, valp, tval_p, 0)) return 1;
 		}
 	}
-	int add = 0;
-	if (tval_p == &tval) add = 1;
 	if (tag == magic_tag_rotate) {
 		if (tval_p->val.v_int == -1) { // Magic "unknown" value
 			if (!add) post_tag_rem(post, tag);

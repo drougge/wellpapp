@@ -31,7 +31,7 @@ typedef struct logstat {
 } logstat_t;
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
-#define MM_MAGIC1 0x4d4d0007 /* Increment whenever cache should be discarded */
+#define MM_MAGIC1 0x4d4d0008 /* Increment whenever cache should be discarded */
 #define MM_FLAG_CLEAN 1
 typedef struct mm_head {
 	uint32_t      magic0;
