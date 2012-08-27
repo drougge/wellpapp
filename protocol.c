@@ -472,7 +472,7 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 			if (put_enum_value_gen(&i, *field->valuelist, valp)) {
 				return 1;
 			}
-			tval_p->v_str = (*field->valuelist)[i];
+			tval_p->v_str = mm_strdup((*field->valuelist)[i]);
 		}
 		if (log_version < 1 && tag->valuetype == VT_DATETIME) {
 			tval_p->val.v_int = strtoull(valp, NULL, 16);
