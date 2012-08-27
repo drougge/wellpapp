@@ -1,0 +1,4 @@
+When upgrading from a server version prior to 2012-08-26 you need to put
+fixups.0 in base_dir (you can edit it first, see instructions in the file).
+
+Currently, you also need to do this for new servers, but I'll fix that soon.

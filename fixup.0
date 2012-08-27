@@ -1,0 +1,17 @@
+# This creates a bunch of magic tags to hold values that used to be special
+# cased as part of the post object. You can change the names (Nname) to
+# whatever you like that doesn't collide with any tag name you have used.
+# You can add Ttype if you don't want them to have the default type.
+T0000000000000001O/000000000000000
+D0000000000000001 ATGaaaaaa-aaaads-faketg-create Vdatetime Ncreated
+D0000000000000001 ATGaaaaaa-aaaaas-faketg-chaage Vdatetime Nmodified
+D0000000000000001 ATGaaaaaa-aaaac8-faketg-bddate Vdatetime Nimgdate
+D0000000000000001 ATGaaaaaa-aaaaeL-faketg-bbredd Vuint Nwidth
+D0000000000000001 ATGaaaaaa-aaaaf9-faketg-heyght Vuint Nheight
+D0000000000000001 ATGaaaaaa-aaaacr-faketg-FLekst Vstring Next
+D0000000000000001 ATGaaaaaa-aaaade-faketg-rotate Vint Nrotate
+# The ones below this line are optional, and can also be deleted later.
+# (The others can be renamed, but not deleted.)
+D0000000000000001 ATGaaaaaa-aaaacc-faketg-soorce Vstring Nsource
+D0000000000000001 ATGaaaaaa-aaaac9-faketg-pTYTLE Vstring Ntitle
+D0000000000000001 ATGaaaaaa-aaaaeQ-faketg-pscore Vint Nscore
