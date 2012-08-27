@@ -472,11 +472,12 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 			if (put_enum_value_gen(&i, *field->valuelist, valp)) {
 				return 1;
 			}
+			tval_p->v_str = (*field->valuelist)[i];
 		}
 		if (log_version < 1 && tag->valuetype == VT_DATETIME) {
 			tval_p->val.v_int = strtoull(valp, NULL, 16);
 			datetime_strfix(tval_p);
-		} else {
+		} else if (!field->valuelist) {
 			if (tag_value_parse(tag, valp, tval_p, 0)) return 1;
 		}
 	}
@@ -586,6 +587,7 @@ int prot_add(connection_t *conn, char *cmd)
 			tag_value_t val;
 			memset(&val, 0, sizeof(val));
 			val.val.v_int = conn->trans.now;
+			datetime_strfix(&val);
 			r = post_tag_add(post, magic_tag_created, T_NO, &val);
 			assert(!r);
 			list_newlist(&post->related_posts.h.l);

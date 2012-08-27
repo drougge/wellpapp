@@ -454,10 +454,14 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 				tv_printer_t *printer;
 				tag_value_t  *tv;
 				tag_t *tag = *field->magic_tag;
-				printer = tv_printer[tag->valuetype];
+				if (field->valuelist) {
+					printer = tv_print_rawstr;
+				} else {
+					printer = tv_printer[tag->valuetype];
+				}
 				tv = post_tag_value(post, tag);
 				if (printer && tv) {
-					c_printf(conn, "%s", field->name);
+					c_printf(conn, " F%s", field->name);
 					printer(conn, tv);
 				}
 			}
