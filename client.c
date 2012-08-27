@@ -447,6 +447,7 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 {
 	c_printf(conn, "RP%s", md5_md52str(post->md5));
 	for (int i = FLAG_FIRST_SINGLE; i < FLAG_LAST; i++) {
+		if (!(flags & FLAG(i))) continue;
 		for (const field_t *field = post_fields;
 		     field->log_version >= log_version;
 		     field++) {
