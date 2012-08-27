@@ -275,8 +275,14 @@ void log_write_post(trans_t *trans, const post_t *post)
 	do {
 		last = !(field[1].name && field[1].log_version >= LOG_VERSION);
 		tag_t *tag = *field->magic_tag;
-		if (tag != magic_tag_modified) {
-			tag_value_t *tval = post_tag_value(post, tag);
+		tag_value_t *tval = NULL;
+		int skip = 0;
+		if (tag == magic_tag_created || tag == magic_tag_modified) {
+			tval = post_tag_value(post, tag);
+			if (!tval || tval->val.v_int == trans->now) skip = 1;
+		}
+		if (!skip) {
+			if (!tval) tval = post_tag_value(post, tag);
 			if (tval) {
 				char buf[32];
 				const char *sval;
