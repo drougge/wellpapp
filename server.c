@@ -142,6 +142,14 @@ static int blacklisted_guid(void)
 	return !memcmp(&example, server_guid, sizeof(example));
 }
 
+static void itercount(ss128_key_t key, ss128_value_t value, void *data_)
+{
+	long long *count = data_;
+	(void) key;
+	(void) value;
+	(*count)++;
+}
+
 int main(int argc, char **argv)
 {
 	connection_t logconn_;
@@ -176,6 +184,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	mm_print();
+	long long post_count = 0, tag_count = 0;
+	ss128_iterate(posts, itercount, &post_count);
+	ss128_iterate(tags, itercount, &tag_count);
+	printf("%lld posts, %lld tags.\n", post_count, tag_count);
 	mm_start_walker();
 	log_version = LOG_VERSION;
 	log_init();
