@@ -162,7 +162,7 @@ TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
 TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
 TAG_VALUE_PARSER(double, fractod, double, fractod)
 
-static int tvp_datetimefuzz(const char *val, uint64_t *r)
+static int tvp_datetimefuzz(const char *val, double *r, char *r_unit)
 {
 	if (!*val) return 1;
 	char *end;
@@ -171,6 +171,7 @@ static int tvp_datetimefuzz(const char *val, uint64_t *r)
 	if (fuzz < 0.0) return 1;
 	if (*end) {
 		if (end[1]) return 1;
+		*r_unit = *end;
 		switch (*end) {
 			case 'Y':
 				fuzz *= 12.0;
@@ -188,8 +189,10 @@ static int tvp_datetimefuzz(const char *val, uint64_t *r)
 				return 1;
 				break;
 		}
+	} else {
+		*r_unit = 0;
 	}
-	*r = ceil(fuzz);
+	*r = fuzz;
 	return 0;
 }
 
@@ -243,7 +246,7 @@ static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
 	int len = strftime(buf, sizeof(buf), fmt, &tm);
 	if (memcmp(buf, val, len)) return 1;
 	// If the time was not fully specified, there's an implicit fuzz.
-	int pos2f[] = {30 * 60 * 24 * 365, 0, 0, 30 * 60 * 24 * 30.4375, 0, 0,
+	int pos2f[] = {30 * 60 * 24 * 365, 0, 0, 30 * 60 * 24 * 30.5, 0, 0,
 	               30 * 60 * 24, 0, 0, 30 * 60, 0, 0, 30, 0, 0, 0};
 	// Stupid leap years.
 	int y = tm.tm_year + 1900;
@@ -252,23 +255,27 @@ static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
 	// Move the time forward to middle of its' possible range.
 	unixtime += implfuzz;
 	// Is there a timezone and/or a fuzz?
+	char f_u;
+	double f_v;
 	if (ptr[0] == '+' && ptr[1] == '-') { // Only fuzz
 		unixtime += default_timezone;
-		if (tvp_datetimefuzz(ptr + 2, f)) return 1;
+		if (tvp_datetimefuzz(ptr + 2, &f_v, &f_u)) return 1;
 	} else if (*ptr) { // Must be a timezone
 		int offset;
 		if (tvp_timezone(ptr, &offset, &ptr)) return 1;
 		unixtime += offset;
 		if (*ptr) {
 			if (ptr[0] != '+' || ptr[1] != '-') return 1;
-			if (tvp_datetimefuzz(ptr + 2, f)) return 1;
+			if (tvp_datetimefuzz(ptr + 2, &f_v, &f_u)) return 1;
 		}
 	} else {
 		unixtime += default_timezone;
-		*f = 0;
+		f_u = 0;
+		f_v = 0.0;
 	}
+	if (!f_u && implfuzz) f_v *= implfuzz * 2;
 	*v = unixtime;
-	*f += implfuzz;
+	*f = ceil(f_v) + implfuzz;
 	return 0;
 }
 
