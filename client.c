@@ -408,7 +408,9 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 
 static void tv_print_str(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%s", str_str2enc(tv->v_str));
+	char *str = str_str2enc(tv->v_str);
+	c_printf(conn, "=%s", str);
+	free(str);
 }
 
 static void tv_print_int(connection_t *conn, tag_value_t *tv)

@@ -312,7 +312,8 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 			return 0;
 			break;
 		case VT_STRING:
-			tval->v_str = mm_strdup(str_enc2str(val));
+			tval->v_str = str_enc2str(val);
+			if (!tval->v_str) return 1;
 			return 0;
 			break;
 		case VT_INT:

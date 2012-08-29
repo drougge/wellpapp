@@ -434,7 +434,7 @@ int guid_str2guid(guid_t *res_guid, const char *str, guidtype_t type);
 int guid_is_valid_server_guid(const guid_t guid);
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 
-const char *str_str2enc(const char *str);
+char *str_str2enc(const char *str);
 const char *str_enc2str(const char *enc);
 
 int utf_fuzz_c(connection_t *conn, const char *str, char **res,

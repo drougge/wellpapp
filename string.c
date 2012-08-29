@@ -1,5 +1,9 @@
 #include "db.h"
 
+// This is just sanity checking, no strict limit is needed.
+// (Except PROT_MAXLEN limits it anyway.)
+#define STR_MAXLEN 2047
+
 static const unsigned char alpha[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk"
                                      "lmnopqrstuvwxyz0123456789_-";
 static const unsigned char rev[] = {
@@ -27,16 +31,14 @@ for (i = 0; i < 64; i++) {
 */
 
 #define GETONE(s) ((uint32_t)(*s ? (unsigned char)*s++ : 0))
-const char *str_str2enc(const char *str)
+char *str_str2enc(const char *str)
 {
-	static char buf[1024];
-	char        *ptr;
-	uint32_t    n;
-
-	assert(strlen(str) < (sizeof(buf) * 3 / 4 - 2));
-	ptr = buf;
+	unsigned int len = strlen(str);
+	assert(len <= STR_MAXLEN);
+	char *res = malloc(len + len / 3 + 4);
+	char *ptr = res;
 	while (*str) {
-		n  = GETONE(str) << 16;
+		uint32_t n = GETONE(str) << 16;
 		n |= GETONE(str) << 8;
 		n |= GETONE(str);
 		*ptr++ = alpha[(n >> 18) & 63];
@@ -45,19 +47,26 @@ const char *str_str2enc(const char *str)
 		*ptr++ = alpha[(n      ) & 63];
 	}
 	*ptr = '\0';
-	return buf;
+	return res;
 }
 
 const char *str_enc2str(const char *enc)
 {
-	static char buf[1024];
-	char        *ptr;
-	uint32_t    n;
+	const char  *chk = enc;
+	while (*chk) {
+		const unsigned char c = *chk++;
+		if (!rev[c] && c != 65) return NULL;
+	}
+	unsigned int len = chk - enc;
+	assert(chk - enc == len);
+	if (len % 4) return NULL;
+	len = len / 4 * 3;
+	if (len > STR_MAXLEN) return NULL;
+	char *res = mm_alloc_s(len + 1);
 
-	assert(strlen(enc) < sizeof(buf));
-	ptr = buf;
+	char *ptr = res;
 	while (*enc) {
-		n  = rev[GETONE(enc)] << 18;
+		uint32_t n = rev[GETONE(enc)] << 18;
 		n |= rev[GETONE(enc)] << 12;
 		n |= rev[GETONE(enc)] << 6;
 		n |= rev[GETONE(enc)];
@@ -66,5 +75,5 @@ const char *str_enc2str(const char *enc)
 		*ptr++ = (n      ) & 255;
 	}
 	*ptr = '\0';
-	return buf;
+	return res;
 }
