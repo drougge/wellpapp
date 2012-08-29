@@ -36,7 +36,7 @@ void after_fixups(void)
 {
 	const valuetype_t fixup_type[] = {VT_UINT,     // width
 	                                  VT_UINT,     // height
-	                                  VT_STRING,   // ext
+	                                  VT_WORD,     // ext
 	                                  VT_DATETIME, // created
 	                                  VT_DATETIME, // imgdate
 	                                  VT_INT,      // rotate

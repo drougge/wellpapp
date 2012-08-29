@@ -229,7 +229,7 @@ typedef struct tag_cmd_data {
 } tag_cmd_data_t;
 
 // needs to match valuetype_t in db.h
-const char * const tag_value_types[] = {"none", "string", "int", "uint",
+const char * const tag_value_types[] = {"none", "word", "string", "int", "uint",
                                         "float", "f-stop", "stop", "datetime",
                                         NULL};
 

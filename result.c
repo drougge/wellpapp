@@ -101,6 +101,7 @@ TVC_NUM(double  , double  , 0.07, double)
 
 typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
+                      tvc_string, // WORD
                       tvc_string, // STRING
                       tvc_int, // INT
                       tvc_uint, // UINT

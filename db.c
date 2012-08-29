@@ -307,6 +307,10 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 {
 	if (!val) return 1;
 	switch (tag->valuetype) {
+		case VT_WORD:
+			tval->v_str = mm_strdup(val);
+			return 0;
+			break;
 		case VT_STRING:
 			tval->v_str = mm_strdup(str_enc2str(val));
 			return 0;
@@ -813,7 +817,8 @@ tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
 		case '=':
 			*r_cmp = CMP_EQ;
 			if (v[1] == '~') {
-				if (tag->valuetype != VT_STRING) return NULL;
+				if (tag->valuetype != VT_STRING
+				    && tag->valuetype != VT_WORD) return NULL;
 				*r_cmp = CMP_REGEXP;
 				v++;
 			}
@@ -1042,7 +1047,7 @@ void internal_fixups(void)
 	char c[] = "ATGaaaaaa-aaaac8-faketg-bddate Vdatetime Nimgdate";
 	char d[] = "ATGaaaaaa-aaaaeL-faketg-bbredd Vuint Nwidth";
 	char e[] = "ATGaaaaaa-aaaaf9-faketg-heyght Vuint Nheight";
-	char f[] = "ATGaaaaaa-aaaacr-faketg-FLekst Vstring Next";
+	char f[] = "ATGaaaaaa-aaaacr-faketg-FLekst Vword Next";
 	char g[] = "ATGaaaaaa-aaaade-faketg-rotate Vint Nrotate";
 	char *fixup[] = {a, b, c, d, e, f, g, NULL};
 	for (int i = 0; fixup[i]; i++) {

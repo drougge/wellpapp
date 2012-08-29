@@ -8,7 +8,7 @@ D0000000000000001 ATGaaaaaa-aaaaas-faketg-chaage Vdatetime Nmodified
 D0000000000000001 ATGaaaaaa-aaaac8-faketg-bddate Vdatetime Nimgdate
 D0000000000000001 ATGaaaaaa-aaaaeL-faketg-bbredd Vuint Nwidth
 D0000000000000001 ATGaaaaaa-aaaaf9-faketg-heyght Vuint Nheight
-D0000000000000001 ATGaaaaaa-aaaacr-faketg-FLekst Vstring Next
+D0000000000000001 ATGaaaaaa-aaaacr-faketg-FLekst Vword Next
 D0000000000000001 ATGaaaaaa-aaaade-faketg-rotate Vint Nrotate
 # The ones below this line are optional, and can also be deleted later.
 # (The others can be renamed, but not deleted.)

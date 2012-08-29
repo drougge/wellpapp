@@ -246,7 +246,7 @@ void log_write_tagalias(trans_t *trans, const tagalias_t *tagalias)
 static const char *tag_value_str(tag_t *tag, tag_value_t *tval, char *buf)
 {
 	switch (tag->valuetype) {
-		case VT_STRING:
+		case VT_WORD:
 		case VT_DATETIME:
 			return tval->v_str;
 			break;

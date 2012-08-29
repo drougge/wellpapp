@@ -431,6 +431,7 @@ static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)
 typedef void (tv_printer_t)(connection_t *, tag_value_t *);
 // Needs to match valuetype_t in db.h
 tv_printer_t *tv_printer[] = {NULL, // NONE
+                              tv_print_rawstr, // WORD
                               tv_print_str, // STRING
                               tv_print_int, // INT
                               tv_print_uint, // UINT
