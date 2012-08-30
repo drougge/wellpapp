@@ -151,7 +151,7 @@ static double fractod(const char *val, char **r_end)
 	double n = strtoll(val, &end, 10);
 	if (end != val && *end == '/') {
 		double d = strtoll(end + 1, &end, 10);
-		if (d > 0.0 && (*end == 0 || *end == '+')) {
+		if (d > 0.0) {
 			*r_end = end;
 			return n / d;
 		}
@@ -223,38 +223,79 @@ static int tvp_timezone(const char *val, int *r_offset, const char **r_end)
 	return 0;
 }
 
-static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
+static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f)
 {
-	char fmt[] = "%Y-%m-%dT%H:%M:%S";
 	struct tm tm;
-	const char *ptr = NULL;
-	int fmt_pos = strlen(fmt);
+	int *field[] = {&tm.tm_year,
+	                &tm.tm_mon,
+	                &tm.tm_mday,
+	                &tm.tm_hour,
+	                &tm.tm_min,
+	                &tm.tm_sec,
+	               };
+	int range[] = {INT_MAX, 12, 31, 23, 59, 59};
+	char sep[] = "--T::";
+	assert(arraylen(field) == arraylen(range));
+	assert(arraylen(field) == arraylen(sep));
+	int pos = 0;
+	int with_steps = 0;
+	const char *ptr = val;
+	memset(f, 0, sizeof(*f));
 	memset(&tm, 0, sizeof(tm));
-	tm.tm_mday  = 1;
-	// Try to parse succesively less specific dates
-	while (!ptr && fmt_pos > 0) {
-		fmt[fmt_pos] = 0;
-		ptr = strptime(val, fmt, &tm);
-		fmt_pos -= 3;
+	tm.tm_mday = 1;
+	while (*ptr && pos < arraylen(field)) {
+		if (*ptr < '0' || *ptr > '9') return 1;
+		char *end;
+		long long el = strtoll(ptr, &end, 10);
+		if (el > range[pos] || el < 0) return 1;
+		if (pos < 3 && !el) return 1;
+		if (pos > 0 && end - ptr != 2) return 1;
+		if (pos < 4 && *end == '+') {
+			const char plusminus = end[1];
+			ptr = (plusminus == '-') ? end + 2 : end + 1;
+			long long pf = strtoll(ptr, &end, 10);
+			if (pf <= 0 || pf > 255) return 1;
+			if (plusminus == '-') {
+				el -= pf;
+				pf = pf * 2 + 1;
+				if (pf > 255) return 1;
+			}
+			f->d_step[pos] = pf;
+			with_steps = 1;
+		}
+		*field[pos] = el;
+		ptr = end;
+		pos++;
+		if (*end == 0) break;
+		if (*end == '+') break;
+		if (pos < 5 && *end != sep[pos - 1]) return 1;
+		ptr++;
 	}
-	if (!ptr) return 1;
+	if (!pos) return 1;
+	tm.tm_year -= 1900;
+	if (pos > 0) tm.tm_mon--;
 	time_t unixtime = mktime(&tm);
 	// So I can't say 1969-12-31T23:59:59 then? Bloody POSIX.
 	if (unixtime == (time_t)-1) return 1;
-	// Check that what was parsed matches the input (after mktime normalises it)
-	char buf[64];
-	int len = strftime(buf, sizeof(buf), fmt, &tm);
-	if (memcmp(buf, val, len)) return 1;
+	// Check that what was parsed matches the input (after mktime
+	// normalises it), if possible (no steps).
+	if (!with_steps) {
+		char fmt[] = "%Y-%m-%dT%H:%M:%S";
+		char buf[64];
+		assert(arraylen(field) * 3 == sizeof(fmt));
+		fmt[pos * 3 - 1] = 0;
+		int len = strftime(buf, sizeof(buf), fmt, &tm);
+		if (memcmp(buf, val, len)) return 1;
+	}
 	// If the time was not fully specified, there's an implicit fuzz.
-	int pos2f[] = {30 * 60 * 24 * 365, 0, 0, 30 * 60 * 24 * 30.5, 0, 0,
-	               30 * 60 * 24, 0, 0, 30 * 60, 0, 0, 30, 0, 0, 0};
+	int pos2f[] = {30 * 60 * 24 * 365, 30 * 60 * 24 * 30.5,
+	               30 * 60 * 24, 30 * 60, 30, 0};
 	// Stupid leap years.
 	int y = tm.tm_year + 1900;
 	if (y % 4 == 0 && (y % 400 == 0 || y % 100)) pos2f[0] += 30*60*24;
-	int implfuzz = pos2f[fmt_pos + 1];
+	int implfuzz = pos2f[pos - 1];
 	// Move the time forward to middle of its' possible range.
 	unixtime += implfuzz;
-	// Is there a timezone and/or a fuzz?
 	char f_u;
 	double f_v;
 	if (ptr[0] == '+' && ptr[1] == '-') { // Only fuzz
@@ -275,7 +316,7 @@ static int tv_parser_datetime(const char *val, int64_t *v, uint64_t *f)
 	}
 	if (!f_u && implfuzz) f_v *= implfuzz * 2;
 	*v = unixtime;
-	*f = ceil(f_v) + implfuzz;
+	f->d_fuzz = ceil(f_v) + implfuzz;
 	return 0;
 }
 
@@ -348,7 +389,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 			break;
 		case VT_DATETIME:
 			if (!tv_parser_datetime(val, &tval->val.v_int,
-			                        &tval->fuzz.f_int)) {
+			                        &tval->fuzz.f_datetime)) {
 				if (tmp) {
 					tval->v_str = val;
 				} else {

@@ -86,6 +86,11 @@ typedef enum {
 struct tag;
 typedef struct tag tag_t;
 
+typedef struct datetime_fuzz {
+	uint8_t  d_step[4];
+	uint32_t d_fuzz;
+} datetime_fuzz_t;
+
 // F-stops as used by cameras tend to be lies (e.g. "3.5" for both 2.8+1/2
 // and 2.8+2/3). This is currently not handled, use +-.67 for +-.5 maybe?
 // (And even more since they're rounded too.)
@@ -105,6 +110,7 @@ typedef struct tag_value {
 		uint64_t   f_uint;
 		uint64_t   f_int;
 		double     f_double;
+		datetime_fuzz_t f_datetime;
 	} fuzz;
 } tag_value_t;
 
