@@ -294,8 +294,8 @@ typedef struct trans {
 } trans_t;
 
 typedef int (*prot_err_func_t)(connection_t *conn, const char *msg);
-typedef int (*prot_cmd_func_t)(connection_t *conn, const char *cmd,
-                               void *data, prot_cmd_flag_t flags);
+typedef int (*prot_cmd_func_t)(connection_t *conn, char *cmd, void *data,
+                               prot_cmd_flag_t flags);
 
 typedef enum {
 	CONNFLAG_GOING = 1, // Connection is still in use
@@ -372,8 +372,8 @@ tag_t *tag_find_name(const char *name, truth_t alias, tagalias_t **r_tagalias);
 tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
-                              tag_value_t *value, int tmp);
-int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp);
+                              tag_value_t *value, char *buf);
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
@@ -441,11 +441,12 @@ int guid_is_valid_server_guid(const guid_t guid);
 int guid_is_valid_tag_guid(const guid_t guid, int must_be_local);
 
 char *str_str2enc(const char *str);
-const char *str_enc2str(const char *enc);
+const char *str_enc2str(const char *enc, char *buf);
 
 int utf_fuzz_c(connection_t *conn, const char *str, char **res,
                unsigned int *res_len);
 const char *utf_fuzz_mm(const char *str);
+char *utf_compose(connection_t *conn, const char *str, int len);
 
 typedef int (*sort_compar_t)(const void *a, const void *b, void *data);
 void sort(void *base, int nmemb, size_t size, sort_compar_t comp, void *data);

@@ -279,7 +279,7 @@ static int parse_range(const char *args, long *r_start, long *r_end)
 	return 0;
 }
 
-static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
+static int build_search_cmd(connection_t *conn, char *cmd, void *search_,
                             prot_cmd_flag_t flags)
 {
 	search_t     *search = search_;
@@ -316,7 +316,14 @@ static int build_search_cmd(connection_t *conn, const char *cmd, void *search_,
 				t->weak = T_DONTCARE;
 			}
 			if (*args == 'G') {
-				t->tag = tag_find_guidstr_value(args + 1, &t->cmp, &t->val, 1);
+				char buf[strlen(args)];
+				*buf = 0;
+				t->tag = tag_find_guidstr_value(args + 1, &t->cmp,
+				                                &t->val, buf);
+				if (t->tag && *buf) {
+					strcpy(cmd, buf);
+					t->val.v_str = cmd;
+				}
 			} else if (*args == 'N') {
 				t->tag = tag_find_name(args + 1, T_DONTCARE, NULL);
 				t->cmp = CMP_NONE;
@@ -805,7 +812,7 @@ err:
 	return r;
 }
 
-static int tag_search_cmd(connection_t *conn, const char *cmd, void *data_,
+static int tag_search_cmd(connection_t *conn, char *cmd, void *data_,
                          prot_cmd_flag_t flags)
 {
 	tag_search_data_t *data = data_;
@@ -893,7 +900,7 @@ static void show_rels_cb(list_node_t *ln, void *data_)
 	c_printf(rd->conn, "R%s %s\n", rd->md5, md5_md52str(post->md5));
 }
 
-static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
+static int show_rels_cmd(connection_t *conn, char *cmd, void *data,
                          prot_cmd_flag_t flags)
 {
 	show_rels_data_t rd;
@@ -907,7 +914,7 @@ static int show_rels_cmd(connection_t *conn, const char *cmd, void *data,
 	return 0;
 }
 
-static int show_impl_cmd(connection_t *conn, const char *cmd, void *data,
+static int show_impl_cmd(connection_t *conn, char *cmd, void *data,
                          prot_cmd_flag_t flags)
 {
 	(void) data;
@@ -968,7 +975,7 @@ static void show_rev_impl_cb(ss128_key_t key, ss128_value_t value, void *data_)
 	}
 }
 
-static int show_rev_impl_cmd(connection_t *conn, const char *cmd, void *data,
+static int show_rev_impl_cmd(connection_t *conn, char *cmd, void *data,
                              prot_cmd_flag_t flags)
 {
 	(void) data;

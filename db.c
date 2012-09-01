@@ -8,7 +8,6 @@
 #include <poll.h>
 #include <errno.h>
 #include <openssl/md5.h>
-#include <utf8proc.h>
 #include <bzlib.h>
 
 #ifndef INFTIM
@@ -344,16 +343,16 @@ static void scale_stop(tag_value_t *tval)
 	tval->val.v_double = 10.0 * log10(iso) / 3.0;
 }
 
-int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf)
 {
 	if (!val) return 1;
 	switch (tag->valuetype) {
 		case VT_WORD:
-			tval->v_str = mm_strdup(val);
+			tval->v_str = buf ? val : mm_strdup(val);
 			return 0;
 			break;
 		case VT_STRING:
-			tval->v_str = str_enc2str(val);
+			tval->v_str = str_enc2str(val, buf);
 			if (!tval->v_str) return 1;
 			return 0;
 			break;
@@ -374,7 +373,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 		case VT_STOP:
 			if (!tv_parser_double(val, &tval->val.v_double,
 			                      &tval->fuzz.f_double)) {
-				if (tmp) {
+				if (buf) {
 					tval->v_str = val;
 				} else {
 					tval->v_str = mm_strdup(val);
@@ -390,7 +389,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, int tmp)
 		case VT_DATETIME:
 			if (!tv_parser_datetime(val, &tval->val.v_int,
 			                        &tval->fuzz.f_datetime)) {
-				if (tmp) {
+				if (buf) {
 					tval->v_str = val;
 				} else {
 					tval->v_str = mm_strdup(val);
@@ -843,7 +842,7 @@ tag_t *tag_find_guidstr(const char *guidstr)
 }
 
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
-                              tag_value_t *value, int tmp)
+                              tag_value_t *value, char *buf)
 {
 	int len = strlen(guidstr);
 	*r_cmp = CMP_NONE;
@@ -883,7 +882,7 @@ tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
 			return NULL;
 			break;
 	}
-	if (tag_value_parse(tag, v + 1, value, tmp)) return NULL;
+	if (tag_value_parse(tag, v + 1, value, buf)) return NULL;
 	return tag;
 }
 
@@ -1233,20 +1232,6 @@ static void new_connection(void)
 	}
 }
 
-static char *utf_compose(connection_t *conn)
-{
-	uint8_t *buf;
-	ssize_t res;
-	int     flags = UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_COMPOSE;
-
-	res = utf8proc_map((uint8_t *)conn->linebuf, 0, &buf, flags);
-	if (res < 0) {
-		c_close_error(conn, E_UTF8);
-		return NULL;
-	}
-	return (char *)buf;
-}
-
 static int bind_port = 0;
 static in_addr_t bind_addr = 0;
 
@@ -1297,7 +1282,7 @@ void db_serve(void)
 				c_read_data(conn);
 			}
 			if (c_get_line(conn) > 0) {
-				char *buf = utf_compose(conn);
+				char *buf = utf_compose(conn, conn->linebuf, 0);
 				if (buf) {
 					client_handle(conn, buf);
 					free(buf);

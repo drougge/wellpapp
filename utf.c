@@ -112,3 +112,18 @@ const char *utf_fuzz_mm(const char *str)
 	free(buf);
 	return res;
 }
+
+char *utf_compose(connection_t *conn, const char *str, int len)
+{
+	uint8_t *buf;
+	ssize_t res;
+	int     flags = UTF8PROC_STABLE | UTF8PROC_COMPOSE;
+
+	if (len <= 0) flags |= UTF8PROC_NULLTERM;
+	res = utf8proc_map((const uint8_t *)str, len, &buf, flags);
+	if (res < 0) {
+		if (conn) c_close_error(conn, E_UTF8);
+		return NULL;
+	}
+	return (char *)buf;
+}

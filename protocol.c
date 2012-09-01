@@ -2,7 +2,7 @@
 
 #include <errno.h>
 
-static int tag_post_cmd(connection_t *conn, const char *cmd, void *post_,
+static int tag_post_cmd(connection_t *conn, char *cmd, void *post_,
                         prot_cmd_flag_t flags)
 {
 	post_t     **post = post_;
@@ -233,7 +233,7 @@ const char * const tag_value_types[] = {"none", "word", "string", "int", "uint",
                                         "float", "f-stop", "stop", "datetime",
                                         NULL};
 
-static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
+static int tag_cmd(connection_t *conn, char *cmd, void *data_,
                    prot_cmd_flag_t flags)
 {
 	tag_cmd_data_t *data = data_;
@@ -353,7 +353,7 @@ static int tag_cmd(connection_t *conn, const char *cmd, void *data_,
 	return 0;
 }
 
-static int add_alias_cmd(connection_t *conn, const char *cmd, void *data,
+static int add_alias_cmd(connection_t *conn, char *cmd, void *data,
                          prot_cmd_flag_t flags)
 {
 	tagalias_t *tagalias = *(tagalias_t **)data;
@@ -516,7 +516,7 @@ static int put_in_post_field(post_t *post, const char *str, unsigned int nlen)
 	return 1;
 }
 
-static int post_cmd(connection_t *conn, const char *cmd, void *data,
+static int post_cmd(connection_t *conn, char *cmd, void *data,
                     prot_cmd_flag_t flags)
 {
 	post_t     *post = *(post_t **)data;
@@ -726,7 +726,7 @@ typedef struct rel_data {
 	int (*func)(post_t *, post_t *);
 } rel_data_t;
 
-static int rel_cmd(connection_t *conn, const char *cmd, void *data_,
+static int rel_cmd(connection_t *conn, char *cmd, void *data_,
                    prot_cmd_flag_t flags)
 {
 	post_t     *post;
@@ -763,7 +763,7 @@ typedef struct impldata {
 	implfunc_t func;
 } impldata_t;
 
-static int impl_cmd(connection_t *conn, const char *cmd, void *data_,
+static int impl_cmd(connection_t *conn, char *cmd, void *data_,
                     prot_cmd_flag_t flags)
 {
 	impldata_t *data = data_;
@@ -829,7 +829,7 @@ typedef struct orderdata {
 	postlist_node_t *node;
 } orderdata_t;
 
-static int order_cmd(connection_t *conn, const char *cmd, void *data_,
+static int order_cmd(connection_t *conn, char *cmd, void *data_,
                      prot_cmd_flag_t flags)
 {
 	orderdata_t *data = data_;

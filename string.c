@@ -50,21 +50,21 @@ char *str_str2enc(const char *str)
 	return res;
 }
 
-const char *str_enc2str(const char *enc)
+const char *str_enc2str(const char *enc, char *dest)
 {
 	const char  *chk = enc;
 	while (*chk) {
 		const unsigned char c = *chk++;
 		if (!rev[c] && c != 65) return NULL;
 	}
-	unsigned int len = chk - enc;
+	intptr_t len = chk - enc;
 	assert(chk - enc == len);
 	if (len % 4) return NULL;
 	len = len / 4 * 3;
 	if (len > STR_MAXLEN) return NULL;
-	char *res = mm_alloc_s(len + 1);
 
-	char *ptr = res;
+	char *bad = dest ? dest : malloc(len);
+	char *ptr = bad;
 	while (*enc) {
 		uint32_t n = rev[GETONE(enc)] << 18;
 		n |= rev[GETONE(enc)] << 12;
@@ -74,6 +74,14 @@ const char *str_enc2str(const char *enc)
 		*ptr++ = (n >>  8) & 255;
 		*ptr++ = (n      ) & 255;
 	}
-	*ptr = '\0';
+	char *good = utf_compose(NULL, bad, len);
+	if (!dest) free(bad);
+	if (!good) return NULL;
+	len = strlen(good) + 1;
+	assert(len <= STR_MAXLEN + 1);
+	char *res;
+	res = dest ? dest : mm_alloc_s(len);
+	memcpy(res, good, len);
+	free(good);
 	return res;
 }
