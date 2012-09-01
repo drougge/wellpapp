@@ -23,16 +23,6 @@
 
 void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
-typedef void     efs_base_t;
-typedef int8_t   efs_8_t;
-typedef int16_t  efs_16_t;
-typedef int32_t  efs_32_t;
-typedef int64_t  efs_64_t;
-typedef uint8_t  efs_u8_t;
-typedef uint16_t efs_u16_t;
-typedef uint32_t efs_u32_t;
-typedef uint64_t efs_u64_t;
-
 typedef struct ss128_key {
 	uint64_t a;
 	uint64_t b;

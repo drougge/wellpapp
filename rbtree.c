@@ -1,5 +1,3 @@
-/* Oförändrad från den i efs förutom det här uppe, och en cmp-funktion. */
-
 #include "db.h"
 
 #include <openssl/md5.h>
@@ -18,39 +16,18 @@ typedef enum {
 	RBTREE_ALLOCATION_POLICY_CHUNKED
 } rbtree_allocation_policy_t;
 
-#define efs_rbtree_count(bs, a)        ss128_count(a)
-#define efs_rbtree_delete(bs, a, b)    ss128_delete(a, b)
-#define efs_rbtree_find(bs, a, b, c)   ss128_find(a, b, c)
-#define efs_rbtree_free(bs, a)         ss128_free(a)
-#define efs_rbtree_init(bs, a, b, c)   ss128_init_(a, b, c)
-#define efs_rbtree_insert(bs, a, b, c) ss128_insert(a, b, c)
-
-#define efs_rbtree_node_alloc(bs, a, b, c, d)      ss128_node_alloc(a, b, c, d)
-#define efs_rbtree_alloc_chunk(bs, a)              ss128_alloc_chunk(a)
-#define efs_rbtree_balance_after_insert(bs, a, b)  ss128_balance_after_insert(a, b)
-#define efs_rbtree_rotate(bs, a, b, c)             ss128_rotate(a, b, c)
-#define efs_rbtree_node_free(bs, a, b)             ss128_node_free(a, b)
-#define efs_rbtree_balance_before_delete(bs, a, b) ss128_balance_before_delete(a, b)
-#define efs_rbtree_free_i(bs, a, b)                ss128_free_i(a, b)
-
-#define efs_rbtree_key_t   ss128_key_t
-#define efs_rbtree_value_t ss128_value_t
-
-#define efs_rbtree_allocation_policy_t        rbtree_allocation_policy_t
-#define EFS_RBTREE_ALLOCATION_POLICY_NORMAL   RBTREE_ALLOCATION_POLICY_NORMAL
-#define EFS_RBTREE_ALLOCATION_POLICY_PREALLOC RBTREE_ALLOCATION_POLICY_PREALLOC
-#define EFS_RBTREE_ALLOCATION_POLICY_CHUNKED  RBTREE_ALLOCATION_POLICY_CHUNKED
-
-#define efs_rbtree_node_t ss128_node_t
-#define efs_rbtree_head_t ss128_head_t
-
-int efs_rbtree_init(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_allocation_policy_t allocation_policy, int allocation_value);
 int ss128_init(ss128_head_t *head, ss128_allocmem_t allocmem, ss128_freemem_t freemem, void *memarg) {
-	head->allocmem = allocmem;
-	head->freemem  = freemem;
-	head->memarg   = memarg;
-	return efs_rbtree_init(NULL, head, RBTREE_ALLOCATION_POLICY_CHUNKED, 255);
+	head->allocmem          = allocmem;
+	head->freemem           = freemem;
+	head->memarg            = memarg;
+	head->root              = NULL;
+	head->freelist          = NULL;
+	head->chunklist         = NULL;
+	head->allocation_policy = RBTREE_ALLOCATION_POLICY_CHUNKED;
+	head->allocation_value  = 255;
+	return 0;
 }
+
 
 #define panic(bs, a) do_panic(a)
 static void do_panic(const char *msg) {
@@ -58,8 +35,8 @@ static void do_panic(const char *msg) {
 	exit(1);
 }
 
-#define efs_allocmem(bs, a, b, c) head->allocmem(head->memarg, a, b)
-#define efs_freemem(bs, a, b) head->freemem(head->memarg, a, b)
+#define ss128_allocmem(a, b) head->allocmem(head->memarg, a, b)
+#define ss128_freemem(a, b)  head->freemem(head->memarg, a, b)
 
 static void ss128_iterate_i(ss128_node_t *node, ss128_callback_t callback,
                             void *data) {
@@ -93,21 +70,19 @@ ss128_key_t ss128_str2key(const char *str) {
 	return md5.key;
 }
 
-/* --###-- slut på det ändrade (utom rbtree_key_lt/eq-anrop) --###-- */
+#define ss128_thischild(p, c) ((p)->child[(p)->child[0] != (c)])
+#define ss128_otherchild(p, c) ((p)->child[(p)->child[0] == (c)])
+#define ss128_isred(n) ((n) && (n)->red)
 
-#define efs_rbtree_thischild(p, c) ((p)->child[(p)->child[0] != (c)])
-#define efs_rbtree_otherchild(p, c) ((p)->child[(p)->child[0] == (c)])
-#define efs_rbtree_isred(n) ((n) && (n)->red)
+static void ss128_alloc_chunk(ss128_head_t *head) {
+	void         **chunk;
+	ss128_node_t *node;
+	int          i;
 
-static void efs_rbtree_alloc_chunk(efs_base_t *base, efs_rbtree_head_t *head) {
-	void              **chunk;
-	efs_rbtree_node_t *node;
-	int               i;
-
-	if (efs_allocmem(base, &chunk, sizeof(*node) * head->allocation_value + sizeof(void *), 0)) return;
+	if (ss128_allocmem(&chunk, sizeof(*node) * head->allocation_value + sizeof(void *))) return;
 	*chunk = head->chunklist;
 	head->chunklist = chunk;
-	node = head->freelist = (efs_rbtree_node_t *)(chunk + 1);
+	node = head->freelist = (ss128_node_t *)(chunk + 1);
 	for (i = 0; i < head->allocation_value - 1; i++) {
 		node->child[0] = node + 1;
 		node += 1;
@@ -116,15 +91,15 @@ static void efs_rbtree_alloc_chunk(efs_base_t *base, efs_rbtree_head_t *head) {
 	
 }
 
-static int efs_rbtree_node_alloc(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t **r_node, efs_rbtree_value_t value, efs_rbtree_key_t key) {
+static int ss128_node_alloc(ss128_head_t *head, ss128_node_t **r_node, ss128_value_t value, ss128_key_t key) {
 
 	switch (head->allocation_policy) {
-		case EFS_RBTREE_ALLOCATION_POLICY_NORMAL:
-			efs_allocmem(base, r_node, sizeof(efs_rbtree_node_t), 0);
+		case RBTREE_ALLOCATION_POLICY_NORMAL:
+			ss128_allocmem(r_node, sizeof(ss128_node_t));
 			break;
-		case EFS_RBTREE_ALLOCATION_POLICY_CHUNKED:
-			if (!head->freelist) efs_rbtree_alloc_chunk(base, head);
-		case EFS_RBTREE_ALLOCATION_POLICY_PREALLOC:
+		case RBTREE_ALLOCATION_POLICY_CHUNKED:
+			if (!head->freelist) ss128_alloc_chunk(head);
+		case RBTREE_ALLOCATION_POLICY_PREALLOC:
 			*r_node = head->freelist;
 			if (head->freelist) head->freelist = head->freelist->child[0];
 			break;
@@ -138,27 +113,27 @@ static int efs_rbtree_node_alloc(efs_base_t *base, efs_rbtree_head_t *head, efs_
 	return 0;
 }
 
-static void efs_rbtree_node_free(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node) {
+static void ss128_node_free(ss128_head_t *head, ss128_node_t *node) {
 	switch (head->allocation_policy) {
-		case EFS_RBTREE_ALLOCATION_POLICY_NORMAL:
-			efs_freemem(base, node, sizeof(*node));
+		case RBTREE_ALLOCATION_POLICY_NORMAL:
+			ss128_freemem(node, sizeof(*node));
 			break;
-		case EFS_RBTREE_ALLOCATION_POLICY_PREALLOC:
-		case EFS_RBTREE_ALLOCATION_POLICY_CHUNKED:
+		case RBTREE_ALLOCATION_POLICY_PREALLOC:
+		case RBTREE_ALLOCATION_POLICY_CHUNKED:
 			node->child[0] = head->freelist;
 			head->freelist = node;
 			break;
 	}
 }
 
-static void efs_rbtree_rotate(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node, int isright) {
-	efs_rbtree_node_t *tmp;
+static void ss128_rotate(ss128_head_t *head, ss128_node_t *node, int isright) {
+	ss128_node_t *tmp;
 
 	tmp = node->child[!isright];
 	node->child[!isright] = tmp->child[isright];
 	tmp->child[isright] = node;
 	if (node->parent) {
-		efs_rbtree_thischild(node->parent, node) = tmp;
+		ss128_thischild(node->parent, node) = tmp;
 	} else {
 		head->root = tmp;
 	}
@@ -167,8 +142,8 @@ static void efs_rbtree_rotate(efs_base_t *base, efs_rbtree_head_t *head, efs_rbt
 	if (node->child[!isright]) node->child[!isright]->parent = node;
 }
 
-static void efs_rbtree_balance_after_insert(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node) {
-	efs_rbtree_node_t *uncle;
+static void ss128_balance_after_insert(ss128_head_t *head, ss128_node_t *node) {
+	ss128_node_t *uncle;
 	int pleft, gpleft;
 
 	if (!node->parent) {
@@ -176,21 +151,21 @@ static void efs_rbtree_balance_after_insert(efs_base_t *base, efs_rbtree_head_t 
 		return;
 	}
 	if (!node->parent->red) return;
-	uncle = efs_rbtree_otherchild(node->parent->parent, node->parent);
-	if (efs_rbtree_isred(uncle)) {
+	uncle = ss128_otherchild(node->parent->parent, node->parent);
+	if (ss128_isred(uncle)) {
 		node->parent->red   = 0;
 		uncle->red          = 0;
 		uncle->parent->red  = 1;
-		efs_rbtree_balance_after_insert(base, head, uncle->parent);
+		ss128_balance_after_insert(head, uncle->parent);
 		return;
 	}
 	pleft  = (node->parent->child[0] == node);
 	gpleft = (node->parent->parent->child[0] == node->parent);
 	if (pleft && !gpleft) {
-		efs_rbtree_rotate(base, head, node->parent, 1);
+		ss128_rotate(head, node->parent, 1);
 		node = node->child[1]; /* Former parent */
 	} else if (!pleft && gpleft) {
-		efs_rbtree_rotate(base, head, node->parent, 0);
+		ss128_rotate(head, node->parent, 0);
 		node = node->child[0]; /* Former parent */
 	}
 	node->parent->red         = 0;
@@ -198,19 +173,19 @@ static void efs_rbtree_balance_after_insert(efs_base_t *base, efs_rbtree_head_t 
 	pleft  = (node->parent->child[0] == node);
 	gpleft = (node->parent->parent->child[0] == node->parent);
 	if (pleft && gpleft) {
-		efs_rbtree_rotate(base, head, node->parent->parent, 1);
+		ss128_rotate(head, node->parent->parent, 1);
 	} else {
 		if (!(!pleft && !gpleft)) panic(base, "tankefel\n");
-		efs_rbtree_rotate(base, head, node->parent->parent, 0);
+		ss128_rotate(head, node->parent->parent, 0);
 	}
 }
 
-int efs_rbtree_insert(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_value_t value, efs_rbtree_key_t key) {
-	efs_rbtree_node_t *node;
-	efs_rbtree_node_t *newnode = 0;
-	int               child;
+int ss128_insert(ss128_head_t *head, ss128_value_t value, ss128_key_t key) {
+	ss128_node_t *node;
+	ss128_node_t *newnode = 0;
+	int          child;
 
-	err1(efs_rbtree_node_alloc(base, head, &newnode, value, key));
+	err1(ss128_node_alloc(head, &newnode, value, key));
 	node = head->root;
 	if (!node) {
 		newnode->parent = NULL;
@@ -229,15 +204,15 @@ int efs_rbtree_insert(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_valu
 		}
 	}
 	newnode->parent = node;
-	efs_rbtree_balance_after_insert(base, head, newnode);
+	ss128_balance_after_insert(head, newnode);
 	return 0;
 err:
-	if (newnode) efs_rbtree_node_free(base, head, newnode);
+	if (newnode) ss128_node_free(head, newnode);
 	return 1;
 }
 
-static void efs_rbtree_balance_before_delete(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node) {
-	efs_rbtree_node_t *sibling;
+static void ss128_balance_before_delete(ss128_head_t *head, ss128_node_t *node) {
+	ss128_node_t *sibling;
 	int child;
 
 	child = (node->parent->child[1] == node);
@@ -245,37 +220,37 @@ static void efs_rbtree_balance_before_delete(efs_base_t *base, efs_rbtree_head_t
 	if (sibling->red) {
 		node->parent->red = 1;
 		sibling->red      = 0;
-		efs_rbtree_rotate(base, head, node->parent, child);
+		ss128_rotate(head, node->parent, child);
 		sibling = node->parent->child[!child];
-	} else if (!node->parent->red && !efs_rbtree_isred(sibling->child[0]) && !efs_rbtree_isred(sibling->child[1])) {
+	} else if (!node->parent->red && !ss128_isred(sibling->child[0]) && !ss128_isred(sibling->child[1])) {
 		sibling->red = 1;
 		if (!node->parent->parent) return;
-		efs_rbtree_balance_before_delete(base, head, node->parent);
+		ss128_balance_before_delete(head, node->parent);
 		return;
 	}
-	if (node->parent->red && !sibling->red && !efs_rbtree_isred(sibling->child[0]) && !efs_rbtree_isred(sibling->child[1])) {
+	if (node->parent->red && !sibling->red && !ss128_isred(sibling->child[0]) && !ss128_isred(sibling->child[1])) {
 		node->parent->red = 0;
 		sibling->red      = 1;
 		return;
 	}
-	if (!sibling->red && efs_rbtree_isred(sibling->child[child]) && !efs_rbtree_isred(sibling->child[!child])) {
+	if (!sibling->red && ss128_isred(sibling->child[child]) && !ss128_isred(sibling->child[!child])) {
 		sibling->red               = 1;
 		sibling->child[child]->red = 0;
-		efs_rbtree_rotate(base, head, sibling, !child);
+		ss128_rotate(head, sibling, !child);
 		sibling = node->parent->child[!child];
 	}
-	if (!sibling->red && efs_rbtree_isred(sibling->child[!child])) {
+	if (!sibling->red && ss128_isred(sibling->child[!child])) {
 		int red = node->parent->red;
 		node->parent->red           = sibling->red;
 		sibling->red                = red;
 		sibling->child[!child]->red = 0;
-		efs_rbtree_rotate(base, head, node->parent, child);
+		ss128_rotate(head, node->parent, child);
 	}
 }
 
-int efs_rbtree_delete(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_key_t key) {
-	efs_rbtree_node_t *node;
-	efs_rbtree_node_t *child;
+int ss128_delete(ss128_head_t *head, ss128_key_t key) {
+	ss128_node_t *node;
+	ss128_node_t *child;
 
 	node = head->root;
 	while (42) {
@@ -300,7 +275,7 @@ int efs_rbtree_delete(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_key_
 		goto ok;
 	}
 	if (child) {
-		efs_rbtree_thischild(node->parent, node) = child;
+		ss128_thischild(node->parent, node) = child;
 		child->parent = node->parent;
 		if (node->red) panic(base, "tankefel\n");
 		if (!child->red) panic(base, "tankefel\n");
@@ -308,21 +283,21 @@ int efs_rbtree_delete(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_key_
 		goto ok;
 	} else {
 		if (node->red) {
-			efs_rbtree_thischild(node->parent, node) = NULL;
+			ss128_thischild(node->parent, node) = NULL;
 			goto ok;
 		}
 		/* There is no child, and the node to remove is black, so we have to rebalance */
-		efs_rbtree_balance_before_delete(base, head, node);
+		ss128_balance_before_delete(head, node);
 		if (node->child[!node->child[0]]) panic(base, "tankefel\n");
-		efs_rbtree_thischild(node->parent, node) = NULL;
+		ss128_thischild(node->parent, node) = NULL;
 	}
 ok:
-	efs_rbtree_node_free(base, head, node);
+	ss128_node_free(head, node);
 	return 0;
 }
 
-int efs_rbtree_find(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_value_t *r_value, efs_rbtree_key_t key) {
-	efs_rbtree_node_t *node;
+int ss128_find(ss128_head_t *head, ss128_value_t *r_value, ss128_key_t key) {
+	ss128_node_t *node;
 
 	node = head->root;
 	while (node) {
@@ -335,54 +310,41 @@ int efs_rbtree_find(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_value_
 	return 1;
 }
 
-int efs_rbtree_init(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_allocation_policy_t allocation_policy, int allocation_value) {
-	head->root              = NULL;
-	head->freelist          = NULL;
-	head->chunklist         = NULL;
-	head->allocation_policy = allocation_policy;
-	head->allocation_value  = allocation_value;
-	if (allocation_policy == EFS_RBTREE_ALLOCATION_POLICY_PREALLOC) {
-		efs_rbtree_alloc_chunk(base, head);
-		if (!head->freelist) return 1;
-	}
-	return 0;
-}
-
-static void efs_rbtree_free_i(efs_base_t *base, efs_rbtree_head_t *head, efs_rbtree_node_t *node) {
+static void ss128_free_i(ss128_head_t *head, ss128_node_t *node) {
 	if (!node) return;
-	efs_rbtree_free_i(base, head, node->child[0]);
-	efs_rbtree_free_i(base, head, node->child[1]);
-	efs_freemem(base, node, sizeof(*node));
+	ss128_free_i(head, node->child[0]);
+	ss128_free_i(head, node->child[1]);
+	ss128_freemem(node, sizeof(*node));
 }
 
-void efs_rbtree_free(efs_base_t *base, efs_rbtree_head_t *head) {
-	if (head->allocation_policy == EFS_RBTREE_ALLOCATION_POLICY_NORMAL) {
-		efs_rbtree_node_t *node;
-		efs_rbtree_node_t *next;
+void ss128_free(ss128_head_t *head) {
+	if (head->allocation_policy == RBTREE_ALLOCATION_POLICY_NORMAL) {
+		ss128_node_t *node;
+		ss128_node_t *next;
 
 		node = head->freelist;
 		while (node) {
 			next = node->child[0];
-			efs_freemem(base, node, sizeof(*node));
+			ss128_freemem(node, sizeof(*node));
 			node = next;
 		}
-		efs_rbtree_free_i(base, head, head->root);
+		ss128_free_i(head, head->root);
 	} else {
 		void **chunk;
 
 		while (head->chunklist) {
 			chunk = head->chunklist;
 			head->chunklist = *chunk;
-			efs_freemem(base, chunk, sizeof(efs_rbtree_node_t) * head->allocation_value + sizeof(void *));
+			ss128_freemem(chunk, sizeof(ss128_node_t) * head->allocation_value + sizeof(void *));
 		}
 	}
 }
 
-static int efs_rbtree_count_i(efs_rbtree_node_t *node) {
+static int ss128_count_i(ss128_node_t *node) {
 	if (!node) return 0;
-	return efs_rbtree_count_i(node->child[0]) + efs_rbtree_count_i(node->child[1]) + 1;
+	return ss128_count_i(node->child[0]) + ss128_count_i(node->child[1]) + 1;
 }
 
-int efs_rbtree_count(efs_base_t *base, efs_rbtree_head_t *head) {
-	return efs_rbtree_count_i(head->root);
+int ss128_count(ss128_head_t *head) {
+	return ss128_count_i(head->root);
 }
