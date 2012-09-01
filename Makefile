@@ -10,10 +10,7 @@ LIBS= -lutf8proc -lcrypto -lm -lbz2 -pthread
 
 default: server
 
-all: server pgtest pearsonr
-
-pgtest: pgtest.o $(OBJS)
-	$(CC) -o pgtest pgtest.o $(OBJS) $(LIBS) -lpq
+all: server pearsonr
 
 server: server.o $(OBJS) utf8proc/libutf8proc.a
 	$(CC) $(LDFLAGS) -o server server.o $(OBJS) $(LIBS)
@@ -28,4 +25,4 @@ utf8proc/libutf8proc.a:
 
 clean:
 	cd utf8proc; make clean
-	rm -f server pgtest pearsonr *.o
+	rm -f server pearsonr *.o
