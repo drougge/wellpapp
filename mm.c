@@ -28,10 +28,11 @@ typedef struct logstat {
 	time_t mtime;
 	off_t  size;
 	struct logstat *next;
+	FIX_32BIT_ALIGNMENT
 } logstat_t;
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
-#define MM_MAGIC1 0x4d4d000f /* Increment whenever cache should be discarded */
+#define MM_MAGIC1 0x4d4d0010 /* Increment whenever cache should be discarded */
 #define MM_FLAG_CLEAN 1
 typedef struct mm_head {
 	uint32_t      magic0;
@@ -62,7 +63,17 @@ typedef struct mm_head {
 	uint32_t      magic1;
 } mm_head_t;
 
-#define MM_ALIGN 4
+typedef union {
+	int           i[1];
+	int           *ip[1];
+#ifndef LAX_ALIGNMENT
+	void          *vp[1];
+	double        d[1];
+	long long int l[1];
+#endif
+} alignment_hack_t;
+
+#define MM_ALIGN sizeof(alignment_hack_t)
 #define MM_SEGMENT_SIZE (4 * 1024 * 1024)
 #define MM_MAX_SEGMENTS 1024
 
@@ -201,6 +212,17 @@ static void ss128_mm_free(void *data_, void *ptr, unsigned int z)
 	mm_free(ptr);
 }
 
+static mm_head_t *get_mm_head(void)
+{
+	uintptr_t p = (uintptr_t) MM_BASE_ADDR;
+	if (p % MM_ALIGN) {
+		fprintf(stderr, "base_addr must be aligned to %d bytes",
+		        (int)MM_ALIGN);
+		exit(1);
+	}
+	return (mm_head_t *)p;
+}
+
 static int mm_lock_fd = -1;
 
 static void mm_init_new(void)
@@ -209,7 +231,7 @@ static void mm_init_new(void)
 
 	mm_head = NULL;
 	mm_new_segment();
-	mm_head = (mm_head_t *)MM_BASE_ADDR;
+	mm_head = get_mm_head();
 	mm_head->addr     = MM_BASE_ADDR;
 	mm_head->magic0   = MM_MAGIC0;
 	mm_head->magic1   = MM_MAGIC1;
@@ -346,7 +368,7 @@ int mm_init(void)
 
 	assert(MM_BASE_ADDR);
 	for (i = 0; i < MM_MAX_SEGMENTS; i++) mm_fd[i] = -1;
-	mm_head = (mm_head_t *)MM_BASE_ADDR;
+	mm_head = get_mm_head();
 	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
 	tag_guid_last = mm_head->tag_guid_last;
 	posts         = &mm_head->posts;

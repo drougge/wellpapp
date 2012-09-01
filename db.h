@@ -12,6 +12,16 @@
 #include <limits.h>
 #include <time.h>
 
+#ifdef __i386__
+#  define LAX_ALIGNMENT 1
+#endif
+
+#if UINTPTR_MAX <= 0xffffffffLL && !defined(LAX_ALIGNMENT)
+#  define FIX_32BIT_ALIGNMENT void *align32;
+#else
+#  define FIX_32BIT_ALIGNMENT
+#endif
+
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
 #define assert(v) if (!(v)) assert_fail(#v, __FILE__, __FUNCTION__, __LINE__)
@@ -108,6 +118,7 @@ typedef struct post_taglist {
 	tag_t               *tags[14];
 	tag_value_t         *values[14];
 	struct post_taglist *next;
+	FIX_32BIT_ALIGNMENT
 } post_taglist_t;
 
 typedef struct implication {
@@ -117,7 +128,7 @@ typedef struct implication {
 } implication_t;
 
 typedef struct impllist {
-	implication_t   impl[14];
+	implication_t   impl[7];
 	struct impllist *next;
 } impllist_t;
 
@@ -171,6 +182,7 @@ struct postlist_node {
 		struct postlist_node_node p;
 	} n;
 	post_t      *post;
+	FIX_32BIT_ALIGNMENT
 };
 
 // Needs to match tag_value_types in protocol.c,
@@ -216,6 +228,7 @@ typedef struct tagalias {
 	const char *name;
 	const char *fuzzy_name;
 	tag_t      *tag;
+	FIX_32BIT_ALIGNMENT
 } tagalias_t;
 
 typedef uint32_t tag_id_t;
