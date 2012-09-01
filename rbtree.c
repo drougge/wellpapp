@@ -24,7 +24,7 @@ int ss128_init(ss128_head_t *head, ss128_allocmem_t allocmem, ss128_freemem_t fr
 	head->freelist          = NULL;
 	head->chunklist         = NULL;
 	head->allocation_policy = RBTREE_ALLOCATION_POLICY_CHUNKED;
-	head->allocation_value  = 255;
+	head->allocation_value  = 256;
 	return 0;
 }
 
@@ -75,20 +75,19 @@ ss128_key_t ss128_str2key(const char *str) {
 #define ss128_isred(n) ((n) && (n)->red)
 
 static void ss128_alloc_chunk(ss128_head_t *head) {
-	void         **chunk;
+	ss128_node_t *chunk;
 	ss128_node_t *node;
 	int          i;
 
-	if (ss128_allocmem(&chunk, sizeof(*node) * head->allocation_value + sizeof(void *))) return;
-	*chunk = head->chunklist;
+	if (ss128_allocmem(&chunk, sizeof(*node) * head->allocation_value)) return;
+	chunk->child[0] = head->chunklist;
 	head->chunklist = chunk;
-	node = head->freelist = (ss128_node_t *)(chunk + 1);
-	for (i = 0; i < head->allocation_value - 1; i++) {
+	node = head->freelist = chunk + 1;
+	for (i = 0; i < head->allocation_value - 2; i++) {
 		node->child[0] = node + 1;
 		node += 1;
 	}
 	node->child[0] = NULL;
-	
 }
 
 static int ss128_node_alloc(ss128_head_t *head, ss128_node_t **r_node, ss128_value_t value, ss128_key_t key) {
@@ -318,25 +317,21 @@ static void ss128_free_i(ss128_head_t *head, ss128_node_t *node) {
 }
 
 void ss128_free(ss128_head_t *head) {
+	ss128_node_t *node;
+	size_t       z;
+
 	if (head->allocation_policy == RBTREE_ALLOCATION_POLICY_NORMAL) {
-		ss128_node_t *node;
-		ss128_node_t *next;
-
-		node = head->freelist;
-		while (node) {
-			next = node->child[0];
-			ss128_freemem(node, sizeof(*node));
-			node = next;
-		}
 		ss128_free_i(head, head->root);
+		node = head->freelist;
+		z = sizeof(*node);
 	} else {
-		void **chunk;
-
-		while (head->chunklist) {
-			chunk = head->chunklist;
-			head->chunklist = *chunk;
-			ss128_freemem(chunk, sizeof(ss128_node_t) * head->allocation_value + sizeof(void *));
-		}
+		node = head->chunklist;
+		z = sizeof(*node) * head->allocation_value;
+	}
+	while (node) {
+		ss128_node_t *next = node->child[0];
+		ss128_freemem(node, z);
+		node = next;
 	}
 }
 

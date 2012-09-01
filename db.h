@@ -38,7 +38,7 @@ typedef void(*ss128_freemem_t)(void *, void *, unsigned int);
 typedef struct ss128_head {
 	ss128_node_t *root;
 	ss128_node_t *freelist;
-	void         *chunklist;
+	ss128_node_t *chunklist;
 	int          allocation_policy;
 	int          allocation_value;
 	ss128_allocmem_t allocmem;
