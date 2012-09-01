@@ -188,7 +188,8 @@ int main(int argc, char **argv)
 	long long post_count = 0, tag_count = 0;
 	ss128_iterate(posts, itercount, &post_count);
 	ss128_iterate(tags, itercount, &tag_count);
-	printf("%lld posts, %lld tags.\n", post_count, tag_count);
+	printf("%lld posts, %lld tags, %lu strings.\n", post_count, tag_count,
+	       strings->used);
 	mm_start_walker();
 	log_version = LOG_VERSION;
 	log_init();

@@ -22,6 +22,7 @@ static const size_t sizes[] = {
 	sizeof(postlist_node_t),
 	sizeof(tag_t),
 	sizeof(tagalias_t),
+	sizeof(hash_t),
 };
 
 typedef struct logstat {
@@ -52,6 +53,7 @@ typedef struct mm_head {
 	ss128_head_t  tags;
 	ss128_head_t  tagaliases;
 	ss128_head_t  tagguids;
+	hash_t        strings;
 	list_head_t   postlist_nodes;
 	uint8_t       *addr;
 	uint8_t       *top;
@@ -74,8 +76,8 @@ typedef union {
 } alignment_hack_t;
 
 #define MM_ALIGN sizeof(alignment_hack_t)
-#define MM_SEGMENT_SIZE (4 * 1024 * 1024)
-#define MM_MAX_SEGMENTS 1024
+#define MM_SEGMENT_SIZE (16 * 1024 * 1024)
+#define MM_MAX_SEGMENTS 512
 
 uint8_t *MM_BASE_ADDR = 0;
 static int mm_fd[MM_MAX_SEGMENTS];
@@ -248,6 +250,7 @@ static void mm_init_new(void)
 	r |= ss128_init(tags, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagaliases, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagguids, ss128_mm_alloc, ss128_mm_free, NULL);
+	hash_init(strings);
 	list_newlist(postlist_nodes);
 	assert(!r);
 }
@@ -375,6 +378,7 @@ int mm_init(void)
 	tags          = &mm_head->tags;
 	tagaliases    = &mm_head->tagaliases;
 	tagguids      = &mm_head->tagguids;
+	strings       = &mm_head->strings;
 	logindex      = &mm_head->logindex;
 	first_logindex= &mm_head->first_logindex;
 	logdumpindex  = &mm_head->logdumpindex;
@@ -516,11 +520,13 @@ void mm_free(void *mem)
 
 const char *mm_strdup(const char *str)
 {
-	char *new;
-	int len = strlen(str);
+	const char *old = hash_find(strings, str);
+	if (old) return old;
 
-	new = mm_alloc_(len + 1, 1);
+	int len = strlen(str);
+	char *new = mm_alloc_(len + 1, 1);
 	strcpy(new, str);
+	hash_add(strings, new);
 	return new;
 }
 

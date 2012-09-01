@@ -26,6 +26,7 @@ ss128_head_t *tags;
 ss128_head_t *tagaliases;
 ss128_head_t *tagguids;
 ss128_head_t *posts;
+hash_t       *strings;
 list_head_t  *postlist_nodes;
 
 int default_timezone = 0;

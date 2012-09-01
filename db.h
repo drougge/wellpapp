@@ -78,6 +78,12 @@ typedef union guid {
 	ss128_key_t key;
 } guid_t;
 
+typedef struct hash {
+	const char **data;
+	unsigned long used;
+	int size;
+} hash_t;
+
 typedef enum {
 	GUIDTYPE_SERVER,
 	GUIDTYPE_TAG,
@@ -408,6 +414,10 @@ void ss128_free(ss128_head_t *head);
 int ss128_count(ss128_head_t *head);
 ss128_key_t ss128_str2key(const char *str);
 
+void hash_init(hash_t *h);
+const char *hash_find(hash_t *h, const char *key);
+void hash_add(hash_t *h, const char *key);
+
 int  mm_init(void);
 void mm_cleanup(void);
 void mm_last_log(off_t size, time_t mtime);
@@ -469,6 +479,7 @@ extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;
 extern ss128_head_t *tagguids;
+extern hash_t       *strings;
 extern list_head_t  *postlist_nodes;
 
 extern uint64_t *logindex;
