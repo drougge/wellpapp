@@ -242,6 +242,7 @@ static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f)
 	const char *ptr = val;
 	memset(f, 0, sizeof(*f));
 	memset(&tm, 0, sizeof(tm));
+	tm.tm_mon  = 1;
 	tm.tm_mday = 1;
 	while (*ptr && pos < arraylen(field)) {
 		if (*ptr < '0' || *ptr > '9') return 1;
