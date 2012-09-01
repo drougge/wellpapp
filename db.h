@@ -382,7 +382,8 @@ tag_t *tag_find_guid(const guid_t guid);
 tag_t *tag_find_guidstr(const char *guidstr);
 tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
                               tag_value_t *value, char *buf);
-int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf);
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
+                    tagvalue_cmp_t cmp);
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);

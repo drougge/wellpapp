@@ -487,7 +487,7 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 				add = 0;
 			}
 		} else if (!field->valuelist) {
-			if (tag_value_parse(tag, valp, tval_p, 0)) return 1;
+			if (tag_value_parse(tag, valp, tval_p, 0, 0)) return 1;
 		}
 	}
 	if (tag == magic_tag_rotate) {

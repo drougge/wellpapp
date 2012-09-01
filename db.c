@@ -127,7 +127,8 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 }
 
 #define TAG_VALUE_PARSER(vtype, vfunc, ftype, ffunc)                        \
-	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f)   \
+	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f,   \
+	                             tagvalue_cmp_t cmp)                    \
 	{                                                                   \
 		char *end;                                                  \
 		*v = vfunc(val, &end);                                      \
@@ -140,6 +141,13 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 		}                                                           \
 		if (*end) {                                                 \
 			return 1;                                           \
+		}                                                           \
+		if (cmp == CMP_GT) {                                        \
+			*v += *f;                                           \
+			*f = 0;                                             \
+		} else if (cmp == CMP_LT) {                                 \
+			*v -= *f;                                           \
+			*f = 0;                                             \
 		}                                                           \
 		return 0;                                                   \
 	}
@@ -223,7 +231,8 @@ static int tvp_timezone(const char *val, int *r_offset, const char **r_end)
 	return 0;
 }
 
-static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f)
+static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
+                              tagvalue_cmp_t cmp)
 {
 	struct tm tm;
 	int *field[] = {&tm.tm_year,
@@ -316,8 +325,16 @@ static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f)
 		f_v = 0.0;
 	}
 	if (!f_u && implfuzz) f_v *= implfuzz * 2;
+	f_v = ceil(f_v) + implfuzz;
+	if (cmp == CMP_GT) {
+		unixtime += f_v;
+		f_v = 0.0;
+	} else if (cmp == CMP_LT) {
+		unixtime -= f_v;
+		f_v = 0.0;
+	}
 	*v = unixtime;
-	f->d_fuzz = ceil(f_v) + implfuzz;
+	f->d_fuzz = f_v;
 	return 0;
 }
 
@@ -345,7 +362,8 @@ static void scale_stop(tag_value_t *tval)
 	tval->val.v_double = 10.0 * log10(iso) / 3.0;
 }
 
-int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf)
+int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
+                    tagvalue_cmp_t cmp)
 {
 	if (!val) return 1;
 	switch (tag->valuetype) {
@@ -360,13 +378,13 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf)
 			break;
 		case VT_INT:
 			if (!tv_parser_int64_t(val, &tval->val.v_int,
-			                       &tval->fuzz.f_int)) {
+			                       &tval->fuzz.f_int, cmp)) {
 				return 0;
 			}
 			break;
 		case VT_UINT:
 			if (!tv_parser_uint64_t(val, &tval->val.v_uint,
-			                        &tval->fuzz.f_uint)) {
+			                        &tval->fuzz.f_uint, cmp)) {
 				return 0;
 			}
 			break;
@@ -374,7 +392,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf)
 		case VT_F_STOP:
 		case VT_STOP:
 			if (!tv_parser_double(val, &tval->val.v_double,
-			                      &tval->fuzz.f_double)) {
+			                      &tval->fuzz.f_double, cmp)) {
 				if (buf) {
 					tval->v_str = val;
 				} else {
@@ -390,7 +408,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf)
 			break;
 		case VT_DATETIME:
 			if (!tv_parser_datetime(val, &tval->val.v_int,
-			                        &tval->fuzz.f_datetime)) {
+			                        &tval->fuzz.f_datetime, cmp)) {
 				if (buf) {
 					tval->v_str = val;
 				} else {
@@ -884,7 +902,7 @@ tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
 			return NULL;
 			break;
 	}
-	if (tag_value_parse(tag, v + 1, value, buf)) return NULL;
+	if (tag_value_parse(tag, v + 1, value, buf, *r_cmp)) return NULL;
 	return tag;
 }
 
