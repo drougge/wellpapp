@@ -349,7 +349,7 @@ static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
 static void scale_f_stop(tag_value_t *tval)
 {
 	double fstop = tval->val.v_double;
-	tval->val.v_double = 2.0 * log2(fstop);
+	tval->val.v_double = 2.0 * log(fstop) / M_LN2;
 }
 
 /* Same deal with ISO, externally we use the modern arithmetic scale, 100

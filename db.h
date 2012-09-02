@@ -1,4 +1,6 @@
+#ifdef __svr4__
 #define _XOPEN_SOURCE 600
+#endif
 
 #include <stdio.h>
 #include <stdint.h>
