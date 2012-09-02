@@ -431,26 +431,6 @@ int prot_init(void) {
 	return 0;
 }
 
-void datetime_strfix(tag_value_t *val)
-{
-	struct tm tm;
-	time_t ttime = val->val.v_int;
-	gmtime_r(&ttime, &tm);
-	char buf[128];
-	int l = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-	if (val->fuzz.f_int) {
-		unsigned long long pv = val->fuzz.f_int;
-		static const int scale[] = {60, 60, 24, 0};
-		static const char suff[] = "SMHd";
-		int sp = 0;
-		while (sp < 3 && pv % scale[sp] == 0) {
-			pv /= scale[sp++];
-		}
-		snprintf(buf + l, sizeof(buf) - l, "+-%llu%c", pv, suff[sp]);
-	}
-	val->v_str = mm_strdup(buf);
-}
-
 static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
                         const field_t *field)
 {

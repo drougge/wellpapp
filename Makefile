@@ -4,7 +4,7 @@ CPPFLAGS += -Iutf8proc
 LDFLAGS += -Lutf8proc
 
 OBJS=db.o rbtree.o mm.o client.o log.o guid.o string.o protocol.o result.o \
-     connection.o utf.o sort.o list.o hash.o
+     connection.o utf.o sort.o list.o hash.o datetime.o
 
 LIBS= -lutf8proc -lcrypto -lm -lbz2 -pthread
 

@@ -1,7 +1,5 @@
 #include "db.h"
 
-#include <regex.h>
-
 void result_free(connection_t *conn, result_t *result)
 {
 	if (result->posts) {
@@ -33,8 +31,7 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post)
 // The comparison functions never get called with LT/LE.
 // They return !0 for "match".
 
-static int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
-                    regex_t *re)
+int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 {
 	(void) a;
 	(void) cmp;
@@ -43,8 +40,7 @@ static int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
 	return 0;
 }
 
-static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
-                      regex_t *re)
+int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 {
 	if (cmp == CMP_REGEXP) {
 		return !regexec(re, a->v_str, 0, NULL, 0);
@@ -68,8 +64,8 @@ static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
 }
 
 #define TVC_NUM(t, ft, ff, n)                                                  \
-	static int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, \
-	                   regex_t *re)                                        \
+	int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,        \
+	            regex_t *re)                                               \
 	{                                                                      \
 		(void) re;                                                     \
 		ft a_fuzz = a->fuzz.f_##n;                                     \
@@ -98,40 +94,6 @@ static int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
 TVC_NUM(int64_t , uint64_t, 0   , int)
 TVC_NUM(uint64_t, uint64_t, 0   , uint)
 TVC_NUM(double  , double  , 0.07, double)
-
-extern const int dt_step_size[4];
-static int tvc_datetime_step(tag_value_t *a, int64_t val, tagvalue_cmp_t cmp,
-                             tag_value_t *b, int step, int inner)
-{
-	const int ss = dt_step_size[step];
-	const int stop = a->fuzz.f_datetime.d_step[step];
-	for (int s = -1; s < stop; s++) {
-		int r;
-		if (step < 3) {
-			r = tvc_datetime_step(a, val, cmp, b, step + 1, inner);
-		} else {
-			tag_value_t fake;
-			fake.val.v_int = val;
-			fake.fuzz.f_int = a->fuzz.f_datetime.d_fuzz;
-			if (inner) {
-				r = tvc_int(b, cmp, &fake, NULL);
-			} else {
-				r = tvc_datetime_step(b, b->val.v_int, cmp,
-				                      &fake, 0, 1);
-			}
-		}
-		if (r) return 1;
-		val += ss;
-	}
-	return 0;
-}
-
-static int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
-                        regex_t *re)
-{
-	(void) re;
-	return tvc_datetime_step(a, a->val.v_int, cmp, b, 0, 0);
-}
 
 typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE

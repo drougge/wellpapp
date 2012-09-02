@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <time.h>
+#include <regex.h>
 
 #ifdef __i386__
 #  define LAX_ALIGNMENT 1
@@ -478,6 +479,18 @@ void list_iterate(list_head_t *list, void *data, list_callback_t callback);
 void after_fixups(void);
 void internal_fixups(void);
 
+int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
+int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
+int tvc_int(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
+int tvc_uint(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
+int tvc_double(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
+int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
+                 regex_t *re);
+double fractod(const char *val, char **r_end);
+int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
+                       tagvalue_cmp_t cmp);
+int tvp_timezone(const char *val, int *r_offset, const char **r_end);
+
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;
@@ -500,6 +513,7 @@ extern connection_t *logconn;
 
 extern int server_running;
 extern int log_version;
+extern int default_timezone;
 
 #define MANDATORY_MAGIC_TAGS 3
 #define REALLY_MAGIC_TAGS 7
