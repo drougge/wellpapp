@@ -99,11 +99,11 @@ TVC_NUM(int64_t , uint64_t, 0   , int)
 TVC_NUM(uint64_t, uint64_t, 0   , uint)
 TVC_NUM(double  , double  , 0.07, double)
 
-static const int step_size[] = {365*24*60*60, 30.5*24*60*60, 24*60*60, 60*60};
+extern const int dt_step_size[4];
 static int tvc_datetime_step(tag_value_t *a, int64_t val, tagvalue_cmp_t cmp,
                              tag_value_t *b, int step, int inner)
 {
-	const int ss = step_size[step];
+	const int ss = dt_step_size[step];
 	const int stop = a->fuzz.f_datetime.d_step[step];
 	for (int s = -1; s < stop; s++) {
 		int r;

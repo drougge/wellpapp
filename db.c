@@ -130,6 +130,7 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 	static int tv_parser_##vtype(const char *val, vtype *v, ftype *f,   \
 	                             tagvalue_cmp_t cmp)                    \
 	{                                                                   \
+		(void) cmp;                                                 \
 		char *end;                                                  \
 		*v = vfunc(val, &end);                                      \
 		*f = 0;                                                     \
@@ -141,13 +142,6 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 		}                                                           \
 		if (*end) {                                                 \
 			return 1;                                           \
-		}                                                           \
-		if (cmp == CMP_GT) {                                        \
-			*v += *f;                                           \
-			*f = 0;                                             \
-		} else if (cmp == CMP_LT) {                                 \
-			*v -= *f;                                           \
-			*f = 0;                                             \
 		}                                                           \
 		return 0;                                                   \
 	}
@@ -231,6 +225,7 @@ static int tvp_timezone(const char *val, int *r_offset, const char **r_end)
 	return 0;
 }
 
+const int dt_step_size[4] = {365*24*60*60, 30.5*24*60*60, 24*60*60, 60*60};
 static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
                               tagvalue_cmp_t cmp)
 {
@@ -325,16 +320,22 @@ static int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
 		f_v = 0.0;
 	}
 	if (!f_u && implfuzz) f_v *= implfuzz * 2;
-	f_v = ceil(f_v) + implfuzz;
 	if (cmp == CMP_GT) {
-		unixtime += f_v;
+		unixtime = unixtime + implfuzz - f_v;
 		f_v = 0.0;
+		f->d_step[0] = f->d_step[1] = f->d_step[2] = f->d_step[3] = 0;
 	} else if (cmp == CMP_LT) {
-		unixtime -= f_v;
+		unixtime = unixtime - implfuzz + f_v;
 		f_v = 0.0;
+		for (int i = 0; i < 4; i++) {
+			unixtime += f->d_step[i] * dt_step_size[i];
+			f->d_step[i] = 0;
+		}
+	} else {
+		f_v += implfuzz;
 	}
 	*v = unixtime;
-	f->d_fuzz = f_v;
+	f->d_fuzz = ceil(f_v);
 	return 0;
 }
 
