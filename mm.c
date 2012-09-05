@@ -25,17 +25,16 @@ static const size_t sizes[] = {
 	sizeof(hash_t),
 };
 
-typedef struct logstat {
+typedef _ALIGN(struct logstat {
 	time_t mtime;
 	off_t  size;
 	struct logstat *next;
-	FIX_32BIT_ALIGNMENT
-} logstat_t;
+}) logstat_t;
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
 #define MM_MAGIC1 0x4d4d0010 /* Increment whenever cache should be discarded */
 #define MM_FLAG_CLEAN 1
-typedef struct mm_head {
+typedef _ALIGN(struct mm_head {
 	uint32_t      magic0;
 	uint32_t      flags;
 	uint64_t      size;
@@ -63,19 +62,8 @@ typedef struct mm_head {
 	logstat_t     logstat;
 	uint32_t      clean;
 	uint32_t      magic1;
-} mm_head_t;
+}) mm_head_t;
 
-typedef union {
-	int           i[1];
-	int           *ip[1];
-#ifndef LAX_ALIGNMENT
-	void          *vp[1];
-	double        d[1];
-	long long int l[1];
-#endif
-} alignment_hack_t;
-
-#define MM_ALIGN sizeof(alignment_hack_t)
 #define MM_SEGMENT_SIZE (16 * 1024 * 1024)
 #define MM_MAX_SEGMENTS 512
 

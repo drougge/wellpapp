@@ -15,14 +15,12 @@
 #include <time.h>
 #include <regex.h>
 
-#ifdef __i386__
-#  define LAX_ALIGNMENT 1
-#endif
-
-#if UINTPTR_MAX <= 0xffffffffLL && !defined(LAX_ALIGNMENT)
-#  define FIX_32BIT_ALIGNMENT void *align32;
+#ifdef __GNUC__
+#  define _ALIGN(d) d __attribute__((aligned(__BIGGEST_ALIGNMENT__)))
+#  define MM_ALIGN __BIGGEST_ALIGNMENT__
 #else
-#  define FIX_32BIT_ALIGNMENT
+#  error You need to specify an _ALIGN definition for your compiler. (Maybe nothing)
+#  error And MM_ALIGN too. (Try 4.)
 #endif
 
 #define err1(v) if(v) goto err;
@@ -36,10 +34,10 @@
 
 void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
-typedef struct ss128_key {
+typedef _ALIGN(struct ss128_key {
 	uint64_t a;
 	uint64_t b;
-} ss128_key_t;
+}) ss128_key_t;
 typedef void * ss128_value_t;
 
 struct ss128_node;
@@ -48,7 +46,7 @@ typedef struct ss128_node ss128_node_t;
 typedef int(*ss128_allocmem_t)(void *, void *, unsigned int);
 typedef void(*ss128_freemem_t)(void *, void *, unsigned int);
 
-typedef struct ss128_head {
+typedef _ALIGN(struct ss128_head {
 	ss128_node_t *root;
 	ss128_node_t *freelist;
 	ss128_node_t *chunklist;
@@ -57,7 +55,7 @@ typedef struct ss128_head {
 	ss128_allocmem_t allocmem;
 	ss128_freemem_t  freemem;
 	void             *memarg;
-} ss128_head_t;
+}) ss128_head_t;
 
 typedef struct list_node {
 	struct list_node *succ;
@@ -81,11 +79,11 @@ typedef union guid {
 	ss128_key_t key;
 } guid_t;
 
-typedef struct hash {
+typedef _ALIGN(struct hash {
 	const char **data;
 	unsigned long used;
 	int size;
-} hash_t;
+}) hash_t;
 
 typedef enum {
 	GUIDTYPE_SERVER,
@@ -108,7 +106,7 @@ typedef struct datetime_fuzz {
 // @@ asa = int(10*log10(iso) + 1); iso = int(pow(10, (asa - 1) / 10))
 // @@ might be helpful when calucating iso fuzz.
 // v_str is not in val because doubles also store the exact value in v_str.
-typedef struct tag_value {
+typedef _ALIGN(struct tag_value {
 	const char *v_str;
 	union {
 		uint64_t   v_uint;
@@ -121,25 +119,24 @@ typedef struct tag_value {
 		double     f_double;
 		datetime_fuzz_t f_datetime;
 	} fuzz;
-} tag_value_t;
+}) tag_value_t;
 
-typedef struct post_taglist {
+typedef _ALIGN(struct post_taglist {
 	tag_t               *tags[14];
 	tag_value_t         *values[14];
 	struct post_taglist *next;
-	FIX_32BIT_ALIGNMENT
-} post_taglist_t;
+}) post_taglist_t;
 
-typedef struct implication {
+typedef _ALIGN(struct implication {
 	tag_t   *tag;
 	int32_t priority;
 	int     positive;
-} implication_t;
+}) implication_t;
 
-typedef struct impllist {
+typedef _ALIGN(struct impllist {
 	implication_t   impl[7];
 	struct impllist *next;
-} impllist_t;
+}) impllist_t;
 
 struct postlist_node;
 typedef struct postlist_node postlist_node_t;
@@ -150,15 +147,15 @@ typedef struct postlist_head {
 	postlist_node_t *tailpred;
 } postlist_head_t;
 
-typedef struct postlist {
+typedef _ALIGN(struct postlist {
 	union {
 		list_head_t     l;
 		postlist_head_t p;
 	} h;
 	uint32_t count;
-} postlist_t;
+}) postlist_t;
 
-typedef struct post {
+typedef _ALIGN(struct post {
 	md5_t          md5;
 	uint32_t       of_tags;
 	uint32_t       of_weak_tags;
@@ -167,7 +164,7 @@ typedef struct post {
 	post_taglist_t *weak_tags;
 	post_taglist_t *implied_tags;
 	post_taglist_t *implied_weak_tags;
-} post_t;
+}) post_t;
 
 typedef struct field {
 	const char         *name;
@@ -185,14 +182,13 @@ struct postlist_node_node {
 	postlist_node_t *succ;
 	postlist_node_t *pred;
 };
-struct postlist_node {
+struct _ALIGN(postlist_node {
 	union {
 		list_node_t l;
 		struct postlist_node_node p;
 	} n;
 	post_t      *post;
-	FIX_32BIT_ALIGNMENT
-};
+});
 
 // Needs to match tag_value_types in protocol.c,
 // tv_printer in client.c, and tv_cmp in result.c.
@@ -219,7 +215,7 @@ typedef enum {
 	CMP_REGEXP,
 } tagvalue_cmp_t;
 
-struct tag {
+struct _ALIGN(tag {
 	const char *name;
 	const char *fuzzy_name;
 	guid_t     guid;
@@ -231,14 +227,13 @@ struct tag {
 	unsigned int ordered    : 1;
 	unsigned int unsettable : 1;
 	unsigned int datatag    : 1;
-};
+});
 
-typedef struct tagalias {
+typedef _ALIGN(struct tagalias {
 	const char *name;
 	const char *fuzzy_name;
 	tag_t      *tag;
-	FIX_32BIT_ALIGNMENT
-} tagalias_t;
+}) tagalias_t;
 
 typedef uint32_t tag_id_t;
 
