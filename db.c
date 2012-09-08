@@ -233,7 +233,7 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
 			}
 			break;
 		case VT_DATETIME:
-			if (!tv_parser_datetime(val, &tval->val.v_int,
+			if (!tv_parser_datetime(val, &tval->val.v_datetime,
 			                        &tval->fuzz.f_datetime, cmp)) {
 				if (buf) {
 					tval->v_str = val;
@@ -813,10 +813,11 @@ void post_modify(post_t *post, time_t now)
 	tag_value_t *tval_p = post_tag_value(post, magic_tag_modified);
 	if (!tval_p) {
 		memset(&tval, 0, sizeof(tval));
+		tval.val.v_datetime.simple = 1;
 		tval_p = &tval;
 	}
-	if (tval_p->val.v_int != now) {
-		tval_p->val.v_int = now;
+	if (datetime_get_simple(&tval_p->val.v_datetime) != now) {
+		datetime_set_simple(&tval_p->val.v_datetime, now);
 		datetime_strfix(tval_p);
 	}
 	if (!tval_p->v_str) datetime_strfix(tval_p);

@@ -279,7 +279,9 @@ void log_write_post(trans_t *trans, const post_t *post)
 		int skip = 0;
 		if (tag == magic_tag_created || tag == magic_tag_modified) {
 			tval = post_tag_value(post, tag);
-			if (!tval || tval->val.v_int == trans->now) skip = 1;
+			if (!tval || datetime_get_simple(&tval->val.v_datetime) == trans->now) {
+				skip = 1;
+			}
 		}
 		if (!skip) {
 			if (!tval) tval = post_tag_value(post, tag);
@@ -388,7 +390,8 @@ static void post_iter(ss128_key_t key, ss128_value_t value, void *fdp)
 	time_t  modified;
 
 	(void) key;
-	modified = post_tag_value(post, magic_tag_modified)->val.v_uint;
+	tag_value_t *mv = post_tag_value(post, magic_tag_modified);
+	modified = datetime_get_simple(&mv->val.v_datetime);
 	(void) log_trans_start_(&trans, modified, fd, 0);
 	trans.flags &= ~TRANSFLAG_SYNC;
 	log_write_post(&trans, post);

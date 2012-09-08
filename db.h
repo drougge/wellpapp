@@ -93,8 +93,18 @@ typedef enum {
 struct tag;
 typedef struct tag tag_t;
 
+typedef struct datetime_time {
+	int16_t year;
+	uint8_t month;
+	uint8_t simple;
+	union {
+		uint8_t  field[4];
+		uint32_t simple_part;
+	} data;
+} datetime_time_t;
+
 typedef struct datetime_fuzz {
-	uint8_t  d_step[4];
+	int8_t   d_step[4];
 	uint32_t d_fuzz;
 } datetime_fuzz_t;
 
@@ -112,6 +122,7 @@ typedef _ALIGN(struct tag_value {
 		uint64_t   v_uint;
 		int64_t    v_int;
 		double     v_double;
+		datetime_time_t v_datetime;
 	} val;
 	union {
 		uint64_t   f_uint;
@@ -482,9 +493,11 @@ int tvc_double(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
 int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
                  regex_t *re);
 double fractod(const char *val, char **r_end);
-int tv_parser_datetime(const char *val, int64_t *v, datetime_fuzz_t *f,
+int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
                        tagvalue_cmp_t cmp);
 int tvp_timezone(const char *val, int *r_offset, const char **r_end);
+time_t datetime_get_simple(const datetime_time_t *val);
+void datetime_set_simple(datetime_time_t *val, time_t simple);
 
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
