@@ -96,7 +96,7 @@ typedef struct tag tag_t;
 typedef struct datetime_time {
 	int16_t year;
 	uint8_t month;
-	uint8_t simple;
+	uint8_t valid_steps;
 	union {
 		uint8_t  field[4];
 		uint32_t simple_part;
@@ -495,7 +495,7 @@ int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
 double fractod(const char *val, char **r_end);
 int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
                        tagvalue_cmp_t cmp);
-int tvp_timezone(const char *val, int *r_offset, const char **r_end);
+int tvp_timezone(const char *val, int *len, int *r_offset);
 time_t datetime_get_simple(const datetime_time_t *val);
 void datetime_set_simple(datetime_time_t *val, time_t simple);
 

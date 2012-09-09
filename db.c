@@ -813,7 +813,6 @@ void post_modify(post_t *post, time_t now)
 	tag_value_t *tval_p = post_tag_value(post, magic_tag_modified);
 	if (!tval_p) {
 		memset(&tval, 0, sizeof(tval));
-		tval.val.v_datetime.simple = 1;
 		tval_p = &tval;
 	}
 	if (datetime_get_simple(&tval_p->val.v_datetime) != now) {
@@ -1238,8 +1237,8 @@ void db_read_cfg(const char *filename)
 		} else if (!memcmp("cache_walk_speed=", buf, 17)) {
 			cache_walk_speed = atoi(buf + 17);
 		} else if (!memcmp("timezone=", buf, 9)) {
-			const char *end;
-			tvp_timezone(buf, &default_timezone, &end);
+			int tlen = strlen(buf + 9);
+			tvp_timezone(buf + 9, &tlen, &default_timezone);
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
