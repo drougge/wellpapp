@@ -118,18 +118,17 @@ typedef struct mergedata {
 	int     bad;
 } mergedata_t;
 
-static void merge_tags_chk_cb(list_node_t *ln, void *data_)
+static void merge_tags_chk_cb(post_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
-	post_t *post = ((postlist_node_t *)ln)->post;
-	data->bad |= post_has_tag(post, data->tag, data->weak);
+	data->bad |= post_has_tag(ln->post, data->tag, data->weak);
 }
 
 // @@todo valued tags
-static void merge_tags_cb(list_node_t *ln, void *data_)
+static void merge_tags_cb(post_node_t *ln, void *data_)
 {
 	mergedata_t *data = data_;
-	post_t *post = ((postlist_node_t *)ln)->post;
+	post_t *post = ln->post;
 	if (!post_has_tag(post, data->tag, data->weak)
 	    || taglist_contains(post->implied_tags, data->tag)
 	    || taglist_contains(post->implied_weak_tags, data->tag)
@@ -179,14 +178,14 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 	data.bad  = 0;
 	data.tag  = from;
 	data.weak = T_YES;
-	list_iterate(&into->posts.h.l, &data, merge_tags_chk_cb);
+	post_iterate(&into->posts, &data, merge_tags_chk_cb);
 	data.weak = T_NO;
-	list_iterate(&into->weak_posts.h.l, &data, merge_tags_chk_cb);
+	post_iterate(&into->weak_posts, &data, merge_tags_chk_cb);
 	data.tag  = into;
 	data.weak = T_YES;
-	list_iterate(&from->posts.h.l, &data, merge_tags_chk_cb);
+	post_iterate(&from->posts, &data, merge_tags_chk_cb);
 	data.weak = T_NO;
-	list_iterate(&from->weak_posts.h.l, &data, merge_tags_chk_cb);
+	post_iterate(&from->weak_posts, &data, merge_tags_chk_cb);
 	data.tag = from;
 	ss128_iterate(tags, merge_tags_chk_impl, &data);
 	if (data.bad) return 1;
@@ -195,9 +194,9 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 	data.tag   = into;
 	data.rmtag = from;
 	data.weak  = T_NO;
-	list_iterate(&from->posts.h.l, &data, merge_tags_cb);
+	post_iterate(&from->posts, &data, merge_tags_cb);
 	data.weak  = T_YES;
-	list_iterate(&from->weak_posts.h.l, &data, merge_tags_cb);
+	post_iterate(&from->weak_posts, &data, merge_tags_cb);
 	// into now has all the posts from from.
 
 	// create from->name as alias for into.
@@ -558,8 +557,8 @@ int prot_add(connection_t *conn, char *cmd)
 			func = tag_cmd;
 			memset(&tag_data, 0, sizeof(tag_data));
 			tag_data.tag = mm_alloc(sizeof(tag_t));
-			list_newlist(&tag_data.tag->posts.h.l);
-			list_newlist(&tag_data.tag->weak_posts.h.l);
+			post_newlist(&tag_data.tag->posts);
+			post_newlist(&tag_data.tag->weak_posts);
 			tag_data.is_add = 1;
 			dataptr = &tag_data;
 			break;
@@ -577,7 +576,7 @@ int prot_add(connection_t *conn, char *cmd)
 			datetime_strfix(&val);
 			r = post_tag_add(post, magic_tag_created, T_NO, &val);
 			assert(!r);
-			list_newlist(&post->related_posts.h.l);
+			post_newlist(&post->related_posts);
 			break;
 		default:
 			return error1(conn, cmd);
@@ -682,7 +681,7 @@ int prot_delete(connection_t *conn, char *cmd)
 				}
 			}
 			if (post->of_tags > datatags || post->of_weak_tags
-			    || post->related_posts.h.l.head->succ) {
+			    || post->related_posts.head) {
 				return error1(conn, args);
 			}
 			for (int i = 0; i < dt_count; i++) {
@@ -805,8 +804,8 @@ int prot_implication(connection_t *conn, char *cmd)
 }
 
 typedef struct orderdata {
-	tag_t  *tag;
-	postlist_node_t *node;
+	tag_t       *tag;
+	post_node_t *node;
 } orderdata_t;
 
 static int order_cmd(connection_t *conn, char *cmd, void *data_,
@@ -817,28 +816,33 @@ static int order_cmd(connection_t *conn, char *cmd, void *data_,
 	if (*cmd != 'P') return conn->error(conn, cmd);
 	if (post_find_md5str(&post, cmd + 1)) return conn->error(conn, cmd);
 	if (!post_has_tag(post, data->tag, T_NO)) return conn->error(conn, cmd);
-	postlist_node_t *pn = data->tag->posts.h.p.head;
-	while (pn->n.p.succ) {
+	post_list_t *pl = &data->tag->posts;
+	post_node_t *pn = pl->head;
+	while (pn) {
 		if (pn->post == post) break;
-		pn = pn->n.p.succ;
+		pn = pn->succ;
 	}
-	if (!pn->n.p.succ) return conn->error(conn, cmd);
+	if (!pn || pn == data->node) return conn->error(conn, cmd);
 	if (!data->tag->ordered) {
 		// This tag was unordered, put first post first.
 		data->tag->ordered = 1;
-		list_remove(&pn->n.l);
-		list_addhead(&data->tag->posts.h.l, &pn->n.l);
+		post_remove(pl, pn);
+		post_addhead(pl, pn);
 	}
 	if (data->node) {
-		list_remove(&pn->n.l);
-		pn->n.l.pred = &data->node->n.l;
-		pn->n.l.succ = data->node->n.l.succ;
-		data->node->n.l.succ->pred = &pn->n.l;
-		data->node->n.l.succ = &pn->n.l;
+		post_remove(pl, pn);
+		pn->pred = data->node;
+		pn->succ = data->node->succ;
+		if (pn->succ) {
+			pn->succ->pred = pn;
+		} else {
+			pl->tail = pn;
+		}
+		data->node->succ = pn;
 	} else if (flags & CMDFLAG_LAST) {
 		// This is the only post, put it first.
-		list_remove(&pn->n.l);
-		list_addhead(&data->tag->posts.h.l, &pn->n.l);
+		post_remove(pl, pn);
+		post_addhead(pl, pn);
 	}
 	data->node = pn;
 	log_write(&conn->trans, "%s", cmd);
@@ -850,11 +854,10 @@ typedef struct order_check {
 	tag_t *tag;
 } order_check_t;
 
-static void order_check_implied(list_node_t *ln, void *data_)
+static void order_check_implied(post_node_t *ln, void *data_)
 {
 	order_check_t *chk = data_;
-	post_t *post = ((postlist_node_t *)ln)->post;
-	if (taglist_contains(post->implied_tags, chk->tag)) chk->ok = 0;
+	if (taglist_contains(ln->post->implied_tags, chk->tag)) chk->ok = 0;
 }
 
 int prot_order(connection_t *conn, char *cmd)
@@ -869,7 +872,7 @@ int prot_order(connection_t *conn, char *cmd)
 	order_check_t chk;
 	chk.ok  = 1;
 	chk.tag = tag;
-	list_iterate(&tag->posts.h.l, &chk, order_check_implied);
+	post_iterate(&tag->posts, &chk, order_check_implied);
 	if (!chk.ok) return conn->error(conn, cmd);
 	data.tag  = tag;
 	data.node = NULL;

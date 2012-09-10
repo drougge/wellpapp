@@ -169,16 +169,16 @@ int result_intersect(connection_t *conn, result_t *result, search_tag_t *t)
 			}
 		}
 	} else {
-		postlist_node_t *pn;
+		post_node_t *pn;
 again:
 		if (weak) {
-			pn = tag->weak_posts.h.p.head;
+			pn = tag->weak_posts.head;
 		} else {
-			pn = tag->posts.h.p.head;
+			pn = tag->posts.head;
 		}
-		while (pn->n.p.succ) {
+		while (pn) {
 			err1(result_add_post_if(conn, &new_result, pn->post, t, &re));
-			pn = pn->n.p.succ;
+			pn = pn->succ;
 		}
 		if (weak == T_DONTCARE) {
 			weak = T_NO;

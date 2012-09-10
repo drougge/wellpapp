@@ -893,11 +893,10 @@ typedef struct show_rels_data {
 	char         md5[33];
 } show_rels_data_t;
 
-static void show_rels_cb(list_node_t *ln, void *data_)
+static void show_rels_cb(post_node_t *ln, void *data_)
 {
 	show_rels_data_t *rd = data_;
-	post_t *post = ((postlist_node_t *)ln)->post;
-	c_printf(rd->conn, "R%s %s\n", rd->md5, md5_md52str(post->md5));
+	c_printf(rd->conn, "R%s %s\n", rd->md5, md5_md52str(ln->post->md5));
 }
 
 static int show_rels_cmd(connection_t *conn, char *cmd, void *data,
@@ -910,7 +909,7 @@ static int show_rels_cmd(connection_t *conn, char *cmd, void *data,
 	if (post_find_md5str(&post, cmd)) return conn->error(conn, cmd);
 	rd.conn = conn;
 	strcpy(rd.md5, md5_md52str(post->md5));
-	list_iterate(&post->related_posts.h.l, &rd, show_rels_cb);
+	post_iterate(&post->related_posts, &rd, show_rels_cb);
 	return 0;
 }
 

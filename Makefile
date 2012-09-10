@@ -15,7 +15,8 @@ all: server pearsonr
 server: server.o $(OBJS) utf8proc/libutf8proc.a
 	$(CC) $(LDFLAGS) -o server server.o $(OBJS) $(LIBS)
 
-*.o: db.h config.h
+*.o: db.h
+list.o: list.c list.h db.h
 
 pearsonr: pearsonr.c
 	$(CC) $(CFLAGS) -o pearsonr pearsonr.c -lm

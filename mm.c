@@ -16,10 +16,12 @@ static const size_t sizes[] = {
 	sizeof(post_taglist_t),
 	sizeof(implication_t),
 	sizeof(impllist_t),
-	sizeof(postlist_t),
+	sizeof(post_list_t),
+	sizeof(post_node_t),
+	sizeof(mem_list_t),
+	sizeof(mem_node_t),
 	sizeof(post_t),
 	sizeof(field_t),
-	sizeof(postlist_node_t),
 	sizeof(tag_t),
 	sizeof(tagalias_t),
 	sizeof(hash_t),
@@ -53,7 +55,7 @@ typedef _ALIGN(struct mm_head {
 	ss128_head_t  tagaliases;
 	ss128_head_t  tagguids;
 	hash_t        strings;
-	list_head_t   postlist_nodes;
+	post_list_t   postlist_nodes;
 	uint8_t       *addr;
 	uint8_t       *top;
 	uint8_t       *bottom;
@@ -239,7 +241,7 @@ static void mm_init_new(void)
 	r |= ss128_init(tagaliases, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagguids, ss128_mm_alloc, ss128_mm_free, NULL);
 	hash_init(strings);
-	list_newlist(postlist_nodes);
+	post_newlist(postlist_nodes);
 	assert(!r);
 }
 

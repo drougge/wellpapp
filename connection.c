@@ -20,7 +20,7 @@ int c_init(connection_t **res_conn, int sock, prot_err_func_t error)
 	conn = malloc(sizeof(*conn));
 	if (!conn) return 1;
 	memset(conn, 0, sizeof(*conn));
-	list_newlist(&conn->mem_list);
+	mem_newlist(&conn->mem_list);
 	conn->mem_used = sizeof(*conn);
 	conn->sock  = sock;
 	conn->error = error;
@@ -31,17 +31,15 @@ int c_init(connection_t **res_conn, int sock, prot_err_func_t error)
 
 void c_cleanup(connection_t *conn)
 {
-	list_node_t *node;
-	list_node_t *next;
-
 	if (conn->trans.flags & TRANSFLAG_GOING) {
 		log_trans_end(conn);
 	}
 	if (conn->trans.flags & TRANSFLAG_OUTER) {
 		log_trans_end_outer(conn);
 	}
-	node = conn->mem_list.head;
-	while ((next = node->succ)) {
+	mem_node_t *node = conn->mem_list.head;
+	while (node) {
+		mem_node_t *next = node->succ;
 		free(node);
 		node = next;
 	}
@@ -54,14 +52,14 @@ int c_alloc(connection_t *conn, void **res, unsigned int size)
 	unsigned int new_size;
 	void *mem;
 
-	new_size = size + sizeof(memlist_node_t);
+	new_size = size + sizeof(mem_node_t);
 	assert(new_size > size);
 	new_used = conn->mem_used + new_size;
 	assert(new_used > conn->mem_used && new_used > new_size);
 	mem = malloc(new_size);
 	if (mem) {
-		memlist_node_t *node = mem;
-		list_addtail(&conn->mem_list, &node->ln);
+		mem_node_t *node = mem;
+		mem_addtail(&conn->mem_list, node);
 		node->size = size;
 		conn->mem_used = new_used;
 		*res = node + 1;
@@ -95,12 +93,12 @@ void c_free(connection_t *conn, void *mem, unsigned int size)
 {
 	unsigned int new_used;
 	unsigned int new_size;
-	memlist_node_t *node;
+	mem_node_t   *node;
 
 	new_size = size + sizeof(*node);
 	assert(new_size > size);
-	node = ((memlist_node_t *)mem) - 1;
-	list_remove(&node->ln);
+	node = ((mem_node_t *)mem) - 1;
+	mem_remove(&conn->mem_list, node);
 	assert(node->size == size);
 	new_used = conn->mem_used - new_size;
 	assert(new_used < conn->mem_used);

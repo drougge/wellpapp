@@ -27,59 +27,54 @@ ss128_head_t *tagaliases;
 ss128_head_t *tagguids;
 ss128_head_t *posts;
 hash_t       *strings;
-list_head_t  *postlist_nodes;
+post_list_t  *postlist_nodes;
 
 int default_timezone = 0;
 int log_version = -1;
 
-static postlist_node_t *postlist_alloc(void)
+static post_node_t *postlist_alloc(void)
 {
-	postlist_node_t *pn = (postlist_node_t *)list_remhead(postlist_nodes);
-	if (!pn) return mm_alloc(sizeof(postlist_node_t));
+	post_node_t *pn = post_remhead(postlist_nodes);
+	if (!pn) return mm_alloc(sizeof(post_node_t));
 	return pn;
 }
 
-static void postlist_free(postlist_node_t *pn)
+static int postlist_remove(post_list_t *pl, post_t *post)
 {
-	list_addhead(postlist_nodes, &pn->n.l);
-}
-
-static int postlist_remove(postlist_t *pl, post_t *post)
-{
-	postlist_node_t *pn;
+	post_node_t *pn;
 
 	assert(pl);
 	assert(post);
 
-	pn = pl->h.p.head;
-	while (pn->n.p.succ) {
+	pn = pl->head;
+	while (pn) {
 		if (pn->post == post) {
-			list_remove(&pn->n.l);
-			postlist_free(pn);
+			post_remove(pl, pn);
+			post_addhead(postlist_nodes, pn);
 			pl->count--;
 			return 0;
 		}
-		pn = pn->n.p.succ;
+		pn = pn->succ;
 	}
 	return 1;
 }
 
-static void postlist_add(postlist_t *pl, post_t *post)
+static void postlist_add(post_list_t *pl, post_t *post)
 {
 	assert(pl);
 	assert(post);
 	pl->count++;
-	postlist_node_t *pn = postlist_alloc();
+	post_node_t *pn = postlist_alloc();
 	pn->post = post;
-	list_addtail(&pl->h.l, &pn->n.l);
+	post_addtail(pl, pn);
 }
 
-static int postlist_contains(const postlist_t *pl, const post_t *post)
+static int postlist_contains(const post_list_t *pl, const post_t *post)
 {
-	const postlist_node_t *pn = pl->h.p.head;
-	while (pn->n.p.succ) {
+	const post_node_t *pn = pl->head;
+	while (pn) {
 		if (pn->post == post) return 1;
-		pn = pn->n.p.succ;
+		pn = pn->succ;
 	}
 	return 0;
 }
@@ -435,15 +430,15 @@ again:
 	}
 }
 
-static void post_recompute_implications_iter(list_node_t *ln, void *data)
+static void post_recompute_implications_iter(post_node_t *pn, void *data)
 {
 	(void) data;
-	post_recompute_implications(((postlist_node_t *)ln)->post);
+	post_recompute_implications(pn->post);
 }
 
-static void postlist_recompute_implications(postlist_t *pl)
+static void postlist_recompute_implications(post_list_t *pl)
 {
-	list_iterate(&pl->h.l, NULL, post_recompute_implications_iter);
+	post_iterate(pl, NULL, post_recompute_implications_iter);
 }
 
 int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority)

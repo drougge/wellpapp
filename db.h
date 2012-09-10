@@ -57,17 +57,6 @@ typedef _ALIGN(struct ss128_head {
 	void             *memarg;
 }) ss128_head_t;
 
-typedef struct list_node {
-	struct list_node *succ;
-	struct list_node *pred;
-} list_node_t;
-
-typedef struct list_head {
-	list_node_t *head;
-	list_node_t *tail;
-	list_node_t *tailpred;
-} list_head_t;
-
 typedef union md5 {
 	uint8_t     m[16];
 	ss128_key_t key;
@@ -149,33 +138,41 @@ typedef _ALIGN(struct impllist {
 	struct impllist *next;
 }) impllist_t;
 
-struct postlist_node;
-typedef struct postlist_node postlist_node_t;
+typedef _ALIGN(struct mem_node {
+	struct mem_node *succ;
+	struct mem_node *pred;
+	unsigned int    size;
+}) mem_node_t;
 
-typedef struct postlist_head {
-	postlist_node_t *head;
-	postlist_node_t *tail;
-	postlist_node_t *tailpred;
-} postlist_head_t;
+typedef _ALIGN(struct mem_list {
+	mem_node_t *head;
+	mem_node_t *tail;
+}) mem_list_t;
 
-typedef _ALIGN(struct postlist {
-	union {
-		list_head_t     l;
-		postlist_head_t p;
-	} h;
-	uint32_t count;
-}) postlist_t;
+typedef struct post post_t;
 
-typedef _ALIGN(struct post {
+typedef _ALIGN(struct post_node {
+	struct post_node *succ;
+	struct post_node *pred;
+	post_t *post;
+}) post_node_t;
+
+typedef _ALIGN(struct post_list {
+	post_node_t *head;
+	post_node_t *tail;
+	uint32_t    count;
+}) post_list_t;
+
+_ALIGN(struct post {
 	md5_t          md5;
 	uint32_t       of_tags;
 	uint32_t       of_weak_tags;
-	postlist_t     related_posts;
+	post_list_t    related_posts;
 	post_taglist_t tags;
 	post_taglist_t *weak_tags;
 	post_taglist_t *implied_tags;
 	post_taglist_t *implied_weak_tags;
-}) post_t;
+});
 
 typedef struct field {
 	const char         *name;
@@ -188,18 +185,6 @@ typedef struct field {
 
 extern const field_t *post_fields;
 extern const char * const tag_value_types[];
-
-struct postlist_node_node {
-	postlist_node_t *succ;
-	postlist_node_t *pred;
-};
-struct _ALIGN(postlist_node {
-	union {
-		list_node_t l;
-		struct postlist_node_node p;
-	} n;
-	post_t      *post;
-});
 
 // Needs to match tag_value_types in protocol.c,
 // tv_printer in client.c, and tv_cmp in result.c.
@@ -231,9 +216,9 @@ struct _ALIGN(tag {
 	const char *fuzzy_name;
 	guid_t     guid;
 	uint16_t   type;
-	postlist_t posts;
-	postlist_t weak_posts;
-	impllist_t *implications;
+	post_list_t  posts;
+	post_list_t  weak_posts;
+	impllist_t   *implications;
 	valuetype_t  valuetype;
 	unsigned int ordered    : 1;
 	unsigned int unsettable : 1;
@@ -320,17 +305,12 @@ typedef enum {
 	CONNFLAG_LOG   = 2, // This is the log-reader.
 } connflag_t;
 
-typedef struct memlist_node {
-	list_node_t  ln;
-	unsigned int size;
-} memlist_node_t;
-
 struct connection {
 	prot_err_func_t error;
 	trans_t         trans;
 	int             sock;
 	connflag_t      flags;
-	list_head_t     mem_list;
+	mem_list_t      mem_list;
 	unsigned int    mem_used;
 	unsigned int    getlen;
 	unsigned int    getpos;
@@ -474,13 +454,17 @@ char *utf_compose(connection_t *conn, const char *str, int len);
 typedef int (*sort_compar_t)(const void *a, const void *b, void *data);
 void sort(void *base, int nmemb, size_t size, sort_compar_t comp, void *data);
 
-void list_newlist(list_head_t *list);
-void list_addhead(list_head_t *list, list_node_t *node);
-void list_addtail(list_head_t *list, list_node_t *node);
-void list_remove(list_node_t *node);
-list_node_t *list_remhead(list_head_t *list);
-typedef void (*list_callback_t)(list_node_t *node, void *data);
-void list_iterate(list_head_t *list, void *data, list_callback_t callback);
+typedef void (*post_callback_t)(post_node_t *node, void *data);
+void post_newlist(post_list_t *list);
+void post_addhead(post_list_t *list, post_node_t *node);
+void post_addtail(post_list_t *list, post_node_t *node);
+post_node_t *post_remhead(post_list_t *list);
+void post_remove(post_list_t *list, post_node_t *node);
+void post_iterate(post_list_t *list, void *data, post_callback_t callback);
+
+void mem_newlist(mem_list_t *list);
+void mem_addtail(mem_list_t *list, mem_node_t *node);
+void mem_remove(mem_list_t *list, mem_node_t *node);
 
 void after_fixups(void);
 void internal_fixups(void);
@@ -504,7 +488,7 @@ extern ss128_head_t *tags;
 extern ss128_head_t *tagaliases;
 extern ss128_head_t *tagguids;
 extern hash_t       *strings;
-extern list_head_t  *postlist_nodes;
+extern post_list_t  *postlist_nodes;
 
 extern uint64_t *logindex;
 extern uint64_t *first_logindex;
