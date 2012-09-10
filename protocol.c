@@ -443,8 +443,8 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 	}
 	if (field->is_fuzz) {
 		unsigned long long v = strtoull(valp, NULL, 16);
-		if (tval_p->fuzz.f_int != v) {
-			tval_p->fuzz.f_int = v;
+		if (tval_p->fuzz.f_datetime.d_fuzz != v) {
+			tval_p->fuzz.f_datetime.d_fuzz = v;
 			datetime_strfix(tval_p);
 		} else {
 			add = 0;
@@ -459,8 +459,8 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 		}
 		if (log_version < 1 && tag->valuetype == VT_DATETIME) {
 			long long v = strtoull(valp, NULL, 16);
-			if (v || v != tval_p->val.v_int) {
-				tval_p->val.v_int = v;
+			if (v || v != datetime_get_simple(&tval_p->val.v_datetime)) {
+				datetime_set_simple(&tval_p->val.v_datetime, v);
 				datetime_strfix(tval_p);
 			} else {
 				add = 0;
@@ -572,7 +572,7 @@ int prot_add(connection_t *conn, char *cmd)
 			post_t *post = data;
 			tag_value_t val;
 			memset(&val, 0, sizeof(val));
-			val.val.v_int = conn->trans.now;
+			datetime_set_simple(&val.val.v_datetime, conn->trans.now);
 			datetime_strfix(&val);
 			r = post_tag_add(post, magic_tag_created, T_NO, &val);
 			assert(!r);
