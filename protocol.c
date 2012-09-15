@@ -822,7 +822,8 @@ static int order_cmd(connection_t *conn, char *cmd, void *data_,
 		if (pn->post == post) break;
 		pn = pn->succ;
 	}
-	if (!pn || pn == data->node) return conn->error(conn, cmd);
+	assert(pn);
+	if (pn == data->node) return 0; // Ignore repeated posts
 	if (!data->tag->ordered) {
 		// This tag was unordered, put first post first.
 		data->tag->ordered = 1;

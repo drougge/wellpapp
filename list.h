@@ -21,12 +21,8 @@ void listname(remove)(listname(list_t) *list, listname(node_t) *node)
 	if (node->pred) {
 		node->pred->succ = node->succ;
 	} else {
-		if (node->succ) {
-			list->head = node->succ;
-			list->head->pred = NULL;
-		} else {
-			list->head = NULL;
-		}
+		list->head = node->succ;
+		if (list->head) list->head->pred = NULL;
 	}
 	if (node->succ) {
 		node->succ->pred = node->pred;
