@@ -546,11 +546,11 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
 		if (taglist_contains(post->implied_tags, tag)) {
 			int r = taglist_remove(post->implied_tags, tag);
 			assert(!r);
-			if (!weak) return 0;
+			if (!weak && !tval) return 0;
 		} else if (taglist_contains(post->implied_weak_tags, tag)) {
 			int r = taglist_remove(post->implied_weak_tags, tag);
 			assert(!r);
-			if (weak) return 0;
+			if (weak && !tval) return 0;
 		}
 	}
 	if (!tval && post_has_tag(post, tag, weak)) return 1;
