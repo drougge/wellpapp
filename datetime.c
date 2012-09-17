@@ -211,11 +211,6 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	for (int i = 0; i < arraylen(field); i++) {
 		if (*field[i] != chk[i]) return 1;
 	}
-	// Apply the timezone.
-	if (tz_offset) {
-		unixtime += tz_offset;
-		if (!gmtime_r(&unixtime, &tm)) return 1;
-	}
 	// If the time was not fully specified, there's an implicit fuzz.
 	// If there are no steps, this is calculated now, otherwise we
 	// need to redo it for every step.
@@ -229,7 +224,6 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		implfuzz = (t2 - unixtime) / 2;
 		pos = 6;
 	}
-	unixtime += implfuzz;
 	if (!f_unit && implfuzz) f_val *= implfuzz * 2;
 	if (cmp == CMP_GT) {
 		for (int i = 0; i < 4; i++) {
@@ -238,6 +232,7 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		}
 		unixtime = mktime(&tm) - f_val;
 		f_val = 0.0;
+		implfuzz = 0;
 		with_steps = 0;
 	} else if (cmp == CMP_LT) {
 		for (int i = 0; i < 4; i++) {
@@ -246,10 +241,17 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		}
 		unixtime = mktime(&tm) + f_val;
 		f_val = 0.0;
+		implfuzz = 0;
 		with_steps = 0;
 	} else {
 		f_val += implfuzz;
 	}
+	// Apply the timezone.
+	if (tz_offset) {
+		unixtime += tz_offset;
+		if (!gmtime_r(&unixtime, &tm)) return 1;
+	}
+	unixtime += implfuzz;
 	datetime_set_simple(v, unixtime);
 	if (with_steps || datetime_get_simple(v) != unixtime) {
 		v->valid_steps = pos;
