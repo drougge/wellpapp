@@ -442,9 +442,9 @@ static int do_magic_tag(post_t *post, tag_t *tag, const char *valp,
 		add = 1;
 	}
 	if (field->is_fuzz) {
-		unsigned long long v = strtoull(valp, NULL, 16);
-		if (tval_p->fuzz.f_datetime.d_fuzz != v) {
-			tval_p->fuzz.f_datetime.d_fuzz = v;
+		long long v = strtoull(valp, NULL, 16);
+		if (tval_p->fuzz.f_datetime.d_fuzz != -v) {
+			tval_p->fuzz.f_datetime.d_fuzz = -v;
 			datetime_strfix(tval_p);
 		} else {
 			add = 0;

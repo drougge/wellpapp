@@ -43,7 +43,7 @@ tag ("T").
 		find only strong tags.
 		Guids of tags with a value tag may also be suffixed with a
 		value specification as follows:
-			=value[+-inexactness]
+			=value[+[-]inexactness]
 			>value
 			>=value
 			<value
@@ -131,7 +131,9 @@ preceding the erronious one are applied. GUIDs may be prefixed with "~" to
 apply the tag weakly.
 When setting a tag with a value type, the value can be specified with =value
 after the guid. Setting the tag without =value will clear any set value. Values
-that can have inexactness may specify that with +-value after the value.
+that can have inexactness may specify that with +[-]value after the value.
+Inexactness with + spans from value to value+inexactness, with +- it starts at
+value-inexactness.
 Examples:
 	TP0123456789abcdef0123456789abcdef T29kQAF-qto48a-aaaaaa-aaaaaf
 	TP0123456789abcdef0123456789abcdef T29kQAF-qto48a-aaaaaa-aaaaaf=6.7
@@ -159,8 +161,7 @@ First char is what type of object to add.
 			value, and an optional inexactness, with the natural
 			scaling for the value type. (So f-stop 5.6+-1 is 4 to
 			8, stop 100+-2 is 25 to 400.)
-			Note that inexactness for integers is unsigned, and as
-			such is specified in hex. (Just like uint values.)
+			Note that the fuzz on uints (and ints) is signed.
 			float values (including stops) may be specified as n/d
 			They are returned as they were set, but comparisons
 			(with or without fuzz) are done as double.

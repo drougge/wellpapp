@@ -130,10 +130,10 @@ static void *alloc_mm(alloc_data_t *data, unsigned int size)
 		*v = vfunc(val, &end);                                      \
 		*f = 0;                                                     \
 		if (val == end) return 1;                                   \
-		if (end[0] == '+' && end[1] == '-') {                       \
-			val = end + 2;                                      \
+		if (end[0] == '+') {                                        \
+			val = end + 1;                                      \
+			if (!*val) return 1;                                \
 			*f = ffunc(val, &end);                              \
-			if (!*val || (double)*f < 0) return 1;              \
 		}                                                           \
 		if (*end) {                                                 \
 			return 1;                                           \
@@ -155,9 +155,9 @@ double fractod(const char *val, char **r_end)
 	}
 	return strtod(val, r_end);
 }
-TAG_VALUE_PARSER(int64_t, str2SI, uint64_t, str2UI)
-TAG_VALUE_PARSER(uint64_t, str2UI, uint64_t, str2UI)
-TAG_VALUE_PARSER(double, fractod, double, fractod)
+TAG_VALUE_PARSER(int64_t , str2SI, int64_t, str2SI)
+TAG_VALUE_PARSER(uint64_t, str2UI, int64_t, str2SI)
+TAG_VALUE_PARSER(double , fractod, double, fractod)
 
 /* fstop is externally specified as f/num where num is how much smaller
  * than the focal length the (virtual) aperture is. This is what everyone

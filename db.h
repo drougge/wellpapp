@@ -94,8 +94,8 @@ typedef struct datetime_time {
 } datetime_time_t;
 
 typedef struct datetime_fuzz {
-	int8_t   d_step[4];
-	uint32_t d_fuzz;
+	int8_t  d_step[4];
+	int32_t d_fuzz;
 } datetime_fuzz_t;
 
 // F-stops as used by cameras tend to be lies (e.g. "3.5" for both 2.8+1/2
@@ -109,15 +109,15 @@ typedef struct datetime_fuzz {
 typedef _ALIGN(struct tag_value {
 	const char *v_str;
 	union {
-		uint64_t   v_uint;
-		int64_t    v_int;
-		double     v_double;
+		uint64_t v_uint;
+		int64_t  v_int;
+		double   v_double;
 		datetime_time_t v_datetime;
 	} val;
 	union {
-		uint64_t   f_uint;
-		uint64_t   f_int;
-		double     f_double;
+		int64_t f_uint;
+		int64_t f_int;
+		double  f_double;
 		datetime_fuzz_t f_datetime;
 	} fuzz;
 }) tag_value_t;

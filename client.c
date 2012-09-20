@@ -423,13 +423,13 @@ static void tv_print_str(connection_t *conn, tag_value_t *tv)
 static void tv_print_int(connection_t *conn, tag_value_t *tv)
 {
 	c_printf(conn, "=%d", tv->val.v_int);
-	if (tv->fuzz.f_int) c_printf(conn, "+-%x", tv->fuzz.f_int);
+	if (tv->fuzz.f_int) c_printf(conn, "+%d", tv->fuzz.f_int);
 }
 
 static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 {
 	c_printf(conn, "=%x", tv->val.v_uint);
-	if (tv->fuzz.f_uint) c_printf(conn, "+-%x", tv->fuzz.f_uint);
+	if (tv->fuzz.f_uint) c_printf(conn, "+%d", tv->fuzz.f_uint);
 }
 
 static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)

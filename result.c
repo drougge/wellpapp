@@ -69,13 +69,22 @@ int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 	{                                                                      \
 		(void) re;                                                     \
 		ft a_fuzz = a->fuzz.f_##n;                                     \
-		if (a_fuzz) a_fuzz += ff;                                      \
 		ft b_fuzz = b->fuzz.f_##n;                                     \
-		if (b_fuzz) b_fuzz += ff;                                      \
-		t a_low  = a->val.v_##n - a_fuzz;                              \
-		t a_high = a->val.v_##n + a_fuzz;                              \
-		t b_low  = b->val.v_##n - b_fuzz;                              \
-		t b_high = b->val.v_##n + b_fuzz;                              \
+		t a_low, a_high, b_low, b_high;                                \
+		if (a_fuzz < 0) {                                              \
+			a_low  = a->val.v_##n + a_fuzz - ff;                   \
+			a_high = a->val.v_##n - a_fuzz + ff;                   \
+		} else {                                                       \
+			a_low  = a->val.v_##n;                                 \
+			a_high = a->val.v_##n + a_fuzz + ff;                   \
+		}                                                              \
+		if (b_fuzz < 0) {                                              \
+			b_low  = b->val.v_##n + b_fuzz - ff;                   \
+			b_high = b->val.v_##n - b_fuzz + ff;                   \
+		} else {                                                       \
+			b_low  = b->val.v_##n;                                 \
+			b_high = b->val.v_##n + b_fuzz + ff;                   \
+		}                                                              \
 		switch (cmp) {                                                 \
 			case CMP_EQ:                                           \
 				return a_low <= b_high && b_low <= a_high;     \
@@ -91,9 +100,9 @@ int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 				break;                                         \
 		}                                                              \
 	}
-TVC_NUM(int64_t , uint64_t, 0   , int)
-TVC_NUM(uint64_t, uint64_t, 0   , uint)
-TVC_NUM(double  , double  , 0.07, double)
+TVC_NUM(int64_t , int64_t, 0   , int)
+TVC_NUM(uint64_t, int64_t, 0   , uint)
+TVC_NUM(double  , double , 0.07, double)
 
 typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE

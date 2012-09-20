@@ -46,7 +46,12 @@ static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
 		tag_value_t fa;
 		int pos = a->val.v_datetime.valid_steps;
 		int tz_offset = a->val.v_datetime.tz_mins * 60;
-		uint32_t sf = a->fuzz.f_datetime.d_fuzz;
+		int64_t psf = a->fuzz.f_datetime.d_fuzz;
+		int64_t nsf = 0;
+		if (psf < 0) {
+			nsf = psf;
+			psf *= -2;
+		}
 		for (int f = 0; f < 4; f++) {
 			int fuzz = a->fuzz.f_datetime.d_step[f];
 			int start = fuzz < 0 ? fuzz : 0;
@@ -58,10 +63,10 @@ static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
 				int implfuzz = 0;
 				if (pos < 6) {
 					time_t t2 = dt_step_end(pos, tm);
-					implfuzz = (t2 - unixtime) / 2;
+					implfuzz = t2 - unixtime;
 				}
-				fa.val.v_int = unixtime + implfuzz + tz_offset;
-				fa.fuzz.f_int = sf + implfuzz;
+				fa.val.v_int = unixtime + nsf + tz_offset;
+				fa.fuzz.f_int = psf + implfuzz;
 				int r;
 				if (inner) {
 					r = tvc_int(b, cmp, &fa, NULL);
@@ -87,8 +92,14 @@ static int tvp_datetimefuzz(const char *val, double *r, char *r_unit)
 	if (!*val) return 1;
 	char *end;
 	double fuzz = fractod(val, &end);
-	if (val == end) fuzz = 1.0; // For "+-H" etc
-	if (fuzz < 0.0) return 1;
+	if (val == end) { // For "+-H" etc
+		if (*val == '-') {
+			fuzz = -1.0;
+			val++;
+		} else {
+			fuzz = 1.0;
+		}
+	}
 	if (*end) {
 		if (end[1]) return 1;
 		*r_unit = *end;
@@ -222,10 +233,10 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	   ) {
 		time_t t2 = dt_step_end(pos, tm);
 		if (t2 == (time_t)-1) return 1;
-		implfuzz = (t2 - unixtime) / 2;
+		implfuzz = t2 - unixtime;
 		pos = 6;
 	}
-	if (!f_unit && implfuzz) f_val *= implfuzz * 2;
+	if (!f_unit && implfuzz) f_val *= implfuzz;
 	if (cmp == CMP_GT) {
 		for (int i = 0; i < 4; i++) {
 			if (f->d_step[i] < 0) *field[i] += f->d_step[i];
@@ -244,8 +255,6 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		f_val = 0.0;
 		implfuzz = 0;
 		with_steps = 0;
-	} else {
-		f_val += implfuzz;
 	}
 	// Apply the timezone.
 	if (tz_offset && !with_steps) {
@@ -253,7 +262,6 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		if (!gmtime_r(&unixtime, &tm)) return 1;
 		tz_offset = 0;
 	}
-	unixtime += implfuzz;
 	datetime_set_simple(v, unixtime);
 	if (with_steps || datetime_get_simple(v) != unixtime) {
 		v->valid_steps = pos;
@@ -263,6 +271,13 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 			v->data.field[i - 2] = *field[i];
 		}
 		v->tz_mins = tz_offset / 60;
+	} else {
+		if (f_val < 0) {
+			unixtime += implfuzz / 2;
+			f_val -= implfuzz / 2;
+		} else {
+			f_val += implfuzz;
+		}
 	}
 	f->d_fuzz = ceil(f_val);
 	return 0;
@@ -290,14 +305,14 @@ void datetime_strfix(tag_value_t *val)
 	char buf[128];
 	int l = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
 	if (val->fuzz.f_datetime.d_fuzz) {
-		unsigned long long pv = val->fuzz.f_datetime.d_fuzz;
+		long long pv = val->fuzz.f_datetime.d_fuzz;
 		static const int scale[] = {60, 60, 24, 0};
 		static const char suff[] = "SMHd";
 		int sp = 0;
 		while (sp < 3 && pv % scale[sp] == 0) {
 			pv /= scale[sp++];
 		}
-		snprintf(buf + l, sizeof(buf) - l, "+-%llu%c", pv, suff[sp]);
+		snprintf(buf + l, sizeof(buf) - l, "+%lld%c", pv, suff[sp]);
 	}
 	val->v_str = mm_strdup(buf);
 }
