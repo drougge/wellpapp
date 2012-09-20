@@ -83,13 +83,14 @@ struct tag;
 typedef struct tag tag_t;
 
 typedef struct datetime_time {
-	int16_t year;
-	uint8_t month;
-	uint8_t valid_steps;
 	union {
-		uint8_t  field[4];
-		uint32_t simple_part;
+		uint8_t field[4];
+		int32_t simple_part;
 	} data;
+	int16_t year;
+	unsigned int month       : 4;
+	int          tz_mins     : 9; // In minutes, because we don't have room
+	unsigned int valid_steps : 3;
 } datetime_time_t;
 
 typedef struct datetime_fuzz {

@@ -45,6 +45,7 @@ static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
 		memcpy(&tm2, &tm, sizeof(tm));
 		tag_value_t fa;
 		int pos = a->val.v_datetime.valid_steps;
+		int tz_offset = a->val.v_datetime.tz_mins * 60;
 		uint32_t sf = a->fuzz.f_datetime.d_fuzz;
 		for (int f = 0; f < 4; f++) {
 			int fuzz = a->fuzz.f_datetime.d_step[f];
@@ -59,7 +60,7 @@ static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
 					time_t t2 = dt_step_end(pos, tm);
 					implfuzz = (t2 - unixtime) / 2;
 				}
-				fa.val.v_int = unixtime + implfuzz;
+				fa.val.v_int = unixtime + implfuzz + tz_offset;
 				fa.fuzz.f_int = sf + implfuzz;
 				int r;
 				if (inner) {
@@ -247,9 +248,10 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		f_val += implfuzz;
 	}
 	// Apply the timezone.
-	if (tz_offset) {
+	if (tz_offset && !with_steps) {
 		unixtime += tz_offset;
 		if (!gmtime_r(&unixtime, &tm)) return 1;
+		tz_offset = 0;
 	}
 	unixtime += implfuzz;
 	datetime_set_simple(v, unixtime);
@@ -260,6 +262,7 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		for (int i = 2; i < arraylen(field); i++) {
 			v->data.field[i - 2] = *field[i];
 		}
+		v->tz_mins = tz_offset / 60;
 	}
 	f->d_fuzz = ceil(f_val);
 	return 0;
