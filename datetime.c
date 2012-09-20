@@ -93,9 +93,9 @@ static int tvp_datetimefuzz(const char *val, double *r, char *r_unit)
 	char *end;
 	double fuzz = fractod(val, &end);
 	if (val == end) { // For "+-H" etc
-		if (*val == '-') {
+		if (*end == '-') {
 			fuzz = -1.0;
-			val++;
+			end++;
 		} else {
 			fuzz = 1.0;
 		}
@@ -155,28 +155,37 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
                        tagvalue_cmp_t cmp)
 {
 	int len = strlen(val);
+	if (!len) return 1;
 	char valc[len + 1];
 	memcpy(valc, val, len);
 	valc[len] = 0;
 	char f_unit = 0;
 	double f_val = 0.0;
-	while (--len) {
-		if (valc[len] == '+') {
-			if (valc[len + 1] != '-') break;
-			if (tvp_datetimefuzz(valc + len + 2, &f_val, &f_unit)) {
-				f_unit = 0;
-				break;
-			}
-			valc[len] = 0;
-			break;
-		}
-	}
-	len = strlen(valc);
 	int tz_offset = 0;
 	if (tvp_timezone(valc, &len, &tz_offset)) {
 		tz_offset = default_timezone;
 	}
+	if (len <= 0) return 1;
 	valc[len] = 0;
+	char last_c = valc[len - 1];
+	int fuzz_pos = 0;
+	if (last_c >= '9') {
+		while (--len) {
+			if (valc[len] == '+') {
+				fuzz_pos = len;
+				break;
+			}
+		}
+	}
+	if (fuzz_pos) {
+		if (tvp_datetimefuzz(valc + fuzz_pos + 1, &f_val, &f_unit)) {
+			return 1;
+		}
+		valc[fuzz_pos] = 0;
+		len = fuzz_pos;
+	} else {
+		len = strlen(valc);
+	}
 	const char *ptr = valc;
 	struct tm tm;
 	int *field[] = {&tm.tm_year, &tm.tm_mon, &tm.tm_mday,
@@ -213,7 +222,13 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		if (pos < 6 && *end != sep[pos - 1]) return 1;
 		ptr++;
 	}
-	if (!pos || *ptr) return 1;
+	if (!pos) return 1;
+	if (*ptr) {
+		if (fuzz_pos || *ptr != '+') return 1;
+		if (tvp_datetimefuzz(ptr + 1, &f_val, &f_unit)) {
+			return 1;
+		}
+	}
 	tm.tm_year -= 1900; chk[0] -= 1900;
 	tm.tm_mon--; chk[1]--;
 	time_t unixtime = mktime(&tm);
@@ -273,8 +288,11 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		v->tz_mins = tz_offset / 60;
 	} else {
 		if (f_val < 0) {
-			unixtime += implfuzz / 2;
-			f_val -= implfuzz / 2;
+			implfuzz = ceil(implfuzz / 2.0);
+			unixtime += implfuzz;
+			datetime_set_simple(v, unixtime);
+			if (datetime_get_simple(v) != unixtime) return 1;
+			f_val -= implfuzz;
 		} else {
 			f_val += implfuzz;
 		}
