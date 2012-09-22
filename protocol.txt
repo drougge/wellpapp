@@ -56,6 +56,7 @@ tag ("T").
 		Possible values:
 			tagcount (number of set tags)
 			group
+			a tag guid, sorts by the values of that tag
 		Group sorting is special, it sorts by the group ordering of
 		the first tag in the search, and can not be reversed.
 	F:

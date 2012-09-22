@@ -210,6 +210,7 @@ typedef enum {
 	CMP_LT,
 	CMP_LE,
 	CMP_REGEXP,
+	CMP_CMP,
 } tagvalue_cmp_t;
 
 struct _ALIGN(tag {
@@ -515,3 +516,6 @@ extern const char *magic_tag_guids[];
 extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;
 extern tag_t *magic_tag_created;
+
+typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
+extern tv_cmp_t *tv_cmp[];

@@ -80,10 +80,31 @@ static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
 	}
 }
 
+static time_t dt_make_simple(const datetime_time_t *val)
+{
+	if (!val->valid_steps) return datetime_get_simple(val);
+	struct tm tm;
+	int *field[] = {&tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec};
+	memset(&tm, 0, sizeof(tm));
+	tm.tm_year = val->year;
+	tm.tm_mon  = val->month;
+	for (int i = 0; i < arraylen(field); i++) {
+		*field[i] = val->data.field[i];
+	}
+	return mktime(&tm);
+}
+
 int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
                  regex_t *re)
 {
 	(void) re;
+	if (cmp == CMP_CMP) {
+		time_t av = dt_make_simple(&a->val.v_datetime);
+		time_t bv = dt_make_simple(&b->val.v_datetime);
+		if (av < bv) return -1;
+		if (av > bv) return 1;
+		return 0;
+	}
 	return tvc_datetime_step(a, cmp, b, 0);
 }
 

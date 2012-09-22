@@ -5,15 +5,15 @@
 
 typedef enum {
 	ORDER_NONE,
-	ORDER_CREATED,
-	ORDER_IMAGEDATE,
-	ORDER_SCORE,
 	ORDER_GROUP,
-	ORDER_MODIFIED,
-	ORDER_WIDTH,
-	ORDER_HEIGHT,
-	ORDER_AREA,
 	ORDER_TAGCOUNT,
+} order_simple_t;
+
+typedef struct order {
+	int            sign;
+	order_simple_t simple;
+	tag_t          *tag;
+	tv_cmp_t       *cmp;
 } order_t;
 
 typedef enum {
@@ -336,9 +336,24 @@ static int build_search_cmd(connection_t *conn, char *cmd, void *search_,
 			if (search->of_orders == PROT_ORDERS_PER_SEARCH) {
 				return c_close_error(conn, E_OVERFLOW);
 			}
-			search->orders[search->of_orders] = str2id(args, orders);
-			if (!search->orders[search->of_orders]) {
-				return conn->error(conn, cmd);
+			order_t *order = &search->orders[search->of_orders];
+			if (*args == '-') {
+				order->sign = 1;
+				args++;
+			} else {
+				order->sign = -1;
+			}
+			order_simple_t simple = str2id(args, orders);
+			if (simple > 0) {
+				order->simple = simple;
+			} else {
+				tag_t *tag = tag_find_guidstr(args);
+				if (!tag || !tag->valuetype) {
+					return conn->error(conn, cmd);
+				}
+				order->simple = 0;
+				order->tag = tag;
+				order->cmp = tv_cmp[tag->valuetype];
 			}
 			search->of_orders++;
 			break;
@@ -384,7 +399,7 @@ static int setup_search(search_t *search)
 	 * but group ordering is implicit in match order. */
 	int can_sort = 1;
 	for (unsigned int i = 0; i < search->of_orders; i++) {
-		if (search->orders[i] == ORDER_GROUP) can_sort = 0;
+		if (search->orders[i].simple == ORDER_GROUP) can_sort = 0;
 	}
 	if (can_sort) sort(search->tags, search->of_tags, sizeof(search_tag_t),
 	                   sort_search, NULL);
@@ -399,16 +414,20 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 	unsigned int i;
 
 	for (i = 0; i < search->of_orders; i++) {
-		int order = search->orders[i];
-		int sign = -1;
-		int r;
+		order_t *order = &search->orders[i];
+		order_simple_t simple = order->simple;
+		int r = 0;
 
-		if (order < 0) {
-			sign  = 1;
-			order = -order;
+		if (simple) {
+			r = sorters[simple - 1](p1, p2);
+		} else {
+			tag_value_t *tv1 = post_tag_value(p1, order->tag);
+			tag_value_t *tv2 = post_tag_value(p2, order->tag);
+			if (tv1 && !tv2) r = 1;
+			if (!tv1 && tv2) r = -1;
+			if (tv1 && tv2) r = order->cmp(tv1, CMP_CMP, tv2, 0);
 		}
-		r = sorters[order - 1](p1, p2);
-		if (r) return r * sign;
+		if (r) return r * order->sign;
 	}
 	return 0;
 }
