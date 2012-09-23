@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <time.h>
 #include <regex.h>
+#include <assert.h>
 
 #ifdef __GNUC__
 #  define _ALIGN(d) d __attribute__((aligned(__BIGGEST_ALIGNMENT__)))
@@ -25,14 +26,10 @@
 
 #define err1(v) if(v) goto err;
 #define err(v, res) if(v) { r = (res); goto err; }
-#define assert(v) if (!(v)) assert_fail(#v, __FILE__, __FUNCTION__, __LINE__)
-#define NORETURN __attribute__((noreturn))
 #define ULL (unsigned long long)
 #define LL  (long long)
 
 #define arraylen(a) ((int)(sizeof(a)/sizeof(*(a))))
-
-void NORETURN assert_fail(const char *ass, const char *file, const char *func, int line);
 
 typedef _ALIGN(struct ss128_key {
 	uint64_t a;

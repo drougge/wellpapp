@@ -14,14 +14,6 @@
 #define INFTIM -1
 #endif
 
-void NORETURN assert_fail(const char *ass, const char *file,
-                          const char *func, int line)
-{
-	fprintf(stderr, "assertion \"%s\" failed in %s on %s:%d\n",
-	        ass, func, file, line);
-	exit(1);
-}
-
 ss128_head_t *tags;
 ss128_head_t *tagaliases;
 ss128_head_t *tagguids;
