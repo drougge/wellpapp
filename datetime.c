@@ -213,9 +213,9 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	                &tm.tm_hour, &tm.tm_min, &tm.tm_sec};
 	int chk[] = {0, 0, 0, 0, 0, 0};
 	char sep[] = "--T::";
-	assert(arraylen(field) == arraylen(range));
-	assert(arraylen(field) == arraylen(sep));
-	assert(arraylen(field) == arraylen(chk));
+	static_assert(arraylen(field) == arraylen(range), "length mismatch");
+	static_assert(arraylen(field) == arraylen(sep), "length mismatch");
+	static_assert(arraylen(field) == arraylen(chk), "length mismatch");
 	int pos = 0;
 	int with_steps = 0;
 	memset(f, 0, sizeof(*f));

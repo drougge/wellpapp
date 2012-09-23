@@ -362,7 +362,7 @@ int mm_init(void)
 	assert(MM_BASE_ADDR);
 	for (i = 0; i < MM_MAX_SEGMENTS; i++) mm_fd[i] = -1;
 	mm_head = get_mm_head();
-	assert(sizeof(mm_head_t) % MM_ALIGN == 0);
+	static_assert(sizeof(mm_head_t) % MM_ALIGN == 0, "Bad struct size");
 	tag_guid_last = mm_head->tag_guid_last;
 	posts         = &mm_head->posts;
 	tags          = &mm_head->tags;

@@ -31,6 +31,12 @@
 
 #define arraylen(a) ((int)(sizeof(a)/sizeof(*(a))))
 
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#  define static_assert _Static_assert
+#else
+#  define static_assert(v, msg) {enum { assert_value = 1/(!!(v)) };}
+#endif
+
 typedef _ALIGN(struct ss128_key {
 	uint64_t a;
 	uint64_t b;
