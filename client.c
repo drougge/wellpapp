@@ -231,6 +231,7 @@ typedef struct {
 	truth_t      aliases;
 	dberror_t    error;
 	char         type;
+	truth_t      datatags;
 	int          filtered;
 	search_t     search;
 } tag_search_data_t;
@@ -686,6 +687,8 @@ static void tag_search_add_res(tag_search_data_t *data, const tag_t *tag,
                                int check_dup)
 {
 	if (data->error) return;
+	if (data->datatags == T_NO && tag->datatag) return;
+	if (data->datatags == T_YES && !tag->datatag) return;
 	if (data->limits) {
 		ss128_value_t v;
 		if (ss128_find(&data->limits->tree, &v, tag->guid.key)) return;
@@ -848,6 +851,15 @@ static int tag_search_cmd(connection_t *conn, char *cmd, void *data_,
 				if (parse_range(cmd + 1, &data->range_start,
 				                &data->range_end)) goto err;
 				break;
+			case 'F': // 'F'lag
+				if (!strcmp(cmd + 1, "-datatag")) {
+					data->datatags = T_NO;
+				} else if (!strcmp(cmd + 1, "datatag")) {
+					data->datatags = T_YES;
+				} else {
+					goto err;
+				}
+				break;
 			case ':': // Filter
 				data->filtered = 1;
 				init_search(&data->search);
@@ -901,6 +913,7 @@ static void tag_search(connection_t *conn, char *cmd)
 	data.tag_len  = 0;
 	data.range_start = -1;
 	data.range_end   = LONG_MAX - 1;
+	data.datatags = T_DONTCARE;
 	data.filtered = 0;
 	if (!prot_cmd_loop(conn, cmd, &data, tag_search_cmd, 0)) {
 		c_printf(conn, "OK\n");
