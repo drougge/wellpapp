@@ -289,12 +289,18 @@ static int tag_cmd(connection_t *conn, char *cmd, void *data_,
 			break;
 		case 'V':
 			if (tag->valuetype) {
-				// @@todo: support for changing types
-				return conn->error(conn, cmd);
+				if (data->is_add) {
+					return conn->error(conn, cmd);
+				}
 			}
 			int vt = str2id(args, tag_value_types);
 			if (vt <= 0) return conn->error(conn, cmd);
-			tag->valuetype = vt - 1;
+			valuetype_t real_vt = vt - 1;
+			if (tag->valuetype == real_vt) break;
+			if (tag_check_vt_change(tag, real_vt)) {
+				return conn->error(conn, cmd);
+			}
+			tag->valuetype = real_vt;
 			break;
 		case 'F':
 			u_value = 1;

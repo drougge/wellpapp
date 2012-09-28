@@ -192,7 +192,8 @@ extern const char * const tag_value_types[];
 
 // Needs to match tag_value_types in protocol.c,
 // tv_printer in client.c, and tv_cmp in result.c.
-// Needs to be handled in tag_value_parse in db.c.
+// Needs to be handled in tag_value_parse in db.c,
+// and in the conversions in valuetype.c.
 typedef enum {
 	VT_NONE,
 	VT_WORD,
@@ -203,6 +204,7 @@ typedef enum {
 	VT_F_STOP,
 	VT_STOP,
 	VT_DATETIME,
+	VT_MAX
 } valuetype_t;
 
 typedef enum {
@@ -487,6 +489,8 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 int tvp_timezone(const char *val, int *len, int *r_offset);
 time_t datetime_get_simple(const datetime_time_t *val);
 void datetime_set_simple(datetime_time_t *val, time_t simple);
+
+int tag_check_vt_change(tag_t *tag, valuetype_t vt);
 
 extern ss128_head_t *posts;
 extern ss128_head_t *tags;
