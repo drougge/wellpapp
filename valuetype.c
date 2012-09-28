@@ -26,23 +26,59 @@ static int conv_fail(tag_value_t *val, int dummy)
 	return 1;
 }
 
+static int conv_dummy(tag_value_t *val, int dummy)
+{
+	(void) val;
+	(void) dummy;
+	return 0;
+}
+
+static int conv_stringword(tag_value_t *val, int dummy)
+{
+	(void) dummy;
+	return strchr(val->v_str, ' ') ? 1 : 0;
+}
+
 typedef int (conv_func_t)(tag_value_t *, int);
 
 static conv_func_t * const conv_int[] = {
-	NULL, NULL, NULL,
+	NULL,
+	NULL,
+	NULL,
 	NULL,
 	conv_intuint,
 	NULL, NULL, NULL, NULL
 };
 static conv_func_t * const conv_uint[] = {
-	NULL, NULL, NULL,
+	NULL,
+	NULL,
+	NULL,
 	conv_uintint,
 	NULL,
 	NULL, NULL, NULL, NULL
 };
 
+static conv_func_t * const conv_word[] = {
+	NULL,
+	NULL,
+	conv_dummy,
+	NULL,
+	NULL,
+	NULL, NULL, NULL, NULL
+};
+static conv_func_t * const conv_string[] = {
+	NULL,
+	conv_stringword,
+	NULL,
+	NULL,
+	NULL,
+	NULL, NULL, NULL, NULL
+};
+
 static conv_func_t * const * const convs[] = {
-	NULL, NULL, NULL,
+	NULL,
+	conv_word,
+	conv_string,
 	conv_int,
 	conv_uint,
 	NULL, NULL, NULL, NULL
@@ -76,6 +112,8 @@ int tag_check_vt_change(tag_t *tag, valuetype_t vt)
 {
 	static_assert(arraylen(conv_int   ) == VT_MAX, "All value types");
 	static_assert(arraylen(conv_uint  ) == VT_MAX, "All value types");
+	static_assert(arraylen(conv_word  ) == VT_MAX, "All value types");
+	static_assert(arraylen(conv_string) == VT_MAX, "All value types");
 	static_assert(arraylen(convs      ) == VT_MAX, "All value types");
 	assert(tag->valuetype < VT_MAX && vt < VT_MAX);
 	if (!tag->valuetype) return 0;
