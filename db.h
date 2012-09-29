@@ -420,6 +420,7 @@ void mm_cleanup(void);
 void mm_last_log(off_t size, time_t mtime);
 void *mm_alloc(unsigned int size);
 void *mm_alloc_s(unsigned int size);
+void *mm_alloc_lax(unsigned int size);
 void mm_free(void *mem);
 const char *mm_strdup(const char *str);
 void *mm_dup(void *d, size_t z);

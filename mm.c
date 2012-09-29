@@ -456,41 +456,50 @@ void mm_cleanup(void)
 	close(mm_lock_fd);
 }
 
-static void *mm_alloc_(unsigned int size, int unaligned)
-{
-	if (size % MM_ALIGN) {
-		assert(unaligned);
-		if (mm_head->top - size < mm_head->bottom) {
-			mm_new_segment();
-		}
-		mm_head->top -= size;
-		assert(mm_head->top >= mm_head->bottom);
-		mm_head->free -= size;
-		mm_head->used += size;
-		mm_head->used_small += size;
-		return mm_head->top;
-	} else {
-		void *ptr = mm_head->bottom;
-		if (mm_head->bottom + size > mm_head->top) {
-			mm_new_segment();
-			ptr = mm_head->bottom;
-		}
-		mm_head->bottom += size;
-		assert(mm_head->bottom <= mm_head->top);
-		mm_head->free -= size;
-		mm_head->used += size;
-		return ptr;
-	}
-}
-
 void *mm_alloc(unsigned int size)
 {
-	return mm_alloc_(size, 0);
+	assert (size % MM_ALIGN == 0);
+	void *ptr = mm_head->bottom;
+	if (mm_head->bottom + size > mm_head->top) {
+		mm_new_segment();
+		ptr = mm_head->bottom;
+	}
+	mm_head->bottom += size;
+	assert(mm_head->bottom <= mm_head->top);
+	mm_head->free -= size;
+	mm_head->used += size;
+	return ptr;
+}
+
+static void *mm_alloc_(unsigned int size, int unaligned, int lax)
+{
+	if (size % MM_ALIGN == 0) return mm_alloc(size);
+	if (lax) {
+		unsigned int waste = MM_ALIGN - size % MM_ALIGN;
+		mm_head->wasted += waste;
+		size += waste;
+		return mm_alloc(size);
+	}
+	assert(unaligned);
+	if (mm_head->top - size < mm_head->bottom) {
+		mm_new_segment();
+	}
+	mm_head->top -= size;
+	assert(mm_head->top >= mm_head->bottom);
+	mm_head->free -= size;
+	mm_head->used += size;
+	mm_head->used_small += size;
+	return mm_head->top;
 }
 
 void *mm_alloc_s(unsigned int size)
 {
-	return mm_alloc_(size, 1);
+	return mm_alloc_(size, 1, 0);
+}
+
+void *mm_alloc_lax(unsigned int size)
+{
+	return mm_alloc_(size, 0, 1);
 }
 
 void mm_free(void *mem)
@@ -514,7 +523,7 @@ const char *mm_strdup(const char *str)
 	if (old) return old;
 
 	int len = strlen(str);
-	char *new = mm_alloc_(len + 1, 1);
+	char *new = mm_alloc_s(len + 1);
 	strcpy(new, str);
 	hash_add(strings, new);
 	return new;
@@ -523,7 +532,7 @@ const char *mm_strdup(const char *str)
 void *mm_dup(void *d, size_t z)
 {
 	if (!d) return NULL;
-	void *new = mm_alloc_(z, 0);
+	void *new = mm_alloc(z);
 	memcpy(new, d, z);
 	return new;
 }

@@ -17,7 +17,7 @@ static unsigned long djb(const char *key)
 static void hash_init_i(hash_t *h)
 {
 	h->used = 0;
-	h->data = mm_alloc(sizeof(*h->data) * (hash_sizes[h->size] + 1));
+	h->data = mm_alloc_lax(sizeof(*h->data) * (hash_sizes[h->size] + 1));
 }
 
 void hash_init(hash_t *h)
