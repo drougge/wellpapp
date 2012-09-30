@@ -211,7 +211,7 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	struct tm tm;
 	int *field[] = {&tm.tm_year, &tm.tm_mon, &tm.tm_mday,
 	                &tm.tm_hour, &tm.tm_min, &tm.tm_sec};
-	int chk[] = {0, 0, 0, 0, 0, 0};
+	int chk[] = {0, 1, 1, 0, 0, 0};
 	char sep[] = "--T::";
 	static_assert(arraylen(field) == arraylen(range), "length mismatch");
 	static_assert(arraylen(field) == arraylen(sep), "length mismatch");
