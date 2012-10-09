@@ -87,6 +87,7 @@ static int mm_open_segment(unsigned int nr, int flags)
 	int  fd;
 	int  len;
 
+	assert(MM_BASE_ADDR);
 	assert(nr < MM_MAX_SEGMENTS && mm_fd[nr] == -1);
 	len = snprintf(fn, sizeof(fn), "%s/mm_cache/%08x", basedir, nr);
 	assert(len < (int)sizeof(fn));
@@ -99,6 +100,7 @@ static void *mm_map_segment(unsigned int nr)
 {
 	uint8_t *addr, *want_addr;
 
+	assert(MM_BASE_ADDR);
 	want_addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
 	addr = mmap(want_addr, MM_SEGMENT_SIZE, PROT_READ | PROT_WRITE,
 	            MAP_FIXED | MAP_NOCORE | MAP_SHARED, mm_fd[nr], 0);
@@ -109,30 +111,36 @@ static void *mm_map_segment(unsigned int nr)
 static void mm_unmap_segment(unsigned int nr)
 {
 	uint8_t *addr = MM_BASE_ADDR + (nr * MM_SEGMENT_SIZE);
+	assert(MM_BASE_ADDR);
 	int r = munmap(addr, MM_SEGMENT_SIZE);
 	assert(!r);
 }
 
 static void mm_new_segment(void)
 {
-	char         buf[16384];
-	int          fd;
-	unsigned int nr;
-	uint8_t      *addr;
-	unsigned int z;
-
-	nr = mm_head ? mm_head->of_segments : 0;
-	fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_TRUNC);
-	assert(fd >= 0);
-	memset(buf, 0, sizeof(buf));
-	z = MM_SEGMENT_SIZE;
-	while (z) {
-		int len;
-		len = write(fd, buf, z < sizeof(buf) ? z : sizeof(buf));
-		assert(len > 0);
-		z -= len;
+	uint8_t *addr;
+	
+	if (MM_BASE_ADDR) {
+		char         buf[16384];
+		int          fd;
+		unsigned int nr;
+		unsigned int z;
+		
+		nr = mm_head ? mm_head->of_segments : 0;
+		fd = mm_open_segment(nr, O_RDWR | O_CREAT | O_TRUNC);
+		assert(fd >= 0);
+		memset(buf, 0, sizeof(buf));
+		z = MM_SEGMENT_SIZE;
+		while (z) {
+			int len;
+			len = write(fd, buf, z < sizeof(buf) ? z : sizeof(buf));
+			assert(len > 0);
+			z -= len;
+		}
+		addr = mm_map_segment(nr);
+	} else {
+		addr = calloc(1, MM_SEGMENT_SIZE);
 	}
-	addr = mm_map_segment(nr);
 	if (mm_head) {
 		mm_head->size   += MM_SEGMENT_SIZE;
 		mm_head->wasted += mm_head->free;
@@ -175,6 +183,7 @@ static void *cache_walker(void *dummy)
 void mm_start_walker(void)
 {
 	pthread_t thread;
+	if (!MM_BASE_ADDR) return;
 	if (!cache_walk_speed) {
 		printf("Not walking cache - This may lead to terrible "
 		       "performance,\nbut leaves more memory for other "
@@ -207,6 +216,13 @@ static void ss128_mm_free(void *data_, void *ptr, unsigned int z)
 static mm_head_t *get_mm_head(void)
 {
 	uintptr_t p = (uintptr_t) MM_BASE_ADDR;
+	if (!p) {
+		static mm_head_t *mem_mm_head = NULL;
+		if (!mem_mm_head) {
+			mem_mm_head = calloc(1, sizeof(*mem_mm_head));
+		}
+		return mem_mm_head;
+	}
 	if (p % MM_ALIGN) {
 		fprintf(stderr, "base_addr must be aligned to %d bytes",
 		        (int)MM_ALIGN);
@@ -221,21 +237,25 @@ static void mm_init_new(void)
 {
 	int r;
 
-	mm_head = NULL;
-	mm_new_segment();
-	mm_head = get_mm_head();
-	mm_head->addr     = MM_BASE_ADDR;
-	mm_head->magic0   = MM_MAGIC0;
-	mm_head->magic1   = MM_MAGIC1;
-	mm_head->size     = MM_SEGMENT_SIZE;
-	mm_head->used     = sizeof(*mm_head);
-	mm_head->free     = mm_head->size - mm_head->used;
-	mm_head->bottom   = mm_head->addr + mm_head->used;
-	mm_head->top      = mm_head->addr + mm_head->size;
-	mm_head->segment_size = MM_SEGMENT_SIZE;
-	mm_head->of_segments  = 1;
-	memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
-	memcpy(mm_head->struct_sizes, sizes, sizeof(sizes));
+	if (MM_BASE_ADDR) {
+		mm_head = NULL;
+		mm_new_segment();
+		mm_head = get_mm_head();
+		mm_head->addr     = MM_BASE_ADDR;
+		mm_head->magic0   = MM_MAGIC0;
+		mm_head->magic1   = MM_MAGIC1;
+		mm_head->size     = MM_SEGMENT_SIZE;
+		mm_head->used     = sizeof(*mm_head);
+		mm_head->free     = mm_head->size - mm_head->used;
+		mm_head->bottom   = mm_head->addr + mm_head->used;
+		mm_head->top      = mm_head->addr + mm_head->size;
+		mm_head->segment_size = MM_SEGMENT_SIZE;
+		mm_head->of_segments  = 1;
+		memcpy(mm_head->config_md5.m, config_md5.m, sizeof(config_md5.m));
+		memcpy(mm_head->struct_sizes, sizes, sizeof(sizes));
+	} else {
+		mm_new_segment();
+	}
 	r  = ss128_init(posts, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tags, ss128_mm_alloc, ss128_mm_free, NULL);
 	r |= ss128_init(tagaliases, ss128_mm_alloc, ss128_mm_free, NULL);
@@ -336,17 +356,19 @@ static int mm_init_old(void)
 	return 0;
 }
 
-static void assertdir(const char *name)
+static int assertdir(const char *name, int hard)
 {
-	char fn[1024];
+	static char fn[1024];
 	struct stat sb;
 	int len = snprintf(fn, sizeof(fn), "%s/%s", basedir, name);
 	assert(len < (int)sizeof(fn));
 	int r = stat(fn, &sb);
 	if (r || !S_ISDIR(sb.st_mode)) {
-		fprintf(stderr, "Directory %s doesn't exist\n", fn);
+		fprintf(stderr, "Directory %s doesn't exist.\n", fn);
+		if (!hard) return 1;
 		exit(1);
 	}
+	return 0;
 }
 
 /* Note that this returns 1 for a new cache, not failure as such. */
@@ -359,7 +381,9 @@ int mm_init(void)
 	int   r;
 	off_t pos;
 
-	assert(MM_BASE_ADDR);
+	if (!MM_BASE_ADDR) {
+		printf("No mm_base; no cache used.\n");
+	}
 	for (i = 0; i < MM_MAX_SEGMENTS; i++) mm_fd[i] = -1;
 	mm_head = get_mm_head();
 	static_assert(sizeof(mm_head_t) % MM_ALIGN == 0, "Bad struct size");
@@ -393,9 +417,13 @@ int mm_init(void)
 		fprintf(stderr, "Lockfile locked, another server running?\n");
 		exit(1);
 	}
-	assertdir("dump");
-	assertdir("log");
-	assertdir("mm_cache");
+	assertdir("dump", 1);
+	assertdir("log", 1);
+	if (MM_BASE_ADDR && assertdir("mm_cache", 0)) {
+		fprintf(stderr, "This is needed if you want a cache.\n");
+		fprintf(stderr, "Create it or unset mm_base in config.\n");
+		exit(1);
+	}
 	len = read(mm_lock_fd, &clean, 1);
 	if (len != 1) clean = 'U';
 	pos = lseek(mm_lock_fd, 0, SEEK_SET);
@@ -404,7 +432,7 @@ int mm_init(void)
 	assert(len == 1);
 	r = fsync(mm_lock_fd);
 	assert(!r);
-	if (clean == 'C') {
+	if (clean == 'C' && MM_BASE_ADDR) {
 		if (!mm_init_old()) return 0;
 	}
 	mm_init_new();
@@ -435,6 +463,7 @@ void mm_cleanup(void)
 	off_t   pos;
 	ssize_t r;
 
+	if (!MM_BASE_ADDR) return;
 	if (walker_running == 1) {
 		walker_running = 0;
 		while (walker_running != -1) {

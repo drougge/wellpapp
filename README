@@ -2,7 +2,8 @@ Server part of wellpapp, a system for image tagging.
 It's not ready for general use anyway, so instructions will be sparse for now.
 
 Look at example.conf, make whatever changes you feel like, but at least
-change the GUID. Then make directories dump, log and mm_cache in basedir.
+change the GUID. Then make directories dump, log and (optionally) mm_cache
+in basedir.
 
 Build the server with "make". You can set CPPFLAGS, LDFLAGS etc to find
 includes or whatever. Needs openssl and libbz2, bundles utf8proc.
