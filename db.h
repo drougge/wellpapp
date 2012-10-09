@@ -16,12 +16,20 @@
 #include <regex.h>
 #include <assert.h>
 
-#ifdef __GNUC__
-#  define _ALIGN(d) d __attribute__((aligned(__BIGGEST_ALIGNMENT__)))
+#if defined(__amd64__)
+#  define MM_ALIGN 8
+#elif defined(__i386__)
+#  define MM_ALIGN 4
+#elif defined(__GNUC__)
 #  define MM_ALIGN __BIGGEST_ALIGNMENT__
+#endif
+#ifdef __GNUC__
+#  define _ALIGN(d) d __attribute__((aligned(MM_ALIGN)))
 #else
 #  error You need to specify an _ALIGN definition for your compiler. (Maybe nothing)
-#  error And MM_ALIGN too. (Try 4.)
+#endif
+#ifndef MM_ALIGN
+#  error And MM_ALIGN too. (Try sizeof(void *).)
 #endif
 
 #define err1(v) if(v) goto err;
