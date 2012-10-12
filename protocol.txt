@@ -65,8 +65,9 @@ tag ("T").
 			tagguid: Return guid of set tags.
 			tagdata: Return other data for set tags.
 			ext: Return file-type in the form of a likely
-			     extension. Currently one of "jpeg", "gif",
-			     "png", "bmp", "dng", "pef", "nef" or "swf".
+			     extension. Currently one of:
+			     jpeg gif png bmp dng pef nef swf
+			     avi mpeg mkv ogm mp4 wmv flv mov
 			created: Time as datetime.
 			modified: Time as datetime.
 			imgdate: Time as datetime.

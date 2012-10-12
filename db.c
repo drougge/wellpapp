@@ -1232,7 +1232,9 @@ void db_read_cfg(const char *filename)
 	}
 	assert(feof(fh));
 	fclose(fh);
-	cfg_parse_list(&filetype_names, FILETYPE_NAMES_STR);
+	const char *ft_n = "jpeg gif png bmp dng pef nef swf "
+                           "avi mpeg mkv ogm mp4 wmv flv mov";
+	cfg_parse_list(&filetype_names, ft_n);
 	assert(tagtype_names && rating_names && basedir && server_guid);
 	MD5_Final(config_md5.m, &ctx);
 }
