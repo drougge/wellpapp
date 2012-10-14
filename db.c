@@ -433,29 +433,54 @@ static void postlist_recompute_implications(post_list_t *pl)
 	post_iterate(pl, NULL, post_recompute_implications_iter);
 }
 
-int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
+static int impl_eq(const implication_t *a, const implication_t *b, int poscare)
+{
+	if (a->tag != b->tag) return 0;
+	if (poscare && a->positive != b->positive) return 0;
+	if (a->filter_value || b->filter_value) {
+		if (!a->filter_value || !b->filter_value) return 0;
+		if (a->filter_cmp != b->filter_cmp) return 0;
+		const valuetype_t vt = a->tag->valuetype;
+		if (vt == VT_STRING || vt == VT_WORD) {
+			const char *as = a->filter_value->v_str;
+			const char *bs = b->filter_value->v_str;
+			return (!strcmp(as, bs));
+		} else {
+			tag_value_t av, bv;
+			av = *a->filter_value;
+			bv = *b->filter_value;
+			av.v_str = bv.v_str = NULL;
+			// It's not generally valid to compare tag values
+			// like this, but the implication parser clears them
+			// before parsing, so it should be safe here.
+			// (Not if you take a strict C standard view, I think.)
+			if (memcmp(&av, &bv, sizeof(av))) return 0;
+		}
+	}
+	return 1;
+}
+
+int tag_add_implication(tag_t *from, const implication_t *impl)
 {
 	impllist_t *tl = from->implications;
 	int done = 0;
+	
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->impl); i++) {
-			tag_t *tltag = tl->impl[i].tag;
-			if ((!tltag || tltag == to) && !done) {
-				tl->impl[i].tag = to;
-				tl->impl[i].priority = priority;
-				tl->impl[i].positive = positive;
+			int eq = impl_eq(&tl->impl[i], impl, 0);
+			if ((!tl->impl[i].tag || eq) && !done) {
+				tl->impl[i] = *impl;
 				done = 1;
-			} else if (tltag == to) {
+			} else if (eq) {
 				tl->impl[i].tag = NULL;
+				// Can leak tag values
 			}
 		}
 		tl = tl->next;
 	}
 	if (!done) {
 		tl = mm_alloc(sizeof(*tl));
-		tl->impl[0].tag = to;
-		tl->impl[0].priority = priority;
-		tl->impl[0].positive = positive;
+		tl->impl[0] = *impl;
 		tl->next = from->implications;
 		from->implications = tl;
 	}
@@ -464,16 +489,15 @@ int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
 	return 0;
 }
 
-int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority)
+int tag_rem_implication(tag_t *from, const implication_t *impl)
 {
 	impllist_t *tl = from->implications;
-	(void) priority;
+	
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->impl); i++) {
-			if (tl->impl[i].tag == to
-			    && tl->impl[i].positive == positive
-			   ) {
+			if (impl_eq(impl, &tl->impl[i], 1)) {
 				tl->impl[i].tag = NULL;
+				// Can leak tag values
 				postlist_recompute_implications(&from->posts);
 				postlist_recompute_implications(&from->weak_posts);
 				return 0;

@@ -139,14 +139,29 @@ typedef _ALIGN(struct post_taglist {
 	struct post_taglist *next;
 }) post_taglist_t;
 
+typedef enum {
+	CMP_NONE,
+	CMP_EQ,
+	CMP_GT,
+	CMP_GE,
+	CMP_LT,
+	CMP_LE,
+	CMP_REGEXP,
+	CMP_CMP,
+} tagvalue_cmp_t;
+
 typedef _ALIGN(struct implication {
-	tag_t   *tag;
-	int32_t priority;
-	int     positive;
+	tag_t          *tag;
+	tag_value_t    *filter_value;
+	tagvalue_cmp_t filter_cmp;
+	tag_value_t    *set_value;
+	int32_t        priority;
+	short          positive;
+	short          inherit_value;
 }) implication_t;
 
 typedef _ALIGN(struct impllist {
-	implication_t   impl[7];
+	implication_t   impl[3];
 	struct impllist *next;
 }) impllist_t;
 
@@ -214,17 +229,6 @@ typedef enum {
 	VT_DATETIME,
 	VT_MAX
 } valuetype_t;
-
-typedef enum {
-	CMP_NONE,
-	CMP_EQ,
-	CMP_GT,
-	CMP_GE,
-	CMP_LT,
-	CMP_LE,
-	CMP_REGEXP,
-	CMP_CMP,
-} tagvalue_cmp_t;
 
 struct _ALIGN(tag {
 	const char *name;
@@ -375,8 +379,8 @@ tag_t *tag_find_guidstr_value(const char *guidstr, tagvalue_cmp_t *r_cmp,
                               tag_value_t *value, char *buf);
 int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
                     tagvalue_cmp_t cmp);
-int tag_add_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
-int tag_rem_implication(tag_t *from, tag_t *to, int positive, int32_t priority);
+int tag_add_implication(tag_t *from, const implication_t *impl);
+int tag_rem_implication(tag_t *from, const implication_t *impl);
 int taglist_contains(const post_taglist_t *tl, const tag_t *tag);
 int post_tag_rem(post_t *post, tag_t *tag);
 int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval);

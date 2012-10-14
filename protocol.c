@@ -742,48 +742,108 @@ int prot_rel_remove(connection_t *conn, char *cmd)
 	return prot_cmd_loop(conn, cmd, &data, rel_cmd, CMDFLAG_MODIFY);
 }
 
-typedef int (*implfunc_t)(tag_t *from, tag_t *to, int positive, int priority);
+typedef int (*implfunc_t)(tag_t *from, const implication_t *impl);
 typedef struct impldata {
-	tag_t      *tag;
-	implfunc_t func;
+	tag_t          *tag;
+	implfunc_t     func;
+	implication_t  impl;
+	tag_value_t    *filter_value;
+	tagvalue_cmp_t filter_cmp;
+	const char     *set_value_str;
+	char           master_cmd;
 } impldata_t;
+
+static int impl_apply(connection_t *conn, const impldata_t *data)
+{
+	char buf[1024];
+	char *ptr = buf;
+	const implication_t *impl = &data->impl;
+	
+	if (data->func(data->tag, &data->impl)) return 1;
+	ptr += sprintf(ptr, "%c%s", 'i' - (32 * impl->positive),
+	               guid_guid2str(impl->tag->guid));
+	if (impl->priority) {
+		ptr += sprintf(ptr, " P%d", impl->priority);
+	}
+	if (impl->inherit_value) {
+		ptr += sprintf(ptr, " V");
+	}
+	if (impl->set_value) {
+		ptr += sprintf(ptr, " V%s", data->set_value_str);
+	}
+	log_write(&conn->trans, "%s", buf);
+	return 0;
+}
 
 static int impl_cmd(connection_t *conn, char *cmd, void *data_,
                     prot_cmd_flag_t flags)
 {
-	impldata_t *data = data_;
-
-	(void)flags;
-
-	char *colon = strchr(cmd + 1, ':');
-	int32_t priority = 0;
-	if (colon) {
-		char *end;
-		priority = strtol(colon + 1, &end, 10);
-		if (*end) return conn->error(conn, cmd);
-		*colon = 0;
+	impldata_t    *data = data_;
+	implication_t *impl = &data->impl;
+	tag_value_t   tval;
+	char *end;
+	
+	if (*cmd == 'I' || *cmd == 'i') {
+		if (impl->tag) {
+			err1(impl_apply(conn, data));
+		}
+		memset(impl, 0, sizeof(*impl));
+		impl->filter_value = data->filter_value;
+		impl->filter_cmp   = data->filter_cmp;
+	} else {
+		err1(log_version < 2);
+		err1(!impl->tag);
 	}
-	tag_t *implied_tag = tag_find_guidstr(cmd + 1);
-	if (!implied_tag || implied_tag == data->tag) {
-		return conn->error(conn, cmd);
+	if (log_version < 2) {
+		char *colon = strchr(cmd + 1, ':');
+		if (colon) {
+			impl->priority = strtol(colon + 1, &end, 10);
+			err1(*end)
+			*colon = 0;
+		}
 	}
-	int positive;
 	switch (*cmd) {
 		case 'I':
-			positive = 1;
-			break;
+			impl->positive = 1;
+			// Fall through
 		case 'i':
-			positive = 0;
+			impl->tag = tag_find_guidstr(cmd + 1);
+			if (!impl->tag || impl->tag == data->tag) {
+				return conn->error(conn, cmd);
+			}
+			break;
+		case 'P':
+			err1(data->master_cmd == 'i');
+			impl->priority = strtol(cmd + 1, &end, 10);
+			err1(*end);
+			break;
+		case 'V':
+			err1(data->master_cmd == 'i');
+			err1(!impl->positive);
+			err1(!impl->tag->valuetype);
+			if (cmd[1]) {
+				err1(impl->inherit_value);
+				memset(&tval, 0, sizeof(tval));
+				err1(tag_value_parse(impl->tag, cmd + 1, &tval, 0, 0));
+				data->set_value_str = cmd + 1;
+				impl->set_value = mm_alloc(sizeof(tval));
+				*impl->set_value = tval;
+			} else {
+				err1(impl->set_value);
+				err1(data->tag->valuetype != impl->tag->valuetype);
+				impl->inherit_value = 1;
+			}
 			break;
 		default:
 			return conn->error(conn, cmd);
 			break;
 	}
-	if (data->func(data->tag, implied_tag, positive, priority)) {
-		return conn->error(conn, cmd);
+	if (flags & CMDFLAG_LAST) {
+		err1(impl_apply(conn, data));
 	}
-	log_write(&conn->trans, "%s:%ld", cmd, (long)priority);
 	return 0;
+err:
+	return conn->error(conn, cmd);
 }
 
 int prot_implication(connection_t *conn, char *cmd)
@@ -792,8 +852,17 @@ int prot_implication(connection_t *conn, char *cmd)
 	char *end = strchr(cmd, ' ');
 	if (!end) return conn->error(conn, cmd);
 	*end = 0;
-	data.tag = tag_find_guidstr(cmd + 1);
+	memset(&data, 0, sizeof(data));
+	data.master_cmd = *cmd;
+	tag_value_t tval;
+	memset(&tval, 0, sizeof(tval));
+	data.tag = tag_find_guidstr_value(cmd + 1, &data.filter_cmp, &tval, NULL);
 	if (!data.tag) return conn->error(conn, cmd);
+	if (data.filter_cmp) {
+		if (log_version < 2) return conn->error(conn, cmd);
+		data.filter_value = mm_alloc(sizeof(tval));
+		*data.filter_value = tval;
+	}
 	switch (*cmd) {
 		case 'I':
 			data.func = tag_add_implication;

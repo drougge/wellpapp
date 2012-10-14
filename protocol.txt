@@ -236,25 +236,31 @@ R:
 I:
 	First char determines action.
 	I/i: (Add or remove implication.)
-		Takes a tag GUID followed by one or more "Iguid:prio" or
-		"iguid:prio". "I" means it implies the tag, "i" means it
-		implies that this tag is not implied. (The higher priority
-		implication wins.)
-		:prio can be left off (for 0), and should be when removing.
+		Takes a tag GUID optionally followed (without space) by a
+		comparison (if the tag has a valuetype), then one or more
+		Iguid (an implied tag) or iguid (a negatively implied tag).
+		When adding an implication, these can be optionally followed
+		by Pprio to set the priority of the implication (higher
+		priority implications win), and for positive implications
+		also "Vvalue" to set the value of the implied tag (if it
+		has a valuetype). "V" by itself sets the value as inherited
+		from the origin tag. This requires that both tags have then
+		same valuetype.
 	S:
-		Show implications from this tag. Returnes lines of the
-		form "RIid Iid:prio [Iid:prio [...]]". The first id on the
-		line imples all following (or not for lower case "i"),
-		with the specified priority.
+		Show implications from this tag.
+		Returnes lines like taken by I but starting with R.
+		The first id on the line imples all following (or not for
+		lower case "i"), with the specified properties.
 		Can return several lines for the same tag.
-		Example reply:
-			RIg2tKGC-By0kHB-aaaaaa-aaaaay ig2tKGC-By0kHy-aaaaaa-aaaaas:10
+		Example replies:
+			RIg2tKGC-By0kHB-aaaaaa-aaaaay<=1000 ig2tKGC-By0kHy-aaaaaa-aaaaas P10
+			RIg2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas V
 	R:
 		Show what implies a tag. Returns lines like S, with only one
 		implication per line. (The second tag is always the one you
 		specified after R.)
 	Example:
-		Ig2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas:10
+		IIg2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas V
 
 O:
 	First specify Gguid for the tag to order posts for.
