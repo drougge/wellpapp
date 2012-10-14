@@ -831,7 +831,7 @@ again:
 		int c = fh->buf[fh->pos++];
 		if (++blen == len || c == '\n') {
 			*buf = '\0';
-			assert(blen > 8);
+			assert(blen > 2);
 			return blen - 1;
 		}
 		*(buf++) = c;
@@ -960,16 +960,14 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 		trans_id_t tid = strtoull(buf + 1, &end, 16);
 		line_nr++;
 		if (*buf == '#' && log_version < 0) continue;
-		err1(end != buf + 17);
 		if (*buf == 'T') { // New transaction
-			err1(len != 34);
-			if (buf[17] == 'O') { // Complete transaction
+			if (*end == 'O') { // Complete transaction
 				int trans_pos = find_trans(trans, tid);
 				assert(trans_pos == -1);
 				trans_pos = find_trans(trans, 0);
 				assert(trans_pos != -1);
 				trans[trans_pos] = tid;
-				int trans_version = buf[18] - '0';
+				int trans_version = end[1] - '0';
 				err1(trans_version < log_version);
 				err1(trans_version > LOG_VERSION);
 				if (first_log
@@ -985,27 +983,36 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 					}
 					log_version = trans_version;
 				}
-				transnow[trans_pos] = strtoull(buf + 19, &end, 16);
-				err1(end != buf + 34);
-			} else if (buf[17] == 'U') { // Unfinished transaction
+				if (log_version >= 2) err1(end[2] != 'T');
+				transnow[trans_pos] = strtoull(end + 3, &end, 16);
+				if (log_version < 2) err1(end != buf + 34);
+				err1(*end);
+			} else if (*end == 'U') { // Unfinished transaction
 				// Do nothing
 			} else { // What?
 				goto err;
 			}
 		} else if (*buf == 'D') { // Data from transaction
-			err1(len <= 18);
+			err1(len <= (end - buf) + 1);
+			err1(*end != ' ');
 			int trans_pos = find_trans(trans, tid);
 			if (trans_pos >= 0) {
 				logconn->trans.now = transnow[trans_pos];
-				err1(populate_from_log_line(buf + 18));
+				err1(populate_from_log_line(end + 1));
 			} else {
 				printf("Skipping data from incomplete transaction: %s\n", buf);
 			}
 		} else if (*buf == 'E') { // End of transaction
 			int pos;
-			err1(len != 17);
+			if (log_version < 2) err1(len != 17);
+			err1(*end);
 			pos = find_trans(trans, tid);
-			if (pos != -1) trans[pos] = 0;
+			if (pos != -1) {
+				trans[pos] = 0;
+			} else {
+				printf("Stray trans end %llx on line %ld.\n",
+				       ULL tid, line_nr);
+			}
 		} else { // What?
 			err1(!callback);
 			callback(buf);

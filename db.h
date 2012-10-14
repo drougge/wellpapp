@@ -284,7 +284,7 @@ struct connection;
 typedef struct connection connection_t;
 
 #define PROT_MAXLEN 4096
-#define LOG_VERSION 1
+#define LOG_VERSION 2
 
 typedef struct trans {
 	off_t        mark_offset;

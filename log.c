@@ -50,18 +50,16 @@ static int log_trans_start_(trans_t *trans, time_t now, int fd, int outer)
 	trans->conn     = NULL;
 	trans->now      = now;
 	trans->id = next_trans_id++;
-	len = snprintf(buf, sizeof(buf), "T%016llxU%c%015llx\n",
-	               (unsigned long long)trans->id,
-	               '0' + log_version,
-	               (unsigned long long)trans->now);
-	assert(len == 35);
+	len = snprintf(buf, sizeof(buf), "T%llxU%cT%llx\n",
+	               ULL trans->id, '0' + LOG_VERSION, ULL trans->now);
+	assert(len <= 35);
 	trans_lock(trans);
 	r = write(trans->fd, buf, len);
 	trans->mark_offset = lseek(trans->fd, 0, SEEK_CUR);
 	trans_unlock(trans);
 	assert(r == len);
 	assert(trans->mark_offset != -1);
-	trans->mark_offset -= 18;
+	trans->mark_offset -= len - (strchr(buf, 'U') - buf);
 	return 0;
 }
 
@@ -87,9 +85,9 @@ static void trans_line_done_(trans_t *trans)
 
 	if (trans->buf_used == trans->init_len) return;
 	iov[0].iov_base = idbuf;
-	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%016llx ",
+	iov[0].iov_len  = snprintf(idbuf, sizeof(idbuf), "D%llx ",
 	                           (unsigned long long)trans->id);
-	assert(iov[0].iov_len == 18);
+	assert(iov[0].iov_len <= 18);
 	iov[1].iov_base = trans->buf;
 	iov[1].iov_len  = trans->buf_used;
 	iov[2].iov_base = &newline;
@@ -140,7 +138,7 @@ static int log_trans_end_(trans_t *trans, int outer)
 	off_t pos, r2;
 	int   r;
 	char  buf[20];
-	int   len;
+	int   len, wlen;
 	
 	if (outer) {
 		if (!(trans->flags & TRANSFLAG_OUTER)) return 1;
@@ -150,12 +148,11 @@ static int log_trans_end_(trans_t *trans, int outer)
 	log_clear_init(trans);
 	trans->flags &= ~TRANSFLAG_GOING;
 	if (trans->flags & TRANSFLAG_OUTER && !outer) return 0;
-	len = snprintf(buf, sizeof(buf), "E%016llx\n",
-	               (unsigned long long)trans->id);
-	assert(len == 18);
+	len = snprintf(buf, sizeof(buf), "E%llx\n", ULL trans->id);
+	assert(len <= 18);
 	trans_lock(trans);
-	len = write(trans->fd, buf, 18);
-	assert(len == 18);
+	wlen = write(trans->fd, buf, len);
+	assert(wlen == len);
 	trans_unlock(trans);
 	trans_sync(trans);
 	trans_lock(trans);
