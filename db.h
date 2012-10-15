@@ -139,6 +139,7 @@ typedef _ALIGN(struct post_taglist {
 	struct post_taglist *next;
 }) post_taglist_t;
 
+// Keep synced with tv_cmp_str in client.c
 typedef enum {
 	CMP_NONE,
 	CMP_EQ,

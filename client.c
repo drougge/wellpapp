@@ -436,25 +436,25 @@ static int sorter(const void *_p1, const void *_p2, void *_search)
 static void tv_print_str(connection_t *conn, tag_value_t *tv)
 {
 	char *str = str_str2enc(tv->v_str);
-	c_printf(conn, "=%s", str);
+	c_printf(conn, "%s", str);
 	free(str);
 }
 
 static void tv_print_int(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%d", tv->val.v_int);
-	if (tv->fuzz.f_int) c_printf(conn, "+%d", tv->fuzz.f_int);
+	c_printf(conn, "%lld", LL tv->val.v_int);
+	if (tv->fuzz.f_int) c_printf(conn, "+%lld", LL tv->fuzz.f_int);
 }
 
 static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%x", tv->val.v_uint);
-	if (tv->fuzz.f_uint) c_printf(conn, "+%d", tv->fuzz.f_uint);
+	c_printf(conn, "%llx", ULL tv->val.v_uint);
+	if (tv->fuzz.f_uint) c_printf(conn, "+%lld", LL tv->fuzz.f_uint);
 }
 
 static void tv_print_rawstr(connection_t *conn, tag_value_t *tv)
 {
-	c_printf(conn, "=%s", tv->v_str);
+	c_printf(conn, "%s", tv->v_str);
 }
 
 typedef void (tv_printer_t)(connection_t *, tag_value_t *);
@@ -492,7 +492,7 @@ static void return_post(connection_t *conn, post_t *post, int flags)
 				}
 				tv = post_tag_value(post, tag);
 				if (printer && tv) {
-					c_printf(conn, " F%s", field->name);
+					c_printf(conn, " F%s=", field->name);
 					printer(conn, tv);
 				}
 			}
@@ -669,7 +669,10 @@ static void c_print_tag(connection_t *conn, const tag_t *tag, int flags,
 			c_printf(conn, "V%s", tag_value_types[tag->valuetype]);
 			if (post) {
 				tag_value_t *tv = post_tag_value(post, tag);
-				if (tv) tv_printer[tag->valuetype](conn, tv);
+				if (tv) {
+					c_printf(conn, "=");
+					tv_printer[tag->valuetype](conn, tv);
+				}
 			}
 			c_printf(conn, " ");
 		}
@@ -945,6 +948,35 @@ static int show_rels_cmd(connection_t *conn, char *cmd, void *data,
 	return 0;
 }
 
+static const char *tv_cmp_str[] = {"",   // CMP_NONE
+                                   "=",  // CMP_EQ
+                                   ">",  // CMP_GT
+                                   ">=", // CMP_GE
+                                   "<",  // CMP_LT
+                                   "<=", // CMP_LE
+                                   "=~", // CMP_REGEXP
+                                   "==", // CMP_CMP, can't actually appear
+                                  };
+
+static void show_impl_print(connection_t *conn, const tag_t *tag,
+                            const implication_t *impl)
+{
+	c_printf(conn, "RI%s", guid_guid2str(tag->guid));
+	if (impl->filter_cmp) {
+		c_printf(conn, "%s", tv_cmp_str[impl->filter_cmp]);
+		tv_printer[tag->valuetype](conn, impl->filter_value);
+	}
+	c_printf(conn, " %c%s P%ld", 'i' - (32 * impl->positive),
+	         guid_guid2str(impl->tag->guid), (long)impl->priority);
+	if (impl->inherit_value || impl->set_value) {
+		c_printf(conn, " V");
+	}
+	if (impl->set_value) {
+		tv_printer[impl->tag->valuetype](conn, impl->set_value);
+	}
+	c_printf(conn, "\n");
+}
+
 static int show_impl_cmd(connection_t *conn, char *cmd, void *data,
                          prot_cmd_flag_t flags)
 {
@@ -953,28 +985,14 @@ static int show_impl_cmd(connection_t *conn, char *cmd, void *data,
 	tag_t *tag = tag_find_guidstr(cmd);
 	if (!tag) return 1;
 	impllist_t *tl = tag->implications;
-	int to_go = 0;
-	const char *newline = "";
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->impl); i++) {
 			if (tl->impl[i].tag) {
-				implication_t *impl = &tl->impl[i];
-				if (!to_go) {
-					to_go = 10;
-					c_printf(conn, "%sRI%s", newline,
-					         guid_guid2str(tag->guid));
-					newline = "\n";
-				}
-				to_go--;
-				c_printf(conn, " %c%s:%ld",
-				         impl->positive ? 'I' : 'i',
-				         guid_guid2str(impl->tag->guid),
-				         (long)impl->priority);
+				show_impl_print(conn, tag, &tl->impl[i]);
 			}
 		}
 		tl = tl->next;
 	}
-	c_printf(conn, "%s", newline);
 	return 0;
 }
 
@@ -993,13 +1011,7 @@ static void show_rev_impl_cb(ss128_key_t key, ss128_value_t value, void *data_)
 		for (int i = 0; i < arraylen(impllist->impl); i++) {
 			implication_t *impl = &impllist->impl[i];
 			if (impl->tag == data->tag) {
-				c_printf(data->conn, "RI%s ",
-				         guid_guid2str(tag->guid));
-				c_printf(data->conn, "%c%s:%ld\n",
-					 impl->positive ? 'I' : 'i',
-					 guid_guid2str(impl->tag->guid),
-					 (long)impl->priority);
-				return;
+				show_impl_print(data->conn, tag, impl);
 			}
 		}
 		impllist = impllist->next;

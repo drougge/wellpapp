@@ -763,7 +763,7 @@ static int impl_apply(connection_t *conn, const impldata_t *data)
 	ptr += sprintf(ptr, "%c%s", 'i' - (32 * impl->positive),
 	               guid_guid2str(impl->tag->guid));
 	if (impl->priority) {
-		ptr += sprintf(ptr, " P%d", impl->priority);
+		ptr += sprintf(ptr, " P%ld", (long)impl->priority);
 	}
 	if (impl->inherit_value) {
 		ptr += sprintf(ptr, " V");
