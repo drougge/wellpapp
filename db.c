@@ -236,14 +236,15 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
 	return 1;
 }
 
-static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
-                       alloc_data_t *adata)
+static int taglist_add(post_taglist_t **tlp, tag_t *tag, tag_value_t *value,
+                       alloc_func_t alloc, alloc_data_t *adata)
 {
 	post_taglist_t *tl = *tlp;
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->tags); i++) {
 			if (!tl->tags[i]) {
 				tl->tags[i] = tag;
+				tl->values[i] = value;
 				return 0;
 			}
 			if (tl->tags[i] == tag) return 1;
@@ -252,6 +253,7 @@ static int taglist_add(post_taglist_t **tlp, tag_t *tag, alloc_func_t alloc,
 	}
 	tl = alloc(adata, sizeof(*tl));
 	tl->tags[0] = tag;
+	tl->values[0] = value;
 	tl->next = *tlp;
 	*tlp = tl;
 	return 0;
@@ -263,6 +265,7 @@ typedef void (*impl_callback_t)(implication_t *impl, impl_iterator_data_t *data)
 typedef struct implcomp_data {
 	implication_t *impl;
 	truth_t       weak;
+	tag_value_t   *i_value;
 } implcomp_data_t;
 struct impl_iterator_data {
 	implcomp_data_t *list;
@@ -270,7 +273,7 @@ struct impl_iterator_data {
 	truth_t         weak;
 	impl_callback_t callback;
 	const tag_t     *tag;
-	const tag_value_t *tagvalue;
+	tag_value_t     *tagvalue;
 };
 
 static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data)
@@ -297,6 +300,7 @@ static void impl_cb(implication_t *impl, impl_iterator_data_t *data)
 	if (data->list) {
 		data->list[data->len].impl = impl;
 		data->list[data->len].weak = data->weak;
+		data->list[data->len].i_value = data->tagvalue;
 	}
 	data->len++;
 }
@@ -361,8 +365,13 @@ again:
 				}
 			}
 			if (!skip && list[i].impl->positive) {
+				tag_value_t *value = list[i].impl->set_value;
+				if (list[i].impl->inherit_value) {
+					value = list[i].i_value;
+				}
 				taglist_add(&res[list[i].weak],
-				           list[i].impl->tag, alloc, adata);
+				            list[i].impl->tag, value,
+				            alloc, adata);
 			}
 		}
 		free(list);
@@ -383,8 +392,10 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 			tag_t *tag = tl->tags[i];
 			if (tag && !taglist_contains(*old, tag)) {
 				if (!post_has_tag(post, tag, T_DONTCARE)) {
-					post_tag_add_i(post, tag, weak, 1, NULL);
-					taglist_add(old, tag, alloc_mm, NULL);
+					post_tag_add_i(post, tag, weak, 1,
+					               tl->values[i]);
+					taglist_add(old, tag, NULL,
+					            alloc_mm, NULL);
 					changed = 1;
 				} else {
 					tl->tags[i] = NULL;
@@ -568,7 +579,6 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
 	assert(post);
 	assert(tag);
 	assert(weak == T_YES || weak == T_NO);
-	assert(!implied || !tval);
 	if (!implied) {
 		if (taglist_contains(post->implied_tags, tag)) {
 			int r = taglist_remove(post->implied_tags, tag);
