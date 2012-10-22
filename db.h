@@ -153,9 +153,9 @@ typedef enum {
 
 typedef _ALIGN(struct implication {
 	tag_t          *tag;
+	tag_value_t    *set_value;
 	tag_value_t    *filter_value;
 	tagvalue_cmp_t filter_cmp;
-	tag_value_t    *set_value;
 	int32_t        priority;
 	short          positive;
 	short          inherit_value;

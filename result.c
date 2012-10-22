@@ -45,6 +45,15 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
                       const tag_value_t *b, regex_t *re)
 {
 	if (cmp == CMP_REGEXP) {
+		if (!re) {
+			regex_t re2;
+			if (regcomp(&re2, b->v_str, REG_EXTENDED | REG_NOSUB)) {
+				return 0;
+			}
+			int res = !regexec(&re2, a->v_str, 0, NULL, 0);
+			regfree(&re2);
+			return res;
+		}
 		return !regexec(re, a->v_str, 0, NULL, 0);
 	} else {
 		int eq = strcmp(a->v_str, b->v_str);
