@@ -378,6 +378,30 @@ again:
 	}
 }
 
+// Mostly the same thing as post_tag()
+static int post_tag_set_value(post_t *post, const tag_t *tag, truth_t weak,
+                              tag_value_t *value)
+{
+	assert(post);
+	assert(tag);
+	post_taglist_t *tl = (weak ? post->weak_tags : &post->tags);
+	while (tl) {
+		unsigned int i;
+		for (i = 0; i < arraylen(tl->tags); i++) {
+			if (tl->tags[i] == tag) {
+				if (tl->values[i] == value) {
+					return 0;
+				} else {
+					tl->values[i] = value;
+					return 1;
+				}
+			}
+		}
+		tl = tl->next;
+	}
+	return 0;
+}
+
 static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
                           tag_value_t *tval);
 static int post_tag_rem_i(post_t *post, tag_t *tag, int implied);
@@ -392,14 +416,16 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 			tag_t *tag = tl->tags[i];
 			if (tag && !taglist_contains(*old, tag)) {
 				if (!post_has_tag(post, tag, T_DONTCARE)) {
-					post_tag_add_i(post, tag, weak, 1,
-					               tl->values[i]);
-					taglist_add(old, tag, NULL,
-					            alloc_mm, NULL);
+					post_tag_add_i(post, tag, weak, 1, NULL);
+					taglist_add(old, tag, NULL, alloc_mm, NULL);
 					changed = 1;
 				} else {
 					tl->tags[i] = NULL;
 				}
+			}
+			if (tag) {
+				changed |= post_tag_set_value(post, tag, weak,
+				                              tl->values[i]);
 			}
 		}
 		tl = tl->next;
@@ -579,6 +605,7 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
 	assert(post);
 	assert(tag);
 	assert(weak == T_YES || weak == T_NO);
+	assert(!implied || !tval);
 	if (!implied) {
 		if (taglist_contains(post->implied_tags, tag)) {
 			int r = taglist_remove(post->implied_tags, tag);
