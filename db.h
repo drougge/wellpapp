@@ -477,13 +477,15 @@ void mem_remove(mem_list_t *list, mem_node_t *node);
 void after_fixups(void);
 void internal_fixups(void);
 
-int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
-int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
-int tvc_int(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
-int tvc_uint(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
-int tvc_double(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re);
-int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
-                 regex_t *re);
+#define TVC_PROTO(n) int tvc_##n(const tag_value_t *a, tagvalue_cmp_t cmp, \
+                                 const tag_value_t *b, regex_t *re)
+TVC_PROTO(none);
+TVC_PROTO(string);
+TVC_PROTO(int);
+TVC_PROTO(uint);
+TVC_PROTO(double);
+TVC_PROTO(datetime);
+
 double fractod(const char *val, char **r_end);
 int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
                        tagvalue_cmp_t cmp);
@@ -525,5 +527,6 @@ extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;
 extern tag_t *magic_tag_created;
 
-typedef int (tv_cmp_t)(tag_value_t *, tagvalue_cmp_t, tag_value_t *, regex_t *);
+typedef int (tv_cmp_t)(const tag_value_t *, tagvalue_cmp_t, const tag_value_t *,
+                       regex_t *);
 extern tv_cmp_t *tv_cmp[];

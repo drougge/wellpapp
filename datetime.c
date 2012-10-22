@@ -19,8 +19,8 @@ static time_t dt_step_end(int valid_steps, struct tm tm)
 	return mktime(&tm);
 }
 
-static int tvc_datetime_step(tag_value_t *a, tagvalue_cmp_t cmp,
-                             tag_value_t *b, int inner)
+static int tvc_datetime_step(const tag_value_t *a, tagvalue_cmp_t cmp,
+                             const tag_value_t *b, int inner)
 {
 	if (!a->val.v_datetime.valid_steps) {
 		tag_value_t fa;
@@ -94,8 +94,8 @@ static time_t dt_make_simple(const datetime_time_t *val)
 	return mktime(&tm);
 }
 
-int tvc_datetime(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,
-                 regex_t *re)
+int tvc_datetime(const tag_value_t *a, tagvalue_cmp_t cmp,
+                 const tag_value_t *b, regex_t *re)
 {
 	(void) re;
 	if (cmp == CMP_CMP) {

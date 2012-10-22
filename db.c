@@ -269,6 +269,8 @@ struct impl_iterator_data {
 	int             len;
 	truth_t         weak;
 	impl_callback_t callback;
+	const tag_t     *tag;
+	const tag_value_t *tagvalue;
 };
 
 static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data)
@@ -285,6 +287,13 @@ static void impllist_iterate(impllist_t *impl, impl_iterator_data_t *data)
 
 static void impl_cb(implication_t *impl, impl_iterator_data_t *data)
 {
+	const tagvalue_cmp_t cmp = impl->filter_cmp;
+	if (cmp) {
+		tv_cmp_t *cmp_f = tv_cmp[data->tag->valuetype];
+		if (!cmp_f(data->tagvalue, cmp, impl->filter_value, NULL)) {
+			return;
+		}
+	}
 	if (data->list) {
 		data->list[data->len].impl = impl;
 		data->list[data->len].weak = data->weak;
@@ -322,6 +331,8 @@ again:
 		for (int i = 0; i < arraylen(tl->tags); i++) {
 			tag_t *tag = tl->tags[i];
 			if (tag && tag->implications) {
+				impldata.tag = tag;
+				impldata.tagvalue = tl->values[i];
 				impllist_iterate(tag->implications, &impldata);
 			}
 		}

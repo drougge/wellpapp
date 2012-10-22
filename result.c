@@ -31,7 +31,8 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post)
 // The comparison functions never get called with LT/LE.
 // They return !0 for "match".
 
-int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
+int tvc_none(const tag_value_t *a, tagvalue_cmp_t cmp,
+                    const tag_value_t *b, regex_t *re)
 {
 	(void) a;
 	(void) cmp;
@@ -40,7 +41,8 @@ int tvc_none(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 	return 0;
 }
 
-int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
+int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
+                      const tag_value_t *b, regex_t *re)
 {
 	if (cmp == CMP_REGEXP) {
 		return !regexec(re, a->v_str, 0, NULL, 0);
@@ -67,8 +69,8 @@ int tvc_string(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b, regex_t *re)
 }
 
 #define TVC_NUM(t, ft, ff, n)                                                  \
-	int tvc_##n(tag_value_t *a, tagvalue_cmp_t cmp, tag_value_t *b,        \
-	            regex_t *re)                                               \
+	int tvc_##n(const tag_value_t *a, tagvalue_cmp_t cmp,                  \
+	            const tag_value_t *b, regex_t *re)                         \
 	{                                                                      \
 		(void) re;                                                     \
 		if (cmp == CMP_CMP) {                                          \
