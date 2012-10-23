@@ -264,7 +264,7 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	// need to redo it for every step.
 	// Steps don't count for GT/LT comparisons.
 	int implfuzz = 0;
-	if ((!with_steps || cmp == CMP_GT || cmp == CMP_LT)
+	if ((!with_steps || (cmp >= CMP_GT && cmp <= CMP_LE))
 	    && pos < arraylen(field)
 	   ) {
 		time_t t2 = dt_step_end(pos, tm);
@@ -273,21 +273,23 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 		pos = 6;
 	}
 	if (!f_unit && implfuzz) f_val *= implfuzz;
-	if (cmp == CMP_GT) {
+	if (cmp == CMP_GT || cmp == CMP_GE) {
 		for (int i = 0; i < 4; i++) {
 			if (f->d_step[i] < 0) *field[i] += f->d_step[i];
 			f->d_step[i] = 0;
 		}
 		unixtime = mktime(&tm) - f_val;
+		if (cmp == CMP_GT) unixtime += implfuzz;
 		f_val = 0.0;
 		implfuzz = 0;
 		with_steps = 0;
-	} else if (cmp == CMP_LT) {
+	} else if (cmp == CMP_LT || cmp == CMP_LE) {
 		for (int i = 0; i < 4; i++) {
 			*field[i] += abs(f->d_step[i]);
 			f->d_step[i] = 0;
 		}
 		unixtime = mktime(&tm) + f_val;
+		if (cmp == CMP_LE) unixtime += implfuzz;
 		f_val = 0.0;
 		implfuzz = 0;
 		with_steps = 0;

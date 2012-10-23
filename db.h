@@ -140,6 +140,7 @@ typedef _ALIGN(struct post_taglist {
 }) post_taglist_t;
 
 // Keep synced with tv_cmp_str in client.c
+// Datetime needs CMP_GT <= x <= CMP_LE to be GT/GE/LT/LE.
 typedef enum {
 	CMP_NONE,
 	CMP_EQ,
