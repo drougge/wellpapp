@@ -963,7 +963,8 @@ static void show_impl_print(connection_t *conn, const tag_t *tag,
 {
 	c_printf(conn, "RI%s", guid_guid2str(tag->guid));
 	if (impl->filter_cmp) {
-		c_printf(conn, "%s", tv_cmp_str[impl->filter_cmp]);
+		c_printf(conn, "%s%s=", tv_cmp_str[impl->filter_cmp],
+		                        tag_value_types[tag->valuetype]);
 		tv_printer[tag->valuetype](conn, impl->filter_value);
 	}
 	c_printf(conn, " %c%s P%ld", 'i' - (32 * impl->positive),
@@ -972,6 +973,7 @@ static void show_impl_print(connection_t *conn, const tag_t *tag,
 		c_printf(conn, " V");
 	}
 	if (impl->set_value) {
+		c_printf(conn, "%s=", tag_value_types[impl->tag->valuetype]);
 		tv_printer[impl->tag->valuetype](conn, impl->set_value);
 	}
 	c_printf(conn, "\n");

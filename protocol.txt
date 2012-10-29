@@ -248,12 +248,13 @@ I:
 		same valuetype.
 	S:
 		Show implications from this tag.
-		Returnes lines like taken by I but starting with R.
+		Returnes lines like taken by I but starting with R and with
+		tag values prefixed by "type=".
 		The first id on the line imples all following (or not for
 		lower case "i"), with the specified properties.
 		Can return several lines for the same tag.
 		Example replies:
-			RIg2tKGC-By0kHB-aaaaaa-aaaaay<=1000 ig2tKGC-By0kHy-aaaaaa-aaaaas P10
+			RIg2tKGC-By0kHB-aaaaaa-aaaaay<=int=1000 ig2tKGC-By0kHy-aaaaaa-aaaaas P10
 			RIg2tKGC-By0kHB-aaaaaa-aaaaay Ig2tKGC-By0kHy-aaaaaa-aaaaas V
 	R:
 		Show what implies a tag. Returns lines like S, with only one
