@@ -11,6 +11,10 @@ static time_t dt_step_end(int valid_steps, struct tm tm)
 	for (int i = valid_steps; i < arraylen(field); i++) {
 		*field[i] = range[i];
 	}
+	if (valid_steps == 1) { // just year
+		// Range is 12, but mon is zero indexed (but mday isn't, sigh).
+		tm.tm_mon = 11;
+	}
 	if (valid_steps == 2) { // year + month specified
 		// "day 0" of next month
 		tm.tm_mon++;
