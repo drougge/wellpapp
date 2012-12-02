@@ -230,7 +230,7 @@ typedef struct tag_cmd_data {
 // needs to match valuetype_t in db.h
 const char * const tag_value_types[] = {"none", "word", "string", "int", "uint",
                                         "float", "f-stop", "stop", "datetime",
-                                        NULL};
+                                        "gps", NULL};
 
 static int tag_cmd(connection_t *conn, char *cmd, void *data_,
                    prot_cmd_flag_t flags)

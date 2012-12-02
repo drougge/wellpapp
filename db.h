@@ -109,6 +109,13 @@ typedef struct datetime_fuzz {
 	int32_t d_fuzz;
 } datetime_fuzz_t;
 
+// Fixed point, 7 decimal digits after point.
+typedef struct gps_pos {
+	int32_t lat;
+	int32_t lon;
+} gps_pos_t;
+typedef gps_pos_t gps_fuzz_t;
+
 // F-stops as used by cameras tend to be lies (e.g. "3.5" for both 2.8+1/2
 // and 2.8+2/3). This is currently not handled, use +-.67 for +-.5 maybe?
 // (And even more since they're rounded too.)
@@ -124,12 +131,14 @@ typedef _ALIGN(struct tag_value {
 		int64_t  v_int;
 		double   v_double;
 		datetime_time_t v_datetime;
+		gps_pos_t v_gps;
 	} val;
 	union {
 		int64_t f_uint;
 		int64_t f_int;
 		double  f_double;
 		datetime_fuzz_t f_datetime;
+		gps_fuzz_t f_gps;
 	} fuzz;
 }) tag_value_t;
 
@@ -229,6 +238,7 @@ typedef enum {
 	VT_F_STOP,
 	VT_STOP,
 	VT_DATETIME,
+	VT_GPS,
 	VT_MAX
 } valuetype_t;
 
@@ -486,6 +496,11 @@ TVC_PROTO(int);
 TVC_PROTO(uint);
 TVC_PROTO(double);
 TVC_PROTO(datetime);
+TVC_PROTO(gpslat);
+TVC_PROTO(gpslon);
+TVC_PROTO(gps);
+
+int tv_parser_gps(const char *val, gps_pos_t *v, gps_fuzz_t *f);
 
 double fractod(const char *val, char **r_end);
 int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,

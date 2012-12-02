@@ -77,9 +77,9 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 	}
 }
 
-#define TVC_NUM(t, ft, ff, n)                                                  \
-	int tvc_##n(const tag_value_t *a, tagvalue_cmp_t cmp,                  \
-	            const tag_value_t *b, regex_t *re)                         \
+#define TVC_NUM(t, ft, ff, fn, n)                                              \
+	int tvc_##fn(const tag_value_t *a, tagvalue_cmp_t cmp,                 \
+	             const tag_value_t *b, regex_t *re)                        \
 	{                                                                      \
 		(void) re;                                                     \
 		if (cmp == CMP_CMP) {                                          \
@@ -121,9 +121,11 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 				break;                                         \
 		}                                                              \
 	}
-TVC_NUM(int64_t , int64_t, 0   , int)
-TVC_NUM(uint64_t, int64_t, 0   , uint)
-TVC_NUM(double  , double , 0.07, double)
+TVC_NUM(int64_t , int64_t, 0   , int   , int)
+TVC_NUM(uint64_t, int64_t, 0   , uint  , uint)
+TVC_NUM(double  , double , 0.07, double, double)
+TVC_NUM(int32_t , int32_t, 0   , gpslat, gps.lat)
+TVC_NUM(int32_t , int32_t, 0   , gpslon, gps.lon)
 
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_string, // WORD
@@ -134,6 +136,7 @@ tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_double, // F_STOP
                       tvc_double, // STOP
                       tvc_datetime, // DATETIME
+                      tvc_gps, // GPS
                      };
 
 static int result_add_post_if(connection_t *conn, result_t *result,

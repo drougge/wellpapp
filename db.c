@@ -230,6 +230,17 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
 				return 0;
 			}
 			break;
+		case VT_GPS:
+			if (!tv_parser_gps(val, &tval->val.v_gps,
+			                   &tval->fuzz.f_gps)) {
+				if (buf) {
+					tval->v_str = val;
+				} else {
+					tval->v_str = mm_strdup(val);
+				}
+				return 0;
+			}
+			break;
 		default: // VT_NONE, or bad value
 			break;
 	}

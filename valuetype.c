@@ -47,7 +47,7 @@ static conv_func_t * const conv_int[] = {
 	NULL,
 	NULL,
 	conv_intuint,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL, NULL
 };
 static conv_func_t * const conv_uint[] = {
 	NULL,
@@ -55,7 +55,7 @@ static conv_func_t * const conv_uint[] = {
 	NULL,
 	conv_uintint,
 	NULL,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL, NULL
 };
 
 static conv_func_t * const conv_word[] = {
@@ -64,7 +64,7 @@ static conv_func_t * const conv_word[] = {
 	conv_dummy,
 	NULL,
 	NULL,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL, NULL
 };
 static conv_func_t * const conv_string[] = {
 	NULL,
@@ -72,7 +72,7 @@ static conv_func_t * const conv_string[] = {
 	NULL,
 	NULL,
 	NULL,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL, NULL
 };
 
 static conv_func_t * const * const convs[] = {
@@ -81,7 +81,7 @@ static conv_func_t * const * const convs[] = {
 	conv_string,
 	conv_int,
 	conv_uint,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL, NULL
 };
 
 typedef struct check_data {

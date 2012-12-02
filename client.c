@@ -468,6 +468,7 @@ tv_printer_t *tv_printer[] = {NULL, // NONE
                               tv_print_rawstr, // F_STOP
                               tv_print_rawstr, // STOP
                               tv_print_rawstr, // DATETIME
+                              tv_print_rawstr, // GPS
                              };
 
 
