@@ -34,7 +34,7 @@ typedef _ALIGN(struct logstat {
 }) logstat_t;
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
-#define MM_MAGIC1 0x4d4d0014 /* Increment whenever cache should be discarded */
+#define MM_MAGIC1 0x4d4d0015 /* Increment whenever cache should be discarded */
 #define MM_FLAG_CLEAN 1
 typedef _ALIGN(struct mm_head {
 	uint32_t      magic0;

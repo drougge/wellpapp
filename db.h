@@ -300,7 +300,7 @@ struct connection;
 typedef struct connection connection_t;
 
 #define PROT_MAXLEN 4096
-#define LOG_VERSION 2
+#define LOG_VERSION 3
 
 typedef struct trans {
 	off_t        mark_offset;
@@ -485,8 +485,10 @@ void mem_newlist(mem_list_t *list);
 void mem_addtail(mem_list_t *list, mem_node_t *node);
 void mem_remove(mem_list_t *list, mem_node_t *node);
 
+void apply_fixups(int i);
 void after_fixups(void);
-void internal_fixups(void);
+void internal_fixups0(void);
+void internal_fixups1(void);
 
 #define TVC_PROTO(n) int tvc_##n(const tag_value_t *a, tagvalue_cmp_t cmp, \
                                  const tag_value_t *b, regex_t *re)

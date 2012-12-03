@@ -31,6 +31,7 @@ static void log_next(const char *line)
 tag_t *magic_tag_rotate = NULL;
 tag_t *magic_tag_modified = NULL;
 tag_t *magic_tag_created = NULL;
+tag_t *magic_tag_gps = NULL;
 
 void after_fixups(void)
 {
@@ -43,7 +44,8 @@ void after_fixups(void)
 	                                  VT_DATETIME, // modified
 	                                  VT_INT,      // score
 	                                  VT_STRING,   // source
-	                                  VT_STRING    // title
+	                                  VT_STRING,   // title
+	                                  VT_GPS,      // gps
 	                                 };
 	for (int i = 0; magic_tag_guids[i]; i++) {
 		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
@@ -62,20 +64,23 @@ void after_fixups(void)
 	magic_tag_modified = magic_tag[6];
 	magic_tag_created = magic_tag[3];
 	magic_tag[4]->unsettable = 0; // imgdate is settable
+	magic_tag_gps = magic_tag[10];
+	err1(!magic_tag_gps);
+	magic_tag_gps->datatag = 1;
 	return;
 err:
 	printf("Missing/bad fixups. Please read UPGRADE.\n");
 	exit(1);
 }
 
-static void apply_fixups(void)
+void apply_fixups(int i)
 {
 	char buf[1024];
 	int  len;
-	len = snprintf(buf, sizeof(buf), "%s/fixup.0", basedir);
+	len = snprintf(buf, sizeof(buf), "%s/fixup.%d", basedir, i);
 	assert(len < (int)sizeof(buf));
 	if (!access(buf, F_OK)) {
-		printf("Reading fixup.0..\n");
+		printf("Reading fixup.%d..\n", i);
 		int r = populate_from_log(buf, NULL);
 		assert(!r);
 	}
@@ -174,12 +179,13 @@ int main(int argc, char **argv)
 	printf("initing mm..\n");
 	if (prot_init()) return 1;
 	if (mm_init()) {
-		apply_fixups();
 		populate_from_dump();
-		if (!magic_tag[0]) internal_fixups();
-	} else {
-		after_fixups();
+		if (!magic_tag[0]) {
+			internal_fixups0();
+			internal_fixups1();
+		}
 	}
+	after_fixups();
 	if (!*logdumpindex && blacklisted_guid()) {
 		fprintf(stderr, "Don't use the example GUID\n");
 		return 1;

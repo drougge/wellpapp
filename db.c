@@ -997,7 +997,7 @@ static int find_trans(trans_id_t *trans, trans_id_t needle)
 	return -1;
 }
 
-void internal_fixups(void)
+void internal_fixups0(void)
 {
 	char a[] = "ATGaaaaaa-aaaads-faketg-create Vdatetime Ncreated";
 	char b[] = "ATGaaaaaa-aaaaas-faketg-chaage Vdatetime Nmodified";
@@ -1011,7 +1011,13 @@ void internal_fixups(void)
 		int r = populate_from_log_line(fixup[i]);
 		assert(!r);
 	}
-	after_fixups();
+}
+
+void internal_fixups1(void)
+{
+	char h[] = "ATGaaaaaa-aaaadt-faketg-gpspos Vgps Ngps";
+	int r = populate_from_log_line(h);
+	assert(!r);
 }
 
 static int first_log = 1;
@@ -1054,16 +1060,23 @@ int populate_from_log(const char *filename, void (*callback)(const char *line))
 				err1(trans_version < log_version);
 				err1(trans_version > LOG_VERSION);
 				if (first_log
-				    && trans_version > 0
+				    && trans_version >= 0
 				    && log_version < 0
 				   ) {
-					internal_fixups();
+					if (trans_version < 1) {
+						apply_fixups(0);
+					} else {
+						internal_fixups0();
+					}
+					if (trans_version < 3) {
+						apply_fixups(1);
+					} else {
+						internal_fixups1();
+					}
+					after_fixups();
 				}
 				first_log = 0;
 				if (log_version != trans_version) {
-					if (trans_version == 0) {
-						after_fixups();
-					}
 					log_version = trans_version;
 				}
 				if (log_version >= 2) err1(end[2] != 'T');

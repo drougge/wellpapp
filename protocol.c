@@ -407,6 +407,7 @@ const char *magic_tag_guids[] = {"aaaaaa-aaaaeL-faketg-bbredd", // width
                                  "aaaaaa-aaaaeQ-faketg-pscore", // score
                                  "aaaaaa-aaaacc-faketg-soorce", // source
                                  "aaaaaa-aaaac9-faketg-pTYTLE", // title
+                                 "aaaaaa-aaaadt-faketg-gpspos", // gps
                                  NULL};
 tag_t *magic_tag[10] = {0};
 
