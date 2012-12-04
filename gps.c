@@ -22,11 +22,11 @@ TVC_PROTO(gps)
 	}
 }
 
-static int parse_fixed(const char *val, char **end, int32_t *r)
+static int parse_fixed(const char *val, int32_t range, char **end, int32_t *r)
 {
 	int32_t a;
 	a = strtol(val, end, 10);
-	err1(a < -180 || a > 180);
+	err1(a < -range || a > range);
 	a *= 10000000;
 	if (**end == '.') {
 		long long b = strtoll(*end + 1, end, 10);
@@ -43,17 +43,18 @@ err:
 	return 1;
 }
 
-static int parse_coord(const char *val, int32_t *r_pos, int32_t *r_fuzz, char e)
+static int parse_coord(const char *val, int32_t *r_pos, int32_t *r_fuzz,
+                       int32_t range)
 {
 	char *end;
-	err1(parse_fixed(val, &end, r_pos));
-	if (*end != e) {
+	err1(parse_fixed(val, range, &end, r_pos));
+	if (*end != ',' && *end) {
 		err1(*end != '+');
-		err1(parse_fixed(end + 1, &end, r_fuzz));
+		err1(parse_fixed(end + 1, range, &end, r_fuzz));
 	} else {
 		*r_fuzz = 0;
 	}
-	err1(*end != e);
+	err1(*end && *end != ',');
 	return 0;
 err:
 	return 1;
@@ -64,8 +65,15 @@ int tv_parser_gps(const char *val, gps_pos_t *v, gps_fuzz_t *f)
 	const char *divider = strchr(val, ',');
 	err1(!divider);
 	const char *lon = divider + 1;
-	err1(parse_coord(val, &v->lat, &f->lat, ','));
-	err1(parse_coord(lon, &v->lon, &f->lon, 0));
+	err1(parse_coord(val, &v->lat, &f->lat, 90));
+	err1(parse_coord(lon, &v->lon, &f->lon, 180));
+	divider = strchr(lon, ',');
+	if (divider) {
+		const char *ele = divider + 1;
+		err1(strchr(ele, ','));
+		int32_t a, b;
+		err1(parse_coord(ele, &a, &b, 0xfffff));
+	}
 	return 0;
 err:
 	return 1;
