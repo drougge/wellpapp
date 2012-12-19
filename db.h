@@ -109,12 +109,13 @@ typedef struct datetime_fuzz {
 	int32_t d_fuzz;
 } datetime_fuzz_t;
 
-// Fixed point, 7 decimal digits after point.
+// In radians
 typedef struct gps_pos {
-	int32_t lat;
-	int32_t lon;
+	float lat;
+	float lon;
 } gps_pos_t;
-typedef gps_pos_t gps_fuzz_t;
+// Also in radians (distance / radius)
+typedef double gps_fuzz_t;
 
 // F-stops as used by cameras tend to be lies (e.g. "3.5" for both 2.8+1/2
 // and 2.8+2/3). This is currently not handled, use +-.67 for +-.5 maybe?
@@ -498,8 +499,6 @@ TVC_PROTO(int);
 TVC_PROTO(uint);
 TVC_PROTO(double);
 TVC_PROTO(datetime);
-TVC_PROTO(gpslat);
-TVC_PROTO(gpslon);
 TVC_PROTO(gps);
 
 int tv_parser_gps(const char *val, gps_pos_t *v, gps_fuzz_t *f);

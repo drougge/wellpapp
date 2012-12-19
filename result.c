@@ -124,8 +124,6 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 TVC_NUM(int64_t , int64_t, 0   , int   , int)
 TVC_NUM(uint64_t, int64_t, 0   , uint  , uint)
 TVC_NUM(double  , double , 0.07, double, double)
-TVC_NUM(int32_t , int32_t, 0   , gpslat, gps.lat)
-TVC_NUM(int32_t , int32_t, 0   , gpslon, gps.lon)
 
 tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_string, // WORD
