@@ -628,7 +628,16 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
 			if (weak && !tval) return 0;
 		}
 	}
-	if (!tval && post_has_tag(post, tag, weak)) return 1;
+	if (post_has_tag(post, tag, weak)) {
+		if (tval) {
+			tval = mm_dup(tval, sizeof(*tval));
+			int r = post_tag_set_value(post, tag, weak, tval);
+			assert(r);
+			return 0;
+		} else {
+			return 1;
+		}
+	}
 	if (post_has_tag(post, tag, T_DONTCARE)) {
 		if (post_tag_rem_i(post, tag, 0)) return 1;
 	}
