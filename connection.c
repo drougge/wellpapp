@@ -131,12 +131,14 @@ void c_printf(connection_t *conn, const char *fmt, ...)
 	va_start(ap, fmt);
 	len = vsnprintf(conn->outbuf + conn->outlen,
 	                sizeof(conn->outbuf) - conn->outlen, fmt, ap);
+	va_end(ap);
 	if (len >= (int)(sizeof(conn->outbuf) - conn->outlen)) { // Overflow
 		c_flush(conn);
+		va_start(ap, fmt);
 		len = vsnprintf(conn->outbuf, sizeof(conn->outbuf), fmt, ap);
+		va_end(ap);
 		assert(len < (int)sizeof(conn->outbuf));
 	}
-	va_end(ap);
 	conn->outlen += len;
 	if (conn->outlen + OUTBUF_MINFREE > sizeof(conn->outbuf)) c_flush(conn);
 }
