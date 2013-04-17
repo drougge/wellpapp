@@ -537,8 +537,8 @@ extern int log_version;
 extern int default_timezone;
 
 #define MANDATORY_MAGIC_TAGS 3
-#define REALLY_MAGIC_TAGS 7
-extern tag_t *magic_tag[10];
+#define REALLY_MAGIC_TAGS 8
+extern tag_t *magic_tag[11];
 extern const char *magic_tag_guids[];
 extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;

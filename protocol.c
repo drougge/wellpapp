@@ -404,12 +404,12 @@ const char *magic_tag_guids[] = {"aaaaaa-aaaaeL-faketg-bbredd", // width
                                  "aaaaaa-aaaac8-faketg-bddate", // imgdate
                                  "aaaaaa-aaaade-faketg-rotate", // rotate
                                  "aaaaaa-aaaaas-faketg-chaage", // modified
+                                 "aaaaaa-aaaadt-faketg-gpspos", // gps
                                  "aaaaaa-aaaaeQ-faketg-pscore", // score
                                  "aaaaaa-aaaacc-faketg-soorce", // source
                                  "aaaaaa-aaaac9-faketg-pTYTLE", // title
-                                 "aaaaaa-aaaadt-faketg-gpspos", // gps
                                  NULL};
-tag_t *magic_tag[10] = {0};
+tag_t *magic_tag[11] = {0};
 
 int prot_init(void) {
 	field_t post_fields_[] = {
@@ -423,10 +423,10 @@ int prot_init(void) {
 		POST_FIELD_DEF(image_date     , NULL           , &magic_tag[4], 0, 0),
 		POST_FIELD_DEF(image_date_fuzz, NULL           , &magic_tag[4], 1, 0),
 		POST_FIELD_DEF(imgdate_fuzz   , NULL           , &magic_tag[4], 1, 0),
-		POST_FIELD_DEF(source         , NULL           , &magic_tag[8], 0, 0),
-		POST_FIELD_DEF(title          , NULL           , &magic_tag[9], 0, 0),
+		POST_FIELD_DEF(source         , NULL           , &magic_tag[9], 0, 0),
+		POST_FIELD_DEF(title          , NULL           , &magic_tag[10], 0, 0),
 		POST_FIELD_DEF(filetype       , &filetype_names, &magic_tag[2], 0, 0),
-		POST_FIELD_DEF(score          , NULL           , &magic_tag[7], 0, 0),
+		POST_FIELD_DEF(score          , NULL           , &magic_tag[8], 0, 0),
 		POST_FIELD_DEF(rating         , &rating_names  , NULL         , 0, 0),
 		{NULL, 0, NULL, NULL, 0, 0}
 	};

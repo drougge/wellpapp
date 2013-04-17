@@ -42,10 +42,10 @@ void after_fixups(void)
 	                                  VT_DATETIME, // imgdate
 	                                  VT_INT,      // rotate
 	                                  VT_DATETIME, // modified
+	                                  VT_GPS,      // gps
 	                                  VT_INT,      // score
 	                                  VT_STRING,   // source
 	                                  VT_STRING,   // title
-	                                  VT_GPS,      // gps
 	                                 };
 	for (int i = 0; magic_tag_guids[i]; i++) {
 		tag_t *tag = tag_find_guidstr(magic_tag_guids[i]);
@@ -64,9 +64,9 @@ void after_fixups(void)
 	magic_tag_modified = magic_tag[6];
 	magic_tag_created = magic_tag[3];
 	magic_tag[4]->unsettable = 0; // imgdate is settable
-	magic_tag_gps = magic_tag[10];
+	magic_tag_gps = magic_tag[7];
 	err1(!magic_tag_gps);
-	magic_tag_gps->datatag = 1;
+	magic_tag_gps->unsettable = 0;
 	return;
 err:
 	printf("Missing/bad fixups. Please read UPGRADE.\n");
