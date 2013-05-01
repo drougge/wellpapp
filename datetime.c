@@ -2,9 +2,102 @@
 
 #include <math.h>
 
+/* Standard time functions tend to only work in a fairly narrow window
+ * around 1970 on 32bit platforms, which is not acceptable here.
+ */
+
+static __attribute__((__const__)) int is_leap_year(const int year)
+{
+	if (year % 400 == 0) return 1;
+	if (year % 100 == 0) return 0;
+	if (year % 4 == 0) return 1;
+	return 0;
+}
+
+static const int std_mlen[]  = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+static const int leap_mlen[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+static const int const *mlen[] = {std_mlen, leap_mlen};
+static const int ylen_s[] = {365 * 24 * 60 * 60, 366 * 24 * 60 * 60};
+
+#define MLEN(year, mon) mlen[is_leap_year(year)][mon]
+#define YLEN(year) ylen_s[is_leap_year(year)]
+
+static inline void clamp(int *a, int *b, const int max)
+{
+	*b += *a / max;
+	*a %= max;
+}
+
+static int fixed_mktime(const struct tm *tm, int64_t *res)
+{
+	int sec = tm->tm_sec;
+	int min = tm->tm_min;
+	int hour = tm->tm_hour;
+	int day = tm->tm_mday;
+	int mon = tm->tm_mon;
+	int year = tm->tm_year + 1900;
+	
+	clamp(&sec, &min, 60);
+	clamp(&min, &hour, 60);
+	clamp(&hour, &day, 24);
+	clamp(&mon, &year, 12);
+	
+	day--; // one-indexed to zero-indexed
+	while (day < 0) {
+		mon--;
+		clamp(&mon, &year, 12);
+		day += MLEN(year, mon);
+	}
+	while (day >= MLEN(year, mon)) {
+		day -= MLEN(year, mon);
+		mon++;
+		clamp(&mon, &year, 12);
+	}
+	
+	for (int i = 0; i < mon; i++) {
+		day += MLEN(year, i);
+	}
+	*res = ((day * 24 + hour) * 60 + min) * 60 + sec;
+	while (year > 1970) {
+		*res += YLEN(--year);
+	}
+	while (year < 1970) {
+		*res -= YLEN(year++);
+	}
+	
+	return 0;
+}
+
+static int fixed_gmtime(int64_t t, struct tm *res)
+{
+	int year = 1970, mon = 0, day, hour, min, sec;
+	while (t >= YLEN(year)) {
+		t -= YLEN(year++);
+	}
+	while (t < 0) {
+		t += YLEN(year--);
+	}
+	sec = t % 60;
+	min = t / 60;
+	hour = min / 60;
+	min %= 60;
+	day = hour / 24;
+	hour %= 24;
+	while (day >= MLEN(year, mon)) {
+		day -= MLEN(year, mon++);
+	}
+	res->tm_year = year - 1900;
+	res->tm_mon = mon;
+	res->tm_mday = day + 1;
+	res->tm_hour = hour;
+	res->tm_min = min;
+	res->tm_sec = sec;
+	return 0;
+}
+
 static const int range[] = {INT_MAX, 12, 31, 23, 59, 59};
 
-static time_t dt_step_end(int valid_steps, struct tm tm)
+static int64_t dt_step_end(int valid_steps, struct tm tm)
 {
 	int *field[] = {&tm.tm_year, &tm.tm_mon, &tm.tm_mday,
 			&tm.tm_hour, &tm.tm_min, &tm.tm_sec};
@@ -20,7 +113,9 @@ static time_t dt_step_end(int valid_steps, struct tm tm)
 		tm.tm_mon++;
 		tm.tm_mday = 0;
 	}
-	return mktime(&tm);
+	int64_t res;
+	fixed_mktime(&tm, &res);
+	return res;
 }
 
 static int tvc_datetime_step(const tag_value_t *a, tagvalue_cmp_t cmp,
@@ -63,10 +158,11 @@ static int tvc_datetime_step(const tag_value_t *a, tagvalue_cmp_t cmp,
 			for (int i = start; i <= stop; i++) {
 				memcpy(&tm, &tm2, sizeof(tm));
 				*field[f] += i;
-				time_t unixtime = mktime(&tm);
+				int64_t unixtime;
+				fixed_mktime(&tm, &unixtime);
 				int implfuzz = 0;
 				if (pos < 6) {
-					time_t t2 = dt_step_end(pos, tm);
+					int64_t t2 = dt_step_end(pos, tm);
 					implfuzz = t2 - unixtime;
 				}
 				fa.val.v_int = unixtime + nsf + tz_offset;
@@ -84,7 +180,7 @@ static int tvc_datetime_step(const tag_value_t *a, tagvalue_cmp_t cmp,
 	}
 }
 
-static time_t dt_make_simple(const datetime_time_t *val)
+static int64_t dt_make_simple(const datetime_time_t *val)
 {
 	if (!val->valid_steps) return datetime_get_simple(val);
 	struct tm tm;
@@ -95,7 +191,9 @@ static time_t dt_make_simple(const datetime_time_t *val)
 	for (int i = 0; i < arraylen(field); i++) {
 		*field[i] = val->data.field[i];
 	}
-	return mktime(&tm);
+	int64_t res;
+	fixed_mktime(&tm, &res);
+	return res;
 }
 
 int tvc_datetime(const tag_value_t *a, tagvalue_cmp_t cmp,
@@ -103,8 +201,8 @@ int tvc_datetime(const tag_value_t *a, tagvalue_cmp_t cmp,
 {
 	(void) re;
 	if (cmp == CMP_CMP) {
-		time_t av = dt_make_simple(&a->val.v_datetime);
-		time_t bv = dt_make_simple(&b->val.v_datetime);
+		int64_t av = dt_make_simple(&a->val.v_datetime);
+		int64_t bv = dt_make_simple(&b->val.v_datetime);
 		if (av < bv) return -1;
 		if (av > bv) return 1;
 		return 0;
@@ -256,10 +354,10 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	}
 	tm.tm_year -= 1900; chk[0] -= 1900;
 	tm.tm_mon--; chk[1]--;
-	time_t unixtime = mktime(&tm);
-	// So I can't say 1969-12-31T23:59:59 then? Bloody POSIX.
-	if (unixtime == (time_t)-1) return 1;
-	// Check that mktime hasn't needed to normalise the time
+	int64_t unixtime;
+	if (fixed_mktime(&tm, &unixtime)) return 1;
+	// Check that tm was already normalised
+	fixed_gmtime(unixtime, &tm);
 	for (int i = 0; i < arraylen(field); i++) {
 		if (*field[i] != chk[i]) return 1;
 	}
@@ -271,8 +369,8 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	if ((!with_steps || (cmp >= CMP_GT && cmp <= CMP_LE))
 	    && pos < arraylen(field)
 	   ) {
-		time_t t2 = dt_step_end(pos, tm);
-		if (t2 == (time_t)-1) return 1;
+		int64_t t2 = dt_step_end(pos, tm);
+		if (t2 == -1) return 1;
 		implfuzz = t2 - unixtime;
 		pos = 6;
 	}
@@ -282,7 +380,8 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 			if (f->d_step[i] < 0) *field[i] += f->d_step[i];
 			f->d_step[i] = 0;
 		}
-		unixtime = mktime(&tm) - f_val;
+		fixed_mktime(&tm, &unixtime);
+		unixtime -= f_val;
 		if (cmp == CMP_GT) unixtime += implfuzz;
 		f_val = 0.0;
 		implfuzz = 0;
@@ -292,7 +391,8 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 			*field[i] += abs(f->d_step[i]);
 			f->d_step[i] = 0;
 		}
-		unixtime = mktime(&tm) + f_val;
+		fixed_mktime(&tm, &unixtime);
+		unixtime += f_val;
 		if (cmp == CMP_LE) unixtime += implfuzz;
 		f_val = 0.0;
 		implfuzz = 0;
@@ -301,7 +401,7 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	// Apply the timezone.
 	if (tz_offset && !with_steps) {
 		unixtime += tz_offset;
-		if (!gmtime_r(&unixtime, &tm)) return 1;
+		if (fixed_gmtime(unixtime, &tm)) return 1;
 		tz_offset = 0;
 	}
 	datetime_set_simple(v, unixtime);
@@ -328,13 +428,13 @@ int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
 	return 0;
 }
 
-time_t datetime_get_simple(const datetime_time_t *val)
+int64_t datetime_get_simple(const datetime_time_t *val)
 {
 	assert(!val->valid_steps);
 	return (int64_t)val->year << 32 | val->data.simple_part;
 }
 
-void datetime_set_simple(datetime_time_t *val, time_t simple)
+void datetime_set_simple(datetime_time_t *val, int64_t simple)
 {
 	val->valid_steps = 0;
 	val->year = (int64_t)simple >> 32;
@@ -344,9 +444,9 @@ void datetime_set_simple(datetime_time_t *val, time_t simple)
 void datetime_strfix(tag_value_t *val)
 {
 	struct tm tm;
-	time_t ttime = datetime_get_simple(&val->val.v_datetime);
+	int64_t ttime = datetime_get_simple(&val->val.v_datetime);
 	assert (!val->val.v_datetime.valid_steps);
-	gmtime_r(&ttime, &tm);
+	fixed_gmtime(ttime, &tm);
 	char buf[128];
 	int l = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
 	if (val->fuzz.f_datetime.d_fuzz) {

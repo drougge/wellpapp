@@ -507,8 +507,8 @@ double fractod(const char *val, char **r_end);
 int tv_parser_datetime(const char *val, datetime_time_t *v, datetime_fuzz_t *f,
                        tagvalue_cmp_t cmp);
 int tvp_timezone(const char *val, int *len, int *r_offset);
-time_t datetime_get_simple(const datetime_time_t *val);
-void datetime_set_simple(datetime_time_t *val, time_t simple);
+int64_t datetime_get_simple(const datetime_time_t *val);
+void datetime_set_simple(datetime_time_t *val, int64_t simple);
 
 int tag_check_vt_change(tag_t *tag, valuetype_t vt);
 
