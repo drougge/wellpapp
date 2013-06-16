@@ -886,6 +886,22 @@ int post_find_md5str(post_t **res_post, const char *md5str)
 	return ss128_find(posts, (void *)res_post, md5.key);
 }
 
+int post_set_md5(post_t *post, const char *md5str)
+{
+	md5_t md5;
+	void *other_post;
+	assert(post);
+	assert(md5str);
+	if (md5_str2md5(&md5, md5str)) return 1;
+	if (!ss128_find(posts, &other_post, md5.key)) return 1;
+	int r = ss128_delete(posts, post->md5.key);
+	assert(!r);
+	post->md5 = md5;
+	r = ss128_insert(posts, post, post->md5.key);
+	assert(!r);
+	return 0;
+}
+
 void post_modify(post_t *post, time_t now)
 {
 	tag_value_t tval;

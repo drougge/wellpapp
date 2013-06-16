@@ -512,7 +512,12 @@ static int post_cmd(connection_t *conn, char *cmd, void *data,
 	if (eqp) {
 		unsigned int len = eqp - cmd;
 		if (!post) return conn->error(conn, cmd);
-		if (put_in_post_field(post, cmd, len)) {
+		if (len == 3 && !memcmp(cmd, "MD5", 3)
+		    && flags & CMDFLAG_MODIFY) {
+			if (post_set_md5(post, cmd + len + 1)) {
+				return conn->error(conn, cmd);
+			}
+		} else if (put_in_post_field(post, cmd, len)) {
 			return conn->error(conn, cmd);
 		}
 		post_modify(post, conn->trans.now);

@@ -400,6 +400,7 @@ int post_tag_add(post_t *post, tag_t *tag, truth_t weak, tag_value_t *tval);
 int post_has_tag(const post_t *post, const tag_t *tag, truth_t weak);
 tag_value_t *post_tag_value(const post_t *post, const tag_t *tag);
 int post_find_md5str(post_t **res_post, const char *md5str);
+int post_set_md5(post_t *post, const char *md5str);
 void post_modify(post_t *post, time_t now);
 int post_has_rel(const post_t *post, const post_t *rel);
 int post_rel_add(post_t *a, post_t *b);

@@ -205,6 +205,11 @@ Example:
 	MTGfSaP69-3QS9Hg-aaaaaa-aaaaa0 MfSaP69-3QS9Ka-aaaaaa-aaafkr
 causes only ..aa0 to remain, ..fkr is deleted.
 All names for ..fkr are recreated as aliases for ..aa0.
+The md5 of a post can also be changed like this:
+	MP012345678abcdef012345678abcdef00 MD5=012345678abcdef012345678abcdef01
+The new md5 must not already have a post, and the old md5 is completely
+forgotten. In the future there will probably be more advanced replacement
+commands.
 
 D:
 First char is what type of object to delete.
