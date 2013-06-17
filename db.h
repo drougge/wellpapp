@@ -125,6 +125,7 @@ typedef double gps_fuzz_t;
 // @@ asa = int(10*log10(iso) + 1); iso = int(pow(10, (asa - 1) / 10))
 // @@ might be helpful when calucating iso fuzz.
 // v_str is not in val because doubles also store the exact value in v_str.
+// And now v_str is also used for a special null value marker.
 typedef _ALIGN(struct tag_value {
 	const char *v_str;
 	union {
@@ -544,6 +545,8 @@ extern const char *magic_tag_guids[];
 extern tag_t *magic_tag_rotate;
 extern tag_t *magic_tag_modified;
 extern tag_t *magic_tag_created;
+extern const char *tag_value_null_marker;
+extern const tag_value_t *tag_value_null;
 
 typedef int (tv_cmp_t)(const tag_value_t *, tagvalue_cmp_t, const tag_value_t *,
                        regex_t *);

@@ -179,6 +179,10 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
                     tagvalue_cmp_t cmp)
 {
 	if (!val) return 1;
+	if (!*val && tag->valuetype != VT_NONE && cmp == CMP_EQ) {
+		tval->v_str = tag_value_null_marker;
+		return 0;
+	}
 	switch (tag->valuetype) {
 		case VT_WORD:
 			tval->v_str = buf ? val : mm_strdup(val);
@@ -192,12 +196,14 @@ int tag_value_parse(tag_t *tag, const char *val, tag_value_t *tval, char *buf,
 		case VT_INT:
 			if (!tv_parser_int64_t(val, &tval->val.v_int,
 			                       &tval->fuzz.f_int, cmp)) {
+				tval->v_str = 0;
 				return 0;
 			}
 			break;
 		case VT_UINT:
 			if (!tv_parser_uint64_t(val, &tval->val.v_uint,
 			                        &tval->fuzz.f_uint, cmp)) {
+				tval->v_str = 0;
 				return 0;
 			}
 			break;
@@ -304,7 +310,11 @@ static void impl_cb(implication_t *impl, impl_iterator_data_t *data)
 	const tagvalue_cmp_t cmp = impl->filter_cmp;
 	if (cmp) {
 		tv_cmp_t *cmp_f = tv_cmp[data->tag->valuetype];
-		if (!cmp_f(data->tagvalue, cmp, impl->filter_value, NULL)) {
+		const tag_value_t *tval = data->tagvalue;
+		if (!tval) {
+			tval = tag_value_null;
+		}
+		if (!cmp_f(tval, cmp, impl->filter_value, NULL)) {
 			return;
 		}
 	}
@@ -508,6 +518,12 @@ static int impl_eq(const implication_t *a, const implication_t *b, int poscare)
 			tag_value_t av, bv;
 			av = *a->filter_value;
 			bv = *b->filter_value;
+			if ((av.v_str == tag_value_null_marker
+			     || bv.v_str == tag_value_null_marker)
+			    && av.v_str != bv.v_str) {
+				// One (but not both) are null values
+				return 0;
+			}
 			av.v_str = bv.v_str = NULL;
 			// It's not generally valid to compare tag values
 			// like this, but the implication parser clears them
@@ -630,9 +646,13 @@ static int post_tag_add_i(post_t *post, tag_t *tag, truth_t weak, int implied,
 	}
 	if (post_has_tag(post, tag, weak)) {
 		if (tval) {
-			tval = mm_dup(tval, sizeof(*tval));
+			if (tval->v_str == tag_value_null_marker) {
+				tval = 0;
+			} else {
+				tval = mm_dup(tval, sizeof(*tval));
+			}
 			int r = post_tag_set_value(post, tag, weak, tval);
-			assert(r);
+			assert(r || !tval);
 			return 0;
 		} else {
 			return 1;

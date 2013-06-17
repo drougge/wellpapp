@@ -34,7 +34,7 @@ typedef _ALIGN(struct logstat {
 }) logstat_t;
 
 #define MM_MAGIC0 0x4d4d0402 /* "MM^D^B" */
-#define MM_MAGIC1 0x4d4d0019 /* Increment whenever cache should be discarded */
+#define MM_MAGIC1 0x4d4d001a /* Increment whenever cache should be discarded */
 #define MM_FLAG_CLEAN 1
 typedef _ALIGN(struct mm_head {
 	uint32_t      magic0;
@@ -63,6 +63,8 @@ typedef _ALIGN(struct mm_head {
 	size_t        struct_sizes[arraylen(sizes)];
 	logstat_t     logstat;
 	uint32_t      clean;
+	char          tag_value_null_marker;
+	tag_value_t   tag_value_null;
 	uint32_t      magic1;
 }) mm_head_t;
 
@@ -78,6 +80,9 @@ uint32_t *tag_guid_last;
 uint64_t *logindex;
 uint64_t *first_logindex;
 uint64_t *logdumpindex;
+
+const char *tag_value_null_marker;
+const tag_value_t *tag_value_null;
 
 unsigned int cache_walk_speed = 0;
 
@@ -262,6 +267,9 @@ static void mm_init_new(void)
 	r |= ss128_init(tagguids, ss128_mm_alloc, ss128_mm_free, NULL);
 	hash_init(strings);
 	post_newlist(postlist_nodes);
+	mm_head->tag_value_null_marker = 0;
+	memset(&mm_head->tag_value_null, 0, sizeof(mm_head->tag_value_null));
+	mm_head->tag_value_null.v_str = &mm_head->tag_value_null_marker;
 	assert(!r);
 }
 
@@ -397,6 +405,8 @@ int mm_init(void)
 	first_logindex= &mm_head->first_logindex;
 	logdumpindex  = &mm_head->logdumpindex;
 	postlist_nodes = &mm_head->postlist_nodes;
+	tag_value_null_marker = &mm_head->tag_value_null_marker;
+	tag_value_null = &mm_head->tag_value_null;
 
 	len = snprintf(fn, sizeof(fn), "%s/LOCK", basedir);
 	assert(len < (int)sizeof(fn));

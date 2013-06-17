@@ -442,12 +442,14 @@ static void tv_print_str(connection_t *conn, tag_value_t *tv)
 
 static void tv_print_int(connection_t *conn, tag_value_t *tv)
 {
+	if (tv->v_str == tag_value_null_marker) return;
 	c_printf(conn, "%lld", LL tv->val.v_int);
 	if (tv->fuzz.f_int) c_printf(conn, "+%lld", LL tv->fuzz.f_int);
 }
 
 static void tv_print_uint(connection_t *conn, tag_value_t *tv)
 {
+	if (tv->v_str == tag_value_null_marker) return;
 	c_printf(conn, "%llx", ULL tv->val.v_uint);
 	if (tv->fuzz.f_uint) c_printf(conn, "+%lld", LL tv->fuzz.f_uint);
 }

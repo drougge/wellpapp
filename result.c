@@ -28,8 +28,7 @@ int result_add_post(connection_t *conn, result_t *result, post_t *post)
 	return 0;
 }
 
-// The comparison functions never get called with LT/LE.
-// They return !0 for "match".
+// The comparison functions return !0 for "match".
 
 int tvc_none(const tag_value_t *a, tagvalue_cmp_t cmp,
                     const tag_value_t *b, regex_t *re)
@@ -67,6 +66,12 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 			case CMP_GE:
 				return eq >= 0;
 				break;
+			case CMP_LT:
+				return eq < 0;
+				break;
+			case CMP_LE:
+				return eq <= 0;
+				break;
 			case CMP_CMP:
 				return eq;
 				break;
@@ -82,6 +87,23 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 	             const tag_value_t *b, regex_t *re)                        \
 	{                                                                      \
 		(void) re;                                                     \
+		const char * const tnull = tag_value_null_marker;              \
+		if (a->v_str == tnull || b->v_str == tnull) {                  \
+			const int both_null = (a->v_str == b->v_str);          \
+			switch (cmp) {                                         \
+				case CMP_CMP:                                  \
+					if (both_null) return 0;               \
+					if (a->v_str == tnull) return -1;      \
+					return 1;                              \
+					break;                                 \
+				case CMP_EQ:                                   \
+					return both_null;                      \
+					break;                                 \
+				default:                                       \
+					return 0;                              \
+					break;                                 \
+			}                                                      \
+		}                                                              \
 		if (cmp == CMP_CMP) {                                          \
 			t av = a->val.v_##n;                                   \
 			t bv = b->val.v_##n;                                   \
@@ -116,6 +138,12 @@ int tvc_string(const tag_value_t *a, tagvalue_cmp_t cmp,
 			case CMP_GE:                                           \
 				return a_high >= b_low;                        \
 				break;                                         \
+			case CMP_LT:                                           \
+				return a_high < b_low;                         \
+				break;                                         \
+			case CMP_LE:                                           \
+				return a_high <= b_low;                        \
+				break;                                         \
 			default:                                               \
 				return 0;                                      \
 				break;                                         \
@@ -143,17 +171,13 @@ static int result_add_post_if(connection_t *conn, result_t *result,
 	tagvalue_cmp_t cmp = t->cmp;
 	if (!cmp) return result_add_post(conn, result, post);
 	tag_value_t *pval = post_tag_value(post, t->tag);
-	if (!pval) return 0;
-	tag_value_t *a, *b;
-	if (cmp == CMP_LT || cmp == CMP_LE) {
-		cmp = (cmp == CMP_LT) ? CMP_GT : CMP_GE;
-		a = &t->val;
-		b = pval;
-	} else {
-		a = pval;
-		b = &t->val;
+	if (!pval) {
+		if (cmp == CMP_EQ && t->val.v_str == tag_value_null_marker) {
+			return result_add_post(conn, result, post);
+		}
+		return 0;
 	}
-	if (!tv_cmp[t->tag->valuetype](a, cmp, b, re)) return 0;
+	if (!tv_cmp[t->tag->valuetype](pval, cmp, &t->val, re)) return 0;
 	return result_add_post(conn, result, post);
 }
 
