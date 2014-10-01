@@ -16,7 +16,7 @@ static __attribute__((__const__)) int is_leap_year(const int year)
 
 static const int std_mlen[]  = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 static const int leap_mlen[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-static const int const *mlen[] = {std_mlen, leap_mlen};
+static const int * const mlen[] = {std_mlen, leap_mlen};
 static const int ylen_s[] = {365 * 24 * 60 * 60, 366 * 24 * 60 * 60};
 
 #define MLEN(year, mon) mlen[is_leap_year(year)][mon]
