@@ -1,6 +1,9 @@
 #ifdef __svr4__
 #define _XOPEN_SOURCE 600
 #endif
+#ifdef __linux__
+#define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdint.h>

@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/un.h>
 #include <poll.h>
 #include <errno.h>
 #include <openssl/md5.h>
@@ -1215,17 +1216,12 @@ static void new_connection(void)
 
 static int bind_port = 0;
 static in_addr_t bind_addr = 0;
+static char *socket_path = 0;
 
-void db_serve(void)
+static int bind_inet(void)
 {
-	int s, r, one, i;
+	int s, r, one;
 	struct sockaddr_in addr;
-
-	for (i = 0; i < MAX_CONNECTIONS; i++) {
-		fds[i].fd = -1;
-		fds[i].events = POLLIN;
-		connections[i] = NULL;
-	}
 
 	s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s >= 0);
@@ -1237,11 +1233,64 @@ void db_serve(void)
 	addr.sin_len    = sizeof(addr);
 #endif
 	addr.sin_family = AF_INET;
-	assert(bind_port);
 	addr.sin_addr.s_addr = bind_addr;
 	addr.sin_port   = htons(bind_port);
 	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
-	assert(!r);
+	if (r) {
+		perror("bind");
+		fprintf(stderr, "Failed to bind to %s:%d\n",
+		        inet_ntoa(addr.sin_addr), bind_port);
+		exit(1);
+	}
+	return s;
+}
+
+static void rm_socket(void)
+{
+	if (unlink(socket_path)) {
+		perror("unlink");
+	}
+}
+
+static int bind_unix(void)
+{
+	int s, r;
+	struct sockaddr_un addr;
+
+	if (strlen(socket_path) >= sizeof(addr.sun_path)) {
+		fprintf(stderr, "Socket path %s too long\n", socket_path);
+		exit(1);
+	}
+	memset(&addr, 0, sizeof(addr));
+	strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+	addr.sun_family = AF_UNIX;
+	s = socket(PF_UNIX, SOCK_STREAM, 0);
+	assert(s >= 0);
+	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
+	if (r) {
+		perror("bind");
+		fprintf(stderr, "Failed to bind to %s\n", socket_path);
+		exit(1);
+	}
+	atexit(rm_socket);
+	return s;
+}
+
+void db_serve(void)
+{
+	int s, r, i;
+
+	for (i = 0; i < MAX_CONNECTIONS; i++) {
+		fds[i].fd = -1;
+		fds[i].events = POLLIN;
+		connections[i] = NULL;
+	}
+
+	if (bind_port) {
+		s = bind_inet();
+	} else {
+		s = bind_unix();
+	}
 	r = listen(s, 5);
 	assert(!r);
 	fds[MAX_CONNECTIONS].fd = s;
@@ -1366,6 +1415,9 @@ void db_read_cfg(const char *filename)
 		} else if (!memcmp("addr=", buf, 5)) {
 			bind_addr = inet_addr(buf + 5);
 			assert(bind_addr != INADDR_NONE);
+		} else if (!memcmp("socket=", buf, 7)) {
+			socket_path = strdup(buf + 7);
+			assert(socket_path);
 		} else if (!memcmp("mm_base=", buf, 8)) {
 			unsigned long long addr = strtoull(buf + 8, NULL, 0);
 			MM_BASE_ADDR = (uint8_t *)(intptr_t)addr;
@@ -1385,4 +1437,12 @@ void db_read_cfg(const char *filename)
 	cfg_parse_list(&filetype_names, ft_n);
 	assert(tagtype_names && rating_names && basedir && server_guid);
 	MD5_Final(config_md5.m, &ctx);
+	if (socket_path && *socket_path != '/') {
+		int r = asprintf(&socket_path, "%s/%s", basedir, socket_path);
+		assert(r > 0);
+	}
+	if (socket_path && (bind_port || bind_addr)) {
+		fprintf(stderr, "Only specify one of socket or addr/port in config\n");
+		exit(1);
+	}
 }
