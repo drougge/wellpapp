@@ -1403,6 +1403,8 @@ void db_read_cfg(const char *filename)
 			cfg_parse_list(&tagtype_names, buf + 9);
 		} else if (!memcmp("ratings=", buf, 8)) {
 			cfg_parse_list(&rating_names, buf + 8);
+		} else if (!memcmp("filetypes=", buf, 10)) {
+			cfg_parse_list(&filetype_names, buf + 10);
 		} else if (!memcmp("basedir=", buf, 8)) {
 			basedir = strdup(buf + 8);
 			assert(basedir && *basedir == '/');
@@ -1432,11 +1434,7 @@ void db_read_cfg(const char *filename)
 	}
 	assert(feof(fh));
 	fclose(fh);
-	const char *ft_n = "jpeg gif png bmp dng pef nef swf avi mpeg "
-                           "mkv ogm mp4 wmv flv mov cr2 orf rw2 x3f webm "
-                           "raf";
-	cfg_parse_list(&filetype_names, ft_n);
-	assert(tagtype_names && rating_names && basedir && server_guid);
+	assert(tagtype_names && rating_names && basedir && server_guid && filetype_names);
 	MD5_Final(config_md5.m, &ctx);
 	if (socket_path && *socket_path != '/') {
 		int r = asprintf(&socket_path, "%s/%s", basedir, socket_path);
