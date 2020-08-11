@@ -174,6 +174,7 @@ static int merge_tags(connection_t *conn, tag_t *into, tag_t *from)
 	(void)conn;
 	if (!into || !from) return 1;
 	if (from->datatag || into->datatag) return 1;
+	if (from == into) return 1;
 	mergedata_t data;
 	data.bad  = 0;
 	data.tag  = from;
