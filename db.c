@@ -436,16 +436,21 @@ static int impl_apply_change(post_t *post, post_taglist_t **old,
 	while (tl) {
 		for (int i = 0; i < arraylen(tl->tags); i++) {
 			tag_t *tag = tl->tags[i];
-			if (tag && !taglist_contains(*old, tag)) {
+			if (!tag) continue;
+			int update_value = 0;
+			if (taglist_contains(*old, tag)) {
+				update_value = 1;
+			} else {
 				if (!post_has_tag(post, tag, T_DONTCARE)) {
 					post_tag_add_i(post, tag, weak, 1, NULL);
 					taglist_add(old, tag, NULL, alloc_mm, NULL);
 					changed = 1;
+					update_value = 1;
 				} else {
 					tl->tags[i] = NULL;
 				}
 			}
-			if (tag) {
+			if (update_value) {
 				changed |= post_tag_set_value(post, tag, weak,
 				                              tl->values[i]);
 			}
