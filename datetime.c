@@ -229,14 +229,19 @@ static int tvp_datetimefuzz(const char *val, double *r, char *r_unit)
 		switch (*end) {
 			case 'Y':
 				fuzz *= 12.0;
+				//-fallthrough
 			case 'm':
 				fuzz *= 30.5;
+				//-fallthrough
 			case 'd':
 				fuzz *= 24.0;
+				//-fallthrough
 			case 'H':
 				fuzz *= 60.0;
+				//-fallthrough
 			case 'M':
 				fuzz *= 60.0;
+				//-fallthrough
 			case 'S':
 				break;
 			default:

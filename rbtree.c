@@ -98,6 +98,7 @@ static int ss128_node_alloc(ss128_head_t *head, ss128_node_t **r_node, ss128_val
 			break;
 		case RBTREE_ALLOCATION_POLICY_CHUNKED:
 			if (!head->freelist) ss128_alloc_chunk(head);
+			//-fallthrough
 		case RBTREE_ALLOCATION_POLICY_PREALLOC:
 			*r_node = head->freelist;
 			if (head->freelist) head->freelist = head->freelist->child[0];
