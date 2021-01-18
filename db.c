@@ -1257,20 +1257,57 @@ static void rm_socket(void)
 	}
 }
 
+static int init_unix_socket(struct sockaddr_un *addr)
+{
+	int s;
+
+	if (strlen(socket_path) >= sizeof(addr->sun_path)) {
+		fprintf(stderr, "Socket path %s too long\n", socket_path);
+		exit(1);
+	}
+	memset(addr, 0, sizeof(*addr));
+	strncpy(addr->sun_path, socket_path, sizeof(addr->sun_path) - 1);
+	addr->sun_family = AF_UNIX;
+	s = socket(PF_UNIX, SOCK_STREAM, 0);
+	assert(s >= 0);
+	return s;
+}
+
+static void pre_cleanup_unix(void)
+{
+	struct stat sb;
+	struct sockaddr_un addr;
+	int s;
+
+	if (lstat(socket_path, &sb)) {
+		if (errno == ENOENT) return;
+		perror("lstat socket");
+		exit(1);
+	}
+	if ((sb.st_mode & S_IFMT) != S_IFSOCK) {
+		fprintf(stderr, "Socket path %s exists as non-socket\n", socket_path);
+		exit(1);
+	}
+	s = init_unix_socket(&addr);
+	if (!connect(s, &addr, sizeof(addr))) {
+		fprintf(stderr, "Something is already listening to %s\n", socket_path);
+		exit(1);
+	}
+	if (errno == ECONNREFUSED) {
+		rm_socket();
+		return;
+	}
+	perror("testing socket connect");
+	exit(1);
+}
+
 static int bind_unix(void)
 {
 	int s, r;
 	struct sockaddr_un addr;
 
-	if (strlen(socket_path) >= sizeof(addr.sun_path)) {
-		fprintf(stderr, "Socket path %s too long\n", socket_path);
-		exit(1);
-	}
-	memset(&addr, 0, sizeof(addr));
-	strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-	addr.sun_family = AF_UNIX;
-	s = socket(PF_UNIX, SOCK_STREAM, 0);
-	assert(s >= 0);
+	pre_cleanup_unix();
+	s = init_unix_socket(&addr);
 	r = bind(s, (struct sockaddr *)&addr, sizeof(addr));
 	if (r) {
 		perror("bind");
