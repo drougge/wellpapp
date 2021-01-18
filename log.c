@@ -24,6 +24,8 @@ static void trans_sync(trans_t *trans)
 	}
 }
 
+transflag_t transflags_default = TRANSFLAG_SYNC;
+
 static int log_trans_start_(trans_t *trans, time_t now, int fd, int outer)
 {
 	char buf[36];
@@ -45,7 +47,7 @@ static int log_trans_start_(trans_t *trans, time_t now, int fd, int outer)
 	} else {
 		trans->flags = TRANSFLAG_GOING;
 	}
-	trans->flags   |= TRANSFLAG_SYNC;
+	trans->flags   |= transflags_default;
 	trans->fd       = fd;
 	trans->conn     = NULL;
 	trans->now      = now;

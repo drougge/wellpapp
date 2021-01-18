@@ -1424,6 +1424,8 @@ md5_t config_md5;
 extern uint8_t *MM_BASE_ADDR;
 extern unsigned int cache_walk_speed;
 
+extern transflag_t transflags_default;
+
 void db_read_cfg(const char *filename)
 {
 	char    buf[1024];
@@ -1470,6 +1472,11 @@ void db_read_cfg(const char *filename)
 		} else if (!memcmp("timezone=", buf, 9)) {
 			int tlen = strlen(buf + 9);
 			tvp_timezone(buf + 9, &tlen, &default_timezone);
+		} else if (!memcmp("fsync_logfile=", buf, 14)) {
+			char *endptr;
+			long fsync_logfile = strtol(buf + 14, &endptr, 0);
+			assert(!*endptr);
+			if (!fsync_logfile) transflags_default = 0;
 		} else {
 			assert(*buf == '\0' || *buf == '#');
 		}
