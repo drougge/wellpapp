@@ -1,5 +1,4 @@
 Server part of wellpapp, a system for image tagging.
-It's not ready for general use anyway, so instructions will be sparse for now.
 
 Look at example.conf, make whatever changes you feel like, but at least
 change the GUID. Then make directories dump, log and (optionally) mm_cache
@@ -9,5 +8,5 @@ Build the server with "make". You can set CPPFLAGS, LDFLAGS etc to find
 includes or whatever. Needs openssl and libbz2, bundles utf8proc.
 Run with ./server config.conf
 
-Then you need something that talks to the server. Or make your own,
-protocol.txt is actually pretty complete.
+Then you need something that talks to the server.
+Use [the python client](https://github.com/drougge/wellpapp-pyclient).
