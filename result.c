@@ -165,40 +165,50 @@ tv_cmp_t *tv_cmp[] = {tvc_none, // NONE
                       tvc_gps, // GPS
                      };
 
+static int post_tv_if(const post_t *post, const search_tag_t *t, regex_t *re)
+{
+	const tagvalue_cmp_t cmp = t->cmp;
+	if (!cmp) return 1;
+	const tag_value_t *pval = post_tag_value(post, t->tag);
+	if (!pval) {
+		return (cmp == CMP_EQ && t->val.v_str == tag_value_null_marker);
+	}
+	return tv_cmp[t->tag->valuetype](pval, cmp, &t->val, re);
+}
+
 static int result_add_post_if(connection_t *conn, result_t *result,
                               post_t *post, search_tag_t *t, regex_t *re)
 {
-	tagvalue_cmp_t cmp = t->cmp;
-	if (!cmp) return result_add_post(conn, result, post);
-	tag_value_t *pval = post_tag_value(post, t->tag);
-	if (!pval) {
-		if (cmp == CMP_EQ && t->val.v_str == tag_value_null_marker) {
-			return result_add_post(conn, result, post);
-		}
-		return 0;
-	}
-	if (!tv_cmp[t->tag->valuetype](pval, cmp, &t->val, re)) return 0;
-	return result_add_post(conn, result, post);
+	return post_tv_if(post, t, re) && result_add_post(conn, result, post);
 }
 
-// @@ do values mean anything useful here? (otherwise forbid them)
 int result_remove_tag(connection_t *conn, result_t *result, search_tag_t *t)
 {
 	tag_t    *tag = t->tag;
 	truth_t  weak = t->weak;
 	result_t new_result;
+	regex_t  re;
+	int      res = 1;
 	uint32_t i;
 
 	memset(&new_result, 0, sizeof(new_result));
-	for (i = 0; i < result->of_posts; i++) {
-		post_t *post = result->posts[i];
-		if (!post_has_tag(post, tag, weak)) {
-			if (result_add_post(conn, &new_result, post)) return 1;
+	if (t->cmp == CMP_REGEXP) {
+		if (regcomp(&re, t->val.v_str, REG_EXTENDED | REG_NOSUB)) {
+			return 1;
 		}
 	}
+	for (i = 0; i < result->of_posts; i++) {
+		post_t *post = result->posts[i];
+		if (!post_has_tag(post, tag, weak) || (t->cmp && !post_tv_if(post, t, &re))) {
+			err1(result_add_post(conn, &new_result, post));
+		}
+	}
+	res = 0;
+err:
 	result_free(conn, result);
-	*result = new_result;
-	return 0;
+	if (t->cmp == CMP_REGEXP) regfree(&re);
+	if (!res) *result = new_result;
+	return res;
 }
 
 int result_intersect(connection_t *conn, result_t *result, search_tag_t *t)
