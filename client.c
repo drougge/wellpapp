@@ -55,10 +55,12 @@ typedef struct search {
 	int          flags;
 	long         range_start;
 	long         range_end;
+	md5_t        range_md5;
 	unsigned int range_used : 1;
 	unsigned int failed : 1;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
+#define RANGE_START_MD5 -2
 
 static int sorter_of_tags(const post_t *p1, const post_t *p2)
 {
@@ -264,10 +266,20 @@ static int sort_tag(const void *_t1, const void *_t2, void *_data)
 	return 0;
 }
 
-static int parse_range(const char *args, long *r_start, long *r_end)
+static int parse_range(const char *args, long *r_start, long *r_end, md5_t *r_md5)
 {
 	if (*r_start != -1) return 1;
 	char *end;
+	if (*args == 'M' && r_md5) {
+		end = strchr(args, ':');
+		if (!end || end - args != 33) return 1;
+		*end = 0;
+		if (md5_str2md5(r_md5, args + 1)) return 1;
+		*r_end = strtol(end + 1, &end, 16);
+		if (*end) return 1;
+		*r_start = RANGE_START_MD5;
+		return 0;
+	}
 	*r_start = strtol(args, &end, 16);
 	if (*end != ':') return 1;
 	if (end[1]) {
@@ -373,7 +385,7 @@ static int build_search_cmd(connection_t *conn, char *cmd, void *search_,
 			break;
 		case 'R': // 'R'ange
 			if (parse_range(args, &search->range_start,
-			                &search->range_end)) {
+			                &search->range_end, &search->range_md5)) {
 				conn->error(conn, cmd);
 			}
 			break;
@@ -598,7 +610,26 @@ done:
 		search->range_end = result->of_posts;
 	} else {
 		search->range_used = 1;
-		search->range_end++;
+		if (search->range_start == RANGE_START_MD5) {
+			for (
+				search->range_start = 0;
+				search->range_start < (long)result->of_posts;
+				search->range_start++
+			) {
+				const post_t *post = result->posts[search->range_start];
+				if (!memcmp(&post->md5, &search->range_md5, sizeof(md5_t))) {
+					search->range_start++;
+					break;
+				}
+			}
+			if (search->range_end == 0) {
+				search->range_end = result->of_posts;
+			} else {
+				search->range_end += search->range_start;
+			}
+		} else {
+			search->range_end++;
+		}
 		if (search->range_end > (long)result->of_posts) {
 			search->range_end = result->of_posts;
 		}
@@ -855,7 +886,7 @@ static int tag_search_cmd(connection_t *conn, char *cmd, void *data_,
 				break;
 			case 'R': // 'R'ange
 				if (parse_range(cmd + 1, &data->range_start,
-				                &data->range_end)) goto err;
+				                &data->range_end, 0)) goto err;
 				break;
 			case 'F': // 'F'lag
 				if (!strcmp(cmd + 1, "-datatag")) {

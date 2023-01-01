@@ -82,10 +82,13 @@ tag ("T").
 		md5 of post. Can not be specified together with "T" or "t".
 		Can only be specified once.
 	R:
-		first:last result you want to see. You can leave out either
-		(or both) ends. If you specify R, the reply will start with
-		RRcount (where count is the number of results).
-		First, last and count are unsigned numbers.
+		"first:last" (unsigned numbers) result you want to see.
+		You can leave out either (or both) ends.
+		Alternatively "Mpost:count" (count in an optional unsigned number),
+		where post is last post you don't get in the result.
+		E.g. if the result is "a b c d e", specifying "RPc:" gets you "d e".
+		If you specify R, the reply will start with RRcount
+		(where count is the number of results as an unsigned number).
 	Returned posts are ordered according to O arguments, or not at all.
 	Returned data for each post in not ordered, except tags come last.
 	Each tag is introduced by a colon immediately followed by flags for
