@@ -641,7 +641,7 @@ err:
 
 static void print_search(connection_t *conn, search_t *search, result_t *result)
 {
-	if (search->range_used) c_printf(conn, "RR%x\n", result->of_posts);
+	if (search->range_used) c_printf(conn, "RR%x:%lx\n", result->of_posts, search->range_start);
 	if (result->of_posts && !search->failed) {
 		for (long i = search->range_start; i < search->range_end; i++) {
 			return_post(conn, result->posts[i], search->flags);

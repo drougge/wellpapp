@@ -87,8 +87,9 @@ tag ("T").
 		Alternatively "Mpost:count" (count in an optional unsigned number),
 		where post is last post you don't get in the result.
 		E.g. if the result is "a b c d e", specifying "RPc:" gets you "d e".
-		If you specify R, the reply will start with RRcount
-		(where count is the number of results as an unsigned number).
+		If you specify R, the reply will start with RRcount:first
+		(where count is the number of results as an unsigned number and
+		first is your specified first, or the one computed from M).
 	Returned posts are ordered according to O arguments, or not at all.
 	Returned data for each post in not ordered, except tags come last.
 	Each tag is introduced by a colon immediately followed by flags for
