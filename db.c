@@ -1266,7 +1266,7 @@ static int init_unix_socket(struct sockaddr_un *addr)
 		exit(1);
 	}
 	memset(addr, 0, sizeof(*addr));
-	strncpy(addr->sun_path, socket_path, sizeof(addr->sun_path) - 1);
+	strcpy(addr->sun_path, socket_path);
 	addr->sun_family = AF_UNIX;
 	s = socket(PF_UNIX, SOCK_STREAM, 0);
 	assert(s >= 0);

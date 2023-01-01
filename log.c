@@ -344,7 +344,7 @@ static void tag_iter_impl(ss128_key_t key, ss128_value_t value, void *trans)
 	(void)key;
 	l = tag->implications;
 	char guid[7*4];
-	strncpy(guid, guid_guid2str(tag->guid), sizeof(guid));
+	memcpy(guid, guid_guid2str(tag->guid), sizeof(guid));
 	while (l) {
 		for (int i = 0; i < arraylen(l->impl); i++) {
 			if (l->impl[i].tag) {
