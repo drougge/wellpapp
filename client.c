@@ -60,7 +60,6 @@ typedef struct search {
 	unsigned int failed : 1;
 } search_t;
 static post_t null_post; /* search->post for not found posts */
-#define RANGE_START_MD5 -2
 
 static int sorter_of_tags(const post_t *p1, const post_t *p2)
 {
@@ -271,13 +270,26 @@ static int parse_range(const char *args, long *r_start, long *r_end, md5_t *r_md
 	if (*r_start != -1) return 1;
 	char *end;
 	if (*args == 'M' && r_md5) {
-		end = strchr(args, ':');
-		if (!end || end - args != 33) return 1;
-		*end = 0;
-		if (md5_str2md5(r_md5, args + 1)) return 1;
-		*r_end = strtol(end + 1, &end, 16);
-		if (*end) return 1;
-		*r_start = RANGE_START_MD5;
+		const char *ptr = args + 1;
+		if (strlen(ptr) < 32) return 1;
+		char m[33];
+		memcpy(m, ptr, 32);
+		m[32] = 0;
+		ptr += 32;
+		if (md5_str2md5(r_md5, m)) return 1;
+		*r_start = -2;
+		*r_end = -1;
+		while (*ptr == ':') {
+			long tmp = strtol(ptr + 1, &end, 10);
+			if (ptr + 1 == end) return 1;
+			ptr = end;
+			if (tmp < 0) {
+				*r_start = tmp - 3;
+			} else {
+				*r_end = tmp;
+			}
+		}
+		if (*ptr) return 1;
 		return 0;
 	}
 	*r_start = strtol(args, &end, 16);
@@ -610,23 +622,26 @@ done:
 		search->range_end = result->of_posts;
 	} else {
 		search->range_used = 1;
-		if (search->range_start == RANGE_START_MD5) {
+		if (search->range_start < -1) { // around a specific post
+			int range_start;
 			for (
-				search->range_start = 0;
-				search->range_start < (long)result->of_posts;
-				search->range_start++
+				range_start = 0;
+				range_start < (long)result->of_posts;
+				range_start++
 			) {
-				const post_t *post = result->posts[search->range_start];
+				const post_t *post = result->posts[range_start];
 				if (!memcmp(&post->md5, &search->range_md5, sizeof(md5_t))) {
-					search->range_start++;
+					range_start++;
 					break;
 				}
 			}
-			if (search->range_end == 0) {
+			if (search->range_end == -1 && search->range_start == -2) {
 				search->range_end = result->of_posts;
 			} else {
-				search->range_end += search->range_start;
+				search->range_end += range_start;
 			}
+			search->range_start = search->range_start + 2 + range_start;
+			if (search->range_start < 0) search->range_start = 0;
 		} else {
 			search->range_end++;
 		}

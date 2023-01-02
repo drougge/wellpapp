@@ -84,9 +84,12 @@ tag ("T").
 	R:
 		"first:last" (unsigned numbers) result you want to see.
 		You can leave out either (or both) ends.
-		Alternatively "Mpost:count" (count in an optional unsigned number),
-		where post is last post you don't get in the result.
-		E.g. if the result is "a b c d e", specifying "RPc:" gets you "d e".
+		Alternatively "Mpost" followed by one or two signed ":number"s.
+		where post is the 0 position, and the numbers are how far you want
+		to see -before or after. The post iself is included if you ask for
+		both before and after, and not otherwise.
+		E.g. if the result is "a b c d e", specifying "RMc" gets you "d e".
+		If you specify "RMc:-1" you get "b", "RMc:1:-1" gives "b c d".
 		If you specify R, the reply will start with RRcount:first
 		(where count is the number of results as an unsigned number and
 		first is your specified first, or the one computed from M).
