@@ -7,6 +7,7 @@ typedef enum {
 	ORDER_NONE,
 	ORDER_GROUP,
 	ORDER_TAGCOUNT,
+	ORDER_MD5,
 } order_simple_t;
 
 typedef struct order {
@@ -75,9 +76,18 @@ static int sorter_group(const post_t *p1, const post_t *p2)
 	return 0; // This just keeps the ordering from the tag
 }
 
+static int sorter_md5(const post_t *p1, const post_t *p2)
+{
+	for (int i = 0; i < 16; i++) {
+		if (p1->md5.m[i] < p2->md5.m[i]) return -1;
+		if (p1->md5.m[i] > p2->md5.m[i]) return 1;
+	}
+	return 0;
+}
+
 typedef int (*sorter_f)(const post_t *p1, const post_t *p2);
-static sorter_f sorters[] = {sorter_group, sorter_of_tags};
-static const char *orders[] = {"group", "tagcount", NULL};
+static sorter_f sorters[] = {sorter_group, sorter_of_tags, sorter_md5};
+static const char *orders[] = {"group", "tagcount", "md5", NULL};
 static const char *tag_orders[] = {"post", "weak", "allpost", NULL};
 
 typedef struct taglimit_tag {
